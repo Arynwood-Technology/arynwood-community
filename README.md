@@ -2,6 +2,8 @@
 
 Private community software for messages, plans, household work, lists, notes, and host connections. Version 0.3.0.
 
+**Website:** [arynwood.com/community](https://arynwood.com/community/) · **Try it:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
+
 - **Today:** a shared home screen for open tasks, upcoming events, and board posts.
 - **Boards, Chat, Calendar, Household, Lists, Notes:** shared-space content with replies, assignments, due dates, private notes, and search.
 - **Accounts and spaces:** the first account becomes the host and creates the first space. Space owners invite people with single-use links that expire after seven days. Anyone can start more spaces, and members can leave a space.
