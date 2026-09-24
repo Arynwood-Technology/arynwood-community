@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Desktop launcher: starts Arynwood Community in the background if needed,
+# then opens it in its own app window. `arynwood-community --stop` stops it.
+set -uo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+env_value() { [[ -f "$ROOT/.env" ]] && sed -n "s/^$1=//p" "$ROOT/.env" | tail -n1 | tr -d "\"'" || true; }
+PORT="${COMMUNITY_PORT:-$(env_value COMMUNITY_PORT)}"; PORT="${PORT:-8018}"
+URL="http://127.0.0.1:${PORT}"
+LOG_DIR="$ROOT/data/logs"
+PID_FILE="$ROOT/data/server.pid"
+
+notify() {
+  command -v notify-send >/dev/null && notify-send -i "$ROOT/desktop/arynwood-community.png" "Arynwood Community" "$1"
+  echo "$1" >&2
+}
+healthy() { curl -fsS --max-time 2 "$URL/api/health" 2>/dev/null | grep -q 'Arynwood Community'; }
+
+if [[ "${1:-}" == "--stop" ]]; then
+  if [[ -f "$PID_FILE" ]] && kill "$(cat "$PID_FILE")" 2>/dev/null; then rm -f "$PID_FILE"; notify "Stopped."; else notify "Not running."; fi
+  exit 0
+fi
+
+if ! healthy; then
+  if [[ ! -x "$ROOT/.venv/bin/python" || ! -f "$ROOT/frontend/dist/index.html" ]]; then
+    notify "Setup is not finished. Run ./setup.sh in $ROOT."
+    exit 1
+  fi
+  mkdir -p "$LOG_DIR"; chmod 700 "$ROOT/data"
+  nohup "$ROOT/start.sh" >>"$LOG_DIR/server.log" 2>&1 &
+  echo $! >"$PID_FILE"
+  for _ in $(seq 1 60); do healthy && break; sleep 0.25; done
+  if ! healthy; then
+    notify "Could not start. See $LOG_DIR/server.log"
+    exit 1
+  fi
+fi
+
+# Prefer a chromeless app window; fall back to the default browser.
+for browser in google-chrome chromium chromium-browser brave-browser microsoft-edge; do
+  if command -v "$browser" >/dev/null; then
+    exec "$browser" --app="$URL" --class=ArynwoodCommunity --name=ArynwoodCommunity >/dev/null 2>&1
+  fi
+done
+exec xdg-open "$URL"
