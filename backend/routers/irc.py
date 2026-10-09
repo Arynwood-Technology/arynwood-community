@@ -87,12 +87,12 @@ async def irc_ws(ws: WebSocket):
 
     try:
         config = await asyncio.wait_for(ws.receive_json(), timeout=30)
-        host          = one_line(config.get("host", "irc.libera.chat"))
-        port          = int(config.get("port", 6667))
+        host          = one_line(config.get("host", "irc.arynwood.com"))
+        port          = int(config.get("port", 6697))
         nick          = one_line(config.get("nick", "arynwood-hub")).replace(" ", "")
         nick_password = one_line(config.get("nick_password", ""))
         channels      = [one_line(c).replace(" ", "") for c in config.get("channels", []) if one_line(c)]
-        realname      = one_line(config.get("realname", "Arynwood Community"))
+        realname      = one_line(config.get("realname", "Arynwood Grove"))
         if not host or not nick or not 0 < port < 65536:
             await send({"type": "error", "message": "Enter a server, port and nickname."})
             return

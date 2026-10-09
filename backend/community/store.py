@@ -3,12 +3,34 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.3.0'
+VERSION = '0.4.0'
+
+def setting(name, default=''):
+    """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
+    value = os.getenv('GROVE_' + name)
+    if value is None: value = os.getenv('COMMUNITY_' + name)
+    return default if value is None else value
 
 def database_path():
-    return Path(os.getenv('COMMUNITY_DATA_DIR', str(ROOT / 'data'))) / 'community.sqlite3'
+    directory = Path(setting('DATA_DIR') or ROOT / 'data')
+    # Community 0.3 kept its data in community.sqlite3; an upgraded install goes on using it.
+    current, legacy = directory / 'grove.sqlite3', directory / 'community.sqlite3'
+    return legacy if legacy.exists() and not current.exists() else current
+
+def public_origin():
+    """The address members use to reach this Grove (GROVE_PUBLIC_URL, e.g. https://grove.example.com
+    on a VPS). Empty when the Grove is only reachable on this computer."""
+    configured = os.getenv('GROVE_PUBLIC_URL', '').strip()
+    parts = urlsplit(configured)
+    if not configured:
+        # A hosted Community 0.3 install named its public HTTPS address in COMMUNITY_ORIGIN.
+        parts = urlsplit(os.getenv('COMMUNITY_ORIGIN', '').split(',')[0].strip())
+        if parts.scheme != 'https': return ''
+    if parts.scheme not in ('http', 'https') or not parts.hostname: return ''
+    return f'{parts.scheme}://{parts.netloc}'
 
 @contextmanager
 def db():
@@ -54,6 +76,13 @@ def initialize():
           assigned_to TEXT REFERENCES users(id), created TEXT NOT NULL, updated TEXT NOT NULL,
           version INTEGER NOT NULL DEFAULT 1);
         CREATE INDEX IF NOT EXISTS entries_space ON entries(space_id,kind,updated);
+        CREATE TABLE IF NOT EXISTS password_resets (
+          token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS invite_links (
+          space_id TEXT PRIMARY KEY REFERENCES spaces(id) ON DELETE CASCADE,
+          token TEXT NOT NULL UNIQUE, created TEXT NOT NULL,
+          created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS attempts (key TEXT NOT NULL, at REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS attempts_key ON attempts(key,at);
         PRAGMA user_version = 1;

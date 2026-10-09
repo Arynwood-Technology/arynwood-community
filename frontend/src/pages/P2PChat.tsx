@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   Radio, Copy, Check, Send, UserPlus, Trash2, Wifi, WifiOff,
   Users, Plus, X, Image as ImageIcon, Clock, CheckCheck, KeyRound,
 } from 'lucide-react'
+import { decodeAttachment, encodeAttachment } from '../lib/attachments'
 import { useAppStore } from '../store/useAppStore'
 
 // ---------------------------------------------------------------------------
@@ -15,7 +16,7 @@ interface P2PMessage {
   id: string
   from: 'me' | 'them'
   sender?: string        // group messages — who said it
-  contentType: 'text' | 'image'
+  contentType: 'text' | 'image' | 'file'
   content: string        // text body or base64 data-URL
   timestamp: number
   status?: MsgStatus     // outbound messages only
@@ -46,8 +47,8 @@ type WsEvent =
 // ---------------------------------------------------------------------------
 
 const AVATAR_COLORS = [
-  '#8e2a66', '#2b5079', '#b0487f', '#1a9894',
-  '#6a4a9c', '#3a7ca5', '#a8558a', '#2f8a86',
+  '#176b57', '#1d4a47', '#2f8a86', '#1a9894',
+  '#3f7d5c', '#2c6e8a', '#4a8f6f', '#25605a',
 ]
 
 function addrColor(addr: string): string {
@@ -84,9 +85,9 @@ function StatusIcon({ status }: { status?: MsgStatus }) {
 // Local-storage helpers
 // ---------------------------------------------------------------------------
 
-const LS_CONTACTS = 'p2p_contacts'
-const LS_HISTORY  = 'p2p_history'
-const LS_GROUPS   = 'p2p_groups'
+const LS_CONTACTS = 'grove_p2p_contacts'
+const LS_HISTORY  = 'grove_p2p_history'
+const LS_GROUPS   = 'grove_p2p_groups'
 
 function loadContacts(): Contact[] {
   try {
@@ -108,7 +109,7 @@ function saveHistory(h: Record<string, P2PMessage[]>) {
   const trimmed = Object.fromEntries(Object.entries(h).map(([k, v]) => [k, v.slice(-HISTORY_LIMIT)]))
   if (store(LS_HISTORY, trimmed)) return
   // Over quota: keep text and drop stored image data, which is what fills storage.
-  const textOnly = Object.fromEntries(Object.entries(trimmed).map(([k, v]) => [k, v.map(m => m.contentType === 'image' ? { ...m, contentType: 'text' as const, content: '[Image not saved: browser storage is full]' } : m)]))
+  const textOnly = Object.fromEntries(Object.entries(trimmed).map(([k, v]) => [k, v.map(m => m.contentType !== 'text' ? { ...m, contentType: 'text' as const, content: '[Attachment not saved: browser storage is full]' } : m)]))
   store(LS_HISTORY, textOnly)
 }
 
@@ -151,6 +152,7 @@ export function P2PChat() {
   const wsRef        = useRef<WebSocket | null>(null)
   const bottomRef    = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
   const activeKeyRef = useRef<string | null>(null)
   const visibleRef   = useRef<HTMLDivElement>(null)
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -233,7 +235,7 @@ export function P2PChat() {
 
   const connectWs = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState <= 1) return
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/p2p/ws`)
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/community-api/p2p/ws`)
     wsRef.current = ws
 
     ws.onmessage = (ev) => {
@@ -256,8 +258,8 @@ export function P2PChat() {
       } else if (data.type === 'message') {
         const src         = data.src
         const raw         = String(data.content ?? data.text ?? '')
-        const contentType = (data.contentType === 'image' && SAFE_IMAGE.test(raw) ? 'image' : 'text') as 'text' | 'image'
-        const content     = contentType === 'image' ? raw : data.contentType === 'image' ? '[Unsupported image]' : raw.slice(0, 20000)
+        const contentType = (data.contentType === 'file' && decodeAttachment(raw) ? 'file' : data.contentType === 'image' && SAFE_IMAGE.test(raw) ? 'image' : 'text') as 'text' | 'image' | 'file'
+        const content     = contentType === 'image' || contentType === 'file' ? raw : data.contentType === 'image' ? '[Unsupported image]' : data.contentType === 'file' ? '[Unsupported attachment]' : raw.slice(0, 20000)
         const baseMsg: P2PMessage = {
           id: data.id || genId(),
           from: 'them',
@@ -324,6 +326,7 @@ export function P2PChat() {
   }
 
   function handleStartStop() {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) { setErrMsg('Still connecting to the local service. Try again shortly.'); return }
     if (connected) { wsSend({ type: 'stop' }) }
     else if (!connecting) { setConnecting(true); wsSend({ type: 'start' }) }
   }
@@ -343,7 +346,7 @@ export function P2PChat() {
     setInput('')
   }
 
-  function sendContent(contentType: 'text' | 'image', content: string) {
+  function sendContent(contentType: 'text' | 'image' | 'file', content: string) {
     if (!activeKey || !connected) return
     const id  = genId()
     const msg: P2PMessage = {
@@ -366,8 +369,8 @@ export function P2PChat() {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    if (file.size > 5 * 1024 * 1024) {
-      setErrMsg('Image too large — max 5 MB')
+    if (file.size > 2 * 1024 * 1024) {
+      setErrMsg('Image too large — max 2 MB')
       setTimeout(() => setErrMsg(null), 4000)
       return
     }
@@ -377,6 +380,11 @@ export function P2PChat() {
       sendContent('image', dataUrl)
     }
     reader.readAsDataURL(file)
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file=e.target.files?.[0];e.target.value='';if(!file)return
+    try { sendContent('file',await encodeAttachment(file)) } catch(e) { setErrMsg((e as Error).message) }
   }
 
   function handleCopyAddr() {
@@ -456,7 +464,7 @@ export function P2PChat() {
       const body = raw.startsWith('{')
         ? { wallet_json: raw }
         : { seed: raw }
-      const res = await fetch('/api/p2p/wallet', {
+      const res = await fetch('/community-api/p2p/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -715,7 +723,7 @@ export function P2PChat() {
                       borderRadius: msg.from === 'me' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                       padding: '8px 12px',
                     }}>
-                      {msg.contentType === 'image' ? (
+                      {msg.contentType === 'file' ? <FileAttachment content={msg.content}/> : msg.contentType === 'image' ? (
                         <img
                           src={msg.content}
                           alt="shared image"
@@ -738,7 +746,7 @@ export function P2PChat() {
               <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
                   ref={fileInputRef}
                   style={{ display: 'none' }}
                   onChange={handleImageSelect}
@@ -755,6 +763,8 @@ export function P2PChat() {
                   }}>
                   <ImageIcon size={15} />
                 </button>
+                <input type="file" ref={attachmentInputRef} style={{display:'none'}} onChange={e=>void handleFileSelect(e)}/>
+                <button title="Send file (up to 1 MB)" disabled={!connected} onClick={()=>attachmentInputRef.current?.click()} style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',color:'var(--text-muted)',cursor:'pointer'}}>File</button>
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -948,4 +958,11 @@ export function P2PChat() {
       )}
     </div>
   )
+}
+
+function FileAttachment({content}:{content:string}) {
+ const attachment=useMemo(()=>decodeAttachment(content),[content])
+ const url=useMemo(()=>attachment?URL.createObjectURL(new Blob([new Uint8Array(attachment.bytes)],{type:'application/octet-stream'})):null,[attachment])
+ useEffect(()=>()=>{if(url)URL.revokeObjectURL(url)},[url])
+ return attachment&&url?<a href={url} download={attachment.name} style={{color:'inherit'}}>Download {attachment.name} ({Math.ceil(attachment.bytes.length/1024)} KB)</a>:<span>Unsupported attachment</span>
 }

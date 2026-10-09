@@ -3,6 +3,7 @@ import { Plus, ArrowUpRight, Check, Lock, MessageSquare, Trash2, Pencil, X, Chev
 import { Link } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { api, stamp, type Entry, type Kind, type Member, type Space, type User } from '../lib/community'
+import { useSpaceRefresh } from '../lib/live'
 
 type Section = 'today' | 'boards' | 'chat' | 'calendar' | 'household' | 'lists' | 'notes'
 const kinds: Record<Exclude<Section, 'today'>, Kind> = { boards: 'board', chat: 'chat', calendar: 'event', household: 'task', lists: 'list', notes: 'note' }
@@ -28,17 +29,19 @@ export function Workspace({ section, space, user, search }: { section: Section; 
     const [data, people] = await Promise.all([api<Entry[]>(root + '/entries'), api<Member[]>(root + '/members')])
     setEntries(data); setMembers(people)
   }
+  const poll = useRef(async () => {})
   useEffect(() => {
     let active = true
-    const poll = async () => {
+    poll.current = async () => {
       try {
         const [data, people] = await Promise.all([api<Entry[]>(root + '/entries'), api<Member[]>(root + '/members')])
         if (active) { setEntries(data); setMembers(people); setError(''); setLoading(false) }
       } catch (e) { if (active) { setError((e as Error).message); setLoading(false) } }
     }
-    void poll(); const timer = setInterval(poll, section === 'chat' ? 3000 : 15000)
-    return () => { active = false; clearInterval(timer) }
+    void poll.current()
+    return () => { active = false }
   }, [root, section])
+  useSpaceRefresh(space.id, () => void poll.current(), section === 'chat' ? 3000 : 15000)
   const chatEnd = useRef<HTMLDivElement>(null)
   const chatCount = section === 'chat' ? entries.filter(e => e.kind === 'chat').length : 0
   useEffect(() => { chatEnd.current?.scrollIntoView({ block: 'end' }) }, [chatCount, loading])
@@ -84,10 +87,10 @@ export function Workspace({ section, space, user, search }: { section: Section; 
     {loading ? <div className="empty">Loading your space...</div> : <>
       {section === 'today' && (search ? <><h2>Search results</h2><div className="card-grid">{matching.filter(e => !['item','comment','chat'].includes(e.kind)).map(card)}</div>{!matching.some(e => !['item','comment','chat'].includes(e.kind)) && <Empty icon={<Search />} title="Nothing found" />}</> : <>
         <section className="today-banner"><div><span className="eyebrow">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</span><h2>Hello, {user.name.split(' ')[0]}.</h2><p>{tasks.length === 1 ? 'One thing to do today.' : tasks.length ? `${tasks.length} things to do. Take them one at a time.` : 'A little room to breathe.'}</p></div><Logo className="banner-mark" /></section>
-        <div className="stat-grid">{[['household', 'Open tasks', tasks.length, <ListChecks key="t" />], ['calendar', 'Coming up', upcoming.length, <CalendarDays key="c" />], ['boards', 'Conversations', boardPosts.length, <MessageSquare key="b" />]].map(([path,label,count,icon]) => <Link className="stat-card" to={'/'+path} key={String(path)}>{icon}<strong>{count}</strong><span>{label}</span><ArrowUpRight size={16} /></Link>)}</div>
-        <div className="today-grid"><section className="panel"><div className="section-heading"><h2>Coming up</h2><Link to="/calendar">View calendar <ArrowUpRight size={14} /></Link></div>{upcoming.length ? upcoming.slice(0,4).map(e => <button className="agenda-row" key={e.id} onClick={() => setSelected(e.id)}><div className="date-tile"><b>{new Date(e.due).getDate()}</b><small>{new Date(e.due).toLocaleDateString([], { month: 'short' })}</small></div><span><strong>{e.title}</strong><small>{stamp(e.due)}</small></span></button>) : <Empty icon={<CalendarDays />} title="Your calendar is clear" action="Plan something" onClick={() => newEntry('event', `${dateKey(new Date())}T09:00`)} />}</section>
-        <section className="panel"><div className="section-heading"><h2>Around the house</h2><Link to="/household">View tasks <ArrowUpRight size={14} /></Link></div>{tasks.length ? tasks.slice(0,5).map(e => <div className="task-row" key={e.id}><button className="check-button" aria-label={`Complete ${e.title}`} onClick={() => toggle(e)} disabled={busy}><Check size={15} /></button><button className="row-title" onClick={() => setSelected(e.id)}>{e.title}<small>{people(e.assigned_to)}</small></button></div>) : <Empty icon={<ListChecks />} title="All caught up" action="Add a task" onClick={() => newEntry('task')} />}</section></div>
-        <div className="section-heading"><h2>On the board</h2><Link to="/boards">View all <ArrowUpRight size={14} /></Link></div><div className="card-grid">{boardPosts.slice(0,3).map(card)}</div>{!boardPosts.length && <Empty icon={<MessageSquare />} title="Start a conversation" action="Write a post" onClick={() => newEntry('board')} />}
+        <div className="stat-grid">{[['household', 'Open tasks', tasks.length, <ListChecks key="t" />], ['calendar', 'Coming up', upcoming.length, <CalendarDays key="c" />], ['boards', 'Conversations', boardPosts.length, <MessageSquare key="b" />]].map(([path,label,count,icon]) => <Link className="stat-card" to={'/community/'+path} key={String(path)}>{icon}<strong>{count}</strong><span>{label}</span><ArrowUpRight size={16} /></Link>)}</div>
+        <div className="today-grid"><section className="panel"><div className="section-heading"><h2>Coming up</h2><Link to="/community/calendar">View calendar <ArrowUpRight size={14} /></Link></div>{upcoming.length ? upcoming.slice(0,4).map(e => <button className="agenda-row" key={e.id} onClick={() => setSelected(e.id)}><div className="date-tile"><b>{new Date(e.due).getDate()}</b><small>{new Date(e.due).toLocaleDateString([], { month: 'short' })}</small></div><span><strong>{e.title}</strong><small>{stamp(e.due)}</small></span></button>) : <Empty icon={<CalendarDays />} title="Your calendar is clear" action="Plan something" onClick={() => newEntry('event', `${dateKey(new Date())}T09:00`)} />}</section>
+        <section className="panel"><div className="section-heading"><h2>Around the house</h2><Link to="/community/household">View tasks <ArrowUpRight size={14} /></Link></div>{tasks.length ? tasks.slice(0,5).map(e => <div className="task-row" key={e.id}><button className="check-button" aria-label={`Complete ${e.title}`} onClick={() => toggle(e)} disabled={busy}><Check size={15} /></button><button className="row-title" onClick={() => setSelected(e.id)}>{e.title}<small>{people(e.assigned_to)}</small></button></div>) : <Empty icon={<ListChecks />} title="All caught up" action="Add a task" onClick={() => newEntry('task')} />}</section></div>
+        <div className="section-heading"><h2>On the board</h2><Link to="/community/boards">View all <ArrowUpRight size={14} /></Link></div><div className="card-grid">{boardPosts.slice(0,3).map(card)}</div>{!boardPosts.length && <Empty icon={<MessageSquare />} title="Start a conversation" action="Write a post" onClick={() => newEntry('board')} />}
       </>)}
       {['boards','lists','notes'].includes(section) && <><div className="card-grid">{items.map(card)}</div>{!items.length && <Empty icon={section === 'notes' ? <StickyNote /> : section === 'lists' ? <ListChecks /> : <MessageSquare />} title={search ? 'Nothing found' : `Your first ${singular[kinds[section as Exclude<Section,'today'>]]} starts here`} action={search ? undefined : 'Create one'} onClick={() => newEntry(kinds[section as Exclude<Section,'today'>])} />}</>}
       {section === 'household' && <><div className="filter-row">{['all','mine','done'].map(f => <button key={f} className={filter === f ? 'chip active' : 'chip'} onClick={() => setFilter(f)}>{f === 'all' ? 'Open' : f === 'mine' ? 'Assigned to me' : 'Done'}</button>)}</div><section className="panel">{items.filter(e => filter === 'done' ? e.done : !e.done && (filter !== 'mine' || e.assigned_to === user.id)).map(e => <div className="task-row" key={e.id}><button className={'check-button '+(e.done ? 'checked' : '')} onClick={() => toggle(e)} disabled={busy} aria-label={e.done ? `Reopen ${e.title}` : `Complete ${e.title}`}><Check size={15} /></button><button className="row-title" onClick={() => setSelected(e.id)}>{e.title}<small>{people(e.assigned_to)}{e.due ? ` · ${new Date(e.due).toLocaleDateString()}` : ''}</small></button><button className="icon-button" aria-label={`Edit ${e.title}`} onClick={() => setEditor(e)}><Pencil size={15} /></button></div>)}{!items.some(e => filter === 'done' ? e.done : !e.done && (filter !== 'mine' || e.assigned_to === user.id)) && <Empty icon={<Check />} title="Nothing on this list" />}</section></>}

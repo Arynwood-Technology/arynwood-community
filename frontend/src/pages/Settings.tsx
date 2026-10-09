@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Copy, Plus, Download, LogOut, UserMinus, KeyRound, Mail, Hash, Radio } from 'lucide-react'
 import { api, type Member, type Space, type User } from '../lib/community'
 import { Modal } from './Workspace'
+import { useSpaceRefresh } from '../lib/live'
+import { PublicInviteLink } from '../components/PublicInviteLink'
+import { GroveAddress } from '../components/GroveAddress'
 
 interface Connections { mail: boolean; smtp: boolean; version: string }
 
@@ -17,12 +20,14 @@ export function Settings({ space, user, onLogout, onLeft }: { space: Space; user
     api<Member[]>(root + '/members').then(setMembers).catch(e => setError(e.message))
     if (user.admin) api<Connections>('/community/connections').then(setConnections).catch(() => {})
   }, [root, user.admin])
+  // People joining or leaving from other computers appear without a reload.
+  useSpaceRefresh(space.id, () => { api<Member[]>(root + '/members').then(setMembers).catch(() => {}) }, 30000)
 
   const flash = (text: string) => { setMessage(text); setError('') }
   const fail = (e: unknown) => { setError((e as Error).message); setMessage('') }
 
   async function invite() {
-    try { const result = await api<{ token: string }>(root + '/invites', 'POST'); setLink(`${location.origin}/join?invite=${result.token}`); flash('Invite created. It works once and expires in seven days.') }
+    try { const result = await api<{ token: string; url?: string | null }>(root + '/invites', 'POST'); setLink(result.url ?? `${location.origin}/community?invite=${result.token}`); flash('Invite created. It works once and expires in seven days.') }
     catch (e) { fail(e) }
   }
   async function copy() {
@@ -54,15 +59,23 @@ export function Settings({ space, user, onLogout, onLeft }: { space: Space; user
           <p>Share a link with someone you trust. It works once and expires in seven days.</p>
           <button className="primary" onClick={invite}><Plus size={16} /> Create invite</button>
           {link && <div className="invite-box"><input readOnly aria-label="Invite link" value={link} onFocus={e => e.currentTarget.select()} /><button className="secondary" onClick={copy}><Copy size={14} /> Copy</button></div>}
+          <PublicInviteLink spaceId={space.id} />
         </> : <>
           <p className="muted-text">Only the space owner can invite people.</p>
           <button className="text-button danger" onClick={() => setRemoving(members.find(m => m.id === user.id) ?? { id: user.id, name: user.name, role: 'member' })}><UserMinus size={15} /> Leave this space</button>
         </>}
       </section>
+      {!!user.admin && <GroveAddress />}
+      <section className="panel">
+        <h2>Your identity</h2>
+        <p><strong>{user.name}</strong> · {user.email}</p>
+        <p className="muted-text">Your Grove account signs you into this space with email and password. Email ownership has not been verified. Your space role controls shared plans and membership.</p>
+        <p className="muted-text">IRC nicknames and NKN peer addresses are separate identities. A display name does not prove who a person is; confirm their account or address through a trusted conversation.</p>
+      </section>
       <section className="panel">
         <h2>Your data</h2>
         <p>Download a portable copy of this space, including your private notes.</p>
-        <a className="secondary button-link" href={`/api${root}/export`} download><Download size={16} /> Export space</a>
+        <a className="secondary button-link" href={`/community-api${root}/export`} download><Download size={16} /> Export space</a>
       </section>
       <PasswordPanel onDone={flash} />
       {user.admin ? <section className="panel">
@@ -71,8 +84,8 @@ export function Settings({ space, user, onLogout, onLeft }: { space: Space; user
         <ul className="status-list">
           <li><Mail size={16} /><span>Mail reading</span><b className={connections?.mail ? 'ok' : ''}>{connections === null ? '...' : connections.mail ? 'Ready' : 'Not set up'}</b></li>
           <li><Mail size={16} /><span>Mail sending</span><b className={connections?.smtp ? 'ok' : ''}>{connections === null ? '...' : connections.smtp ? 'Ready' : 'Not set up'}</b></li>
-          <li><Hash size={16} /><span>IRC</span><b className="ok">Connect from the IRC page</b></li>
-          <li><Radio size={16} /><span>Message</span><b className="ok">Go online from the Message page</b></li>
+          <li><Hash size={16} /><span>IRC</span><b className="ok">Connect from IRC rooms</b></li>
+          <li><Radio size={16} /><span>Message</span><b className="ok">Open Private messages</b></li>
         </ul>
         {connections && !connections.mail && <p className="muted-text">Add mail settings to <code>.env</code> and restart to read mail over IMAP. Without them, local Thunderbird mailboxes are used when available.</p>}
         {connections && <p className="muted-text">Version {connections.version}</p>}

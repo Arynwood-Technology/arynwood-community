@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Desktop launcher: starts Arynwood Community in the background if needed,
+# Desktop launcher: starts Arynwood Grove in the background if needed,
 # then opens it in its own app window. `arynwood-community --stop` stops it.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 env_value() { [[ -f "$ROOT/.env" ]] && sed -n "s/^$1=//p" "$ROOT/.env" | tail -n1 | tr -d "\"'" || true; }
-PORT="${COMMUNITY_PORT:-$(env_value COMMUNITY_PORT)}"; PORT="${PORT:-8018}"
+PORT="${GROVE_PORT:-${COMMUNITY_PORT:-$(env_value GROVE_PORT)}}"; PORT="${PORT:-$(env_value COMMUNITY_PORT)}"; PORT="${PORT:-8018}"
 URL="http://127.0.0.1:${PORT}"
 LOG_DIR="$ROOT/data/logs"
 PID_FILE="$ROOT/data/server.pid"
 
 notify() {
-  command -v notify-send >/dev/null && notify-send -i "$ROOT/desktop/arynwood-community.png" "Arynwood Community" "$1"
+  command -v notify-send >/dev/null && notify-send -i "$ROOT/desktop/arynwood-community.png" "Arynwood Grove" "$1"
   echo "$1" >&2
 }
-healthy() { curl -fsS --max-time 2 "$URL/api/health" 2>/dev/null | grep -q 'Arynwood Community'; }
+healthy() { curl -fsS --max-time 2 "$URL/api/health" 2>/dev/null | grep -qE 'Arynwood (Grove|Community)'; }
 
 if [[ "${1:-}" == "--stop" ]]; then
   if [[ -f "$PID_FILE" ]] && kill "$(cat "$PID_FILE")" 2>/dev/null; then rm -f "$PID_FILE"; notify "Stopped."; else notify "Not running."; fi

@@ -1,8 +1,30 @@
-# Arynwood Community release notes
+# Arynwood Grove release notes
 
-Version: `0.3.0`
+Version: `0.4.0`
 
-Positioning: a private home for a group’s messages, plans, household work, lists, and notes. The product promise is “Your people. Your place.”
+Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.4.0
+
+Servers and sharing
+
+- One-command server install for Ubuntu and Debian (`deploy/install.sh`): service user, nginx, Let's Encrypt, daily backups, and the `arynwood-grove` command (status, update, rollback, backup, restore, password recovery codes). Updates are checksum-verified, and an update that fails to start is undone automatically.
+- The installer prints a setup link with a one-time code, so only the person installing can create the host account.
+- A new Grove's first page offers **Join a Grove** (paste an invitation link) or **Create your Grove**.
+- **Your Grove's address** (People & identity, host only): enter your domain, see the DNS record to add, and move the Grove there with HTTPS; the old address forwards. Also `sudo arynwood-grove set-domain`.
+- The IRC page connects to irc.arynwood.com (`#general`) by default.
+- Public invite links: one reusable link per space that anyone can use to join, which the owner can replace or turn off. One address can open only a few accounts through it in 15 minutes.
+- Live updates: a change by anyone reaches every open page in the space within about a second, instead of on the next poll.
+- `GROVE_PUBLIC_URL` makes invite links name the server's address.
+- `deploy/upgrade-from-community.sh` upgrades a Community 0.3 server in place. Members stay signed in, 0.3 invitation links keep working, and `COMMUNITY_*` settings and `community.sqlite3` are still read.
+
+Design
+
+- The Grove look: charcoal surfaces and green-teal light from the tree logo. The page for members is Community only, with a calendar-first layout and a day planner.
+
+Fixes
+
+- Password recovery through a host-issued code (`arynwood-grove recovery-code`).
 
 ## 0.3.0
 

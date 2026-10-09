@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Adds Arynwood Community to the application menu and the desktop.
+# Adds Arynwood Grove to the application menu and the desktop.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
@@ -15,8 +15,8 @@ cat <<ENTRY
 [Desktop Entry]
 Version=1.5
 Type=Application
-Name=Arynwood Community
-GenericName=Community Hub
+Name=Arynwood Grove
+GenericName=Community
 Comment=Messages, plans, household tasks, lists and notes for your people
 Exec="$ROOT/desktop/arynwood-community"
 Icon=arynwood-community
@@ -28,7 +28,7 @@ StartupWMClass=ArynwoodCommunity
 Actions=stop;
 
 [Desktop Action stop]
-Name=Stop Arynwood Community
+Name=Stop Arynwood Grove
 Exec="$ROOT/desktop/arynwood-community" --stop
 ENTRY
 }
@@ -42,4 +42,4 @@ if [[ -d "$DESKTOP_DIR" ]]; then
 fi
 command -v update-desktop-database >/dev/null && update-desktop-database "$APPS" 2>/dev/null || true
 gtk-update-icon-cache -q "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor" 2>/dev/null || true
-echo "Installed. Find Arynwood Community in your app menu${DESKTOP_DIR:+ and on the desktop}."
+echo "Installed. Find Arynwood Grove in your app menu${DESKTOP_DIR:+ and on the desktop}."

@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Manage an Arynwood Grove server. Installed by deploy/install.sh as /usr/local/bin/arynwood-grove.
+set -euo pipefail
+PREFIX=/opt/arynwood-grove
+ENV_FILE=/etc/arynwood-grove/grove.env
+SERVICE=arynwood-grove
+CURRENT=$PREFIX/current
+
+env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n1; }
+need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo arynwood-grove $*" >&2; exit 1; }; }
+wait_healthy() {
+  local port; port=$(env_value GROVE_PORT)
+  for _ in $(seq 1 30); do curl -fsS -m 2 "http://127.0.0.1:${port:-8018}/api/health" >/dev/null 2>&1 && { echo "The Grove is running."; return 0; }; sleep 1; done
+  echo "The Grove did not answer. See: sudo arynwood-grove logs" >&2; return 1
+}
+admin() { (cd "$CURRENT" && runuser -u grove -- env GROVE_ENV_FILE="$ENV_FILE" .venv/bin/python deploy/grove_admin.py "$@"); }
+
+usage() {
+  cat <<'USAGE'
+Usage: sudo arynwood-grove <command>
+
+  status               Is it running, which version, where, last backup, certificate
+  setup-link           The link that creates the host account (until it exists)
+  invite-help          How to invite people
+  recovery-code EMAIL  A 15-minute password reset code for someone who forgot theirs
+  backup               Copy the database now (a daily copy is automatic; 14 are kept)
+  restore FILE         Put a backup back (the current data is backed up first)
+  update [--version X] Install the latest release, keeping all data and settings
+  rollback             Go back to the previous release
+  logs                 The service's recent log
+  restart              Restart the service
+  set-domain NAME [--email ADDRESS]
+                       Move the Grove to your own domain (the host can also do this in
+                       Settings → Your Grove's address). Point the domain's A record here first.
+USAGE
+}
+
+DATA=/var/lib/arynwood-grove
+SITE=/etc/nginx/sites-available/arynwood-grove
+PREVIOUS_SITE=/etc/nginx/sites-available/arynwood-grove-previous
+DOMAIN_RE='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
+EMAIL_RE='^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$'
+
+# Publishes the Grove at a new domain: nginx, a reachability check, a certificate (unless the
+# Grove runs without HTTPS), the new address in the settings, and a redirect from the old one.
+# Any failure before the switch puts the previous nginx site back.
+set_domain() {
+  local domain=$1 email=${2:-} url old scheme port probe answer
+  [[ ${#domain} -le 253 && $domain =~ $DOMAIN_RE ]] || { echo "\"$domain\" is not a web address like grove.example.com." >&2; return 1; }
+  [[ -z $email || $email =~ $EMAIL_RE ]] || { echo "\"$email\" is not an email address." >&2; return 1; }
+  url=$(env_value GROVE_PUBLIC_URL); old=${url#*://}; old=${old%%/*}; old=${old%%:*}
+  scheme=${url%%://*}; [[ $scheme == http ]] || scheme=https
+  port=$(env_value GROVE_PORT); port=${port:-8018}
+  [[ $domain != "$old" ]] || { echo "The Grove already uses $domain."; return 0; }
+  [[ -f $SITE ]] || { echo "No nginx site at $SITE; this Grove was not set up by the installer." >&2; return 1; }
+  cp -p "$SITE" "$SITE.before-$domain"
+  restore() { mv "$SITE.before-$domain" "$SITE"; nginx -t -q 2>/dev/null && systemctl reload nginx; }
+  sed -e "s/@DOMAIN@/$domain/g" -e "s/@PORT@/$port/g" "$CURRENT/deploy/nginx-grove.conf" >"$SITE"
+  nginx -t -q 2>/dev/null || { restore; echo "nginx rejected the new site." >&2; return 1; }
+  systemctl reload nginx
+  install -d -m 0755 /var/www/acme/.well-known/acme-challenge
+  probe=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+  echo "$probe" >"/var/www/acme/.well-known/acme-challenge/grove-$probe"
+  # nginx finishes reloading a moment after the command returns, so try for a few seconds.
+  for _ in $(seq 1 10); do
+    answer=$(curl -fsS -m 10 "http://$domain/.well-known/acme-challenge/grove-$probe" 2>/dev/null || true)
+    [[ $answer == "$probe" ]] && break; sleep 1
+  done
+  rm -f "/var/www/acme/.well-known/acme-challenge/grove-$probe"
+  if [[ $answer != "$probe" ]]; then
+    restore
+    echo "http://$domain does not reach this server yet. Check its A record (it can take a few minutes to update) and that ports 80 and 443 are open." >&2
+    return 1
+  fi
+  if [[ $scheme == https ]]; then
+    local account=(--register-unsafely-without-email); [[ -n $email ]] && account=(-m "$email")
+    certbot --nginx -d "$domain" --non-interactive --agree-tos --redirect "${account[@]}" -q \
+      || { restore; echo "Let's Encrypt could not issue a certificate for $domain." >&2; return 1; }
+  fi
+  rm -f "$SITE.before-$domain"
+  # People who saved the old address are sent to the new one.
+  if [[ -n $old ]]; then
+    {
+      echo "# Earlier address of this Grove, forwarding to the current one."
+      echo "server { listen 80; listen [::]:80; server_name $old; return 301 $scheme://$domain\$request_uri; }"
+      if [[ -f /etc/letsencrypt/live/$old/fullchain.pem ]]; then
+        echo "server { listen 443 ssl; listen [::]:443 ssl; server_name $old;"
+        echo "  ssl_certificate /etc/letsencrypt/live/$old/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/$old/privkey.pem;"
+        echo "  return 301 $scheme://$domain\$request_uri; }"
+      fi
+    } >"$PREVIOUS_SITE"
+    ln -sfn "$PREVIOUS_SITE" /etc/nginx/sites-enabled/arynwood-grove-previous
+    nginx -t -q 2>/dev/null && systemctl reload nginx || { rm -f /etc/nginx/sites-enabled/arynwood-grove-previous; systemctl reload nginx; }
+  fi
+  sed -i "s#^GROVE_PUBLIC_URL=.*#GROVE_PUBLIC_URL=$scheme://$domain#" "$ENV_FILE"
+  systemctl restart $SERVICE
+  wait_healthy >/dev/null || { echo "The Grove did not restart. See: sudo arynwood-grove logs" >&2; return 1; }
+  echo "The Grove is now at $scheme://$domain"
+}
+
+command=${1:-help}; shift || true
+case $command in
+  status)
+    need_root status
+    url=$(env_value GROVE_PUBLIC_URL); domain=${url#*://}; domain=${domain%%/*}
+    printf 'Service:   %s\n' "$(systemctl is-active $SERVICE 2>/dev/null || true)"
+    printf 'Version:   %s\n' "$(basename "$(readlink -f "$CURRENT")")"
+    printf 'Address:   %s\n' "${url:-not set}"
+    db=$(admin path); printf 'Data:      %s (%s)\n' "$db" "$(du -h "$db" 2>/dev/null | cut -f1 || echo none yet)"
+    last=$(ls -1t "$(dirname "$db")/backups/"grove-*.sqlite3 2>/dev/null | head -n1 || true)
+    printf 'Backup:    %s\n' "${last:-none yet}"
+    cert=/etc/letsencrypt/live/$domain/cert.pem
+    if [[ -f $cert ]]; then printf 'HTTPS:     certificate valid until %s\n' "$(openssl x509 -enddate -noout -in "$cert" | cut -d= -f2)"
+    else printf 'HTTPS:     no certificate\n'; fi
+    ;;
+  setup-link) need_root setup-link; admin setup-link ;;
+  invite-help)
+    echo 'Sign in, choose a space, and click "Invite members".'
+    echo '  - An invitation link admits one person and expires after seven days. Send it privately.'
+    echo '  - A public invite link lets anyone who has it join. Post it where your friends will see it,'
+    echo '    and turn it off in the same place when you are done.'
+    ;;
+  recovery-code)
+    need_root recovery-code
+    [[ -n ${1:-} ]] || { echo "Usage: sudo arynwood-grove recovery-code person@example.com" >&2; exit 1; }
+    echo "Give this code to the person privately. They enter it under \"Forgot password?\" within 15 minutes:"
+    admin recovery-code "$1"
+    ;;
+  backup) need_root backup; admin backup ;;
+  restore)
+    need_root restore
+    file=${1:-}; [[ -f $file ]] || { echo "Usage: sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3" >&2; exit 1; }
+    db=$(admin path)
+    echo "Saving the current data first: $(admin backup)"
+    systemctl stop $SERVICE
+    install -m 0600 -o grove -g grove "$file" "$db"
+    rm -f "$db-wal" "$db-shm"
+    systemctl start $SERVICE
+    echo "Restored $file"
+    wait_healthy
+    ;;
+  update)
+    need_root update
+    from="" version=latest
+    while [[ $# -gt 0 ]]; do
+      case $1 in --from) from=${2:-}; shift 2 ;; --version) version=${2#v}; shift 2 ;; *) echo "Unknown option: $1" >&2; exit 1 ;; esac
+    done
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    if [[ -z $from ]]; then
+      repo=https://github.com/Arynwood-Technology/arynwood-community/releases
+      if [[ $version == latest ]]; then base=${GROVE_RELEASE_BASE:-$repo/latest/download}; file=arynwood-grove.tar.gz
+      else base=${GROVE_RELEASE_BASE:-$repo/download/v$version}; file=arynwood-grove-$version.tar.gz; fi
+      echo "Downloading $base/$file"
+      curl -fsSL --retry 3 -o "$tmp/$file" "$base/$file" && curl -fsSL --retry 3 -o "$tmp/$file.sha256" "$base/$file.sha256" \
+        || { echo "Could not download the release." >&2; exit 1; }
+      (cd "$tmp" && echo "$(cut -d' ' -f1 "$file.sha256")  $file" | sha256sum -c --quiet) \
+        || { echo "The download is damaged (checksum mismatch). Nothing was changed." >&2; exit 1; }
+      from=$tmp/$file
+    fi
+    # Run the new release's own installer, so an update can also fix the updater.
+    mkdir "$tmp/new"; tar -xzf "$from" -C "$tmp/new" --strip-components=1 --wildcards '*/deploy/install.sh' \
+      || { echo "$from is not a Grove release." >&2; exit 1; }
+    bash "$tmp/new/deploy/install.sh" --update --yes --from "$from"
+    ;;
+  rollback)
+    need_root rollback
+    # The newest release older than the one running.
+    now=$(basename "$(readlink -f "$CURRENT")")
+    previous=$( (ls -1 "$PREFIX/releases"; echo "$now") | grep -vE '\.(new|old)$' | sort -uV | grep -B1 -x "$now" | grep -vx "$now" || true)
+    previous=${previous:+$PREFIX/releases/$previous}
+    [[ -n $previous ]] || { echo "There is no earlier release to go back to." >&2; exit 1; }
+    echo "Backing up first: $(admin backup)"
+    ln -sfn "$previous" "$PREFIX/current.new" && mv -T "$PREFIX/current.new" "$CURRENT"
+    install -m 0755 "$CURRENT/deploy/arynwood-grove" /usr/local/bin/arynwood-grove
+    systemctl restart $SERVICE
+    echo "Now running $(basename "$previous")."
+    wait_healthy
+    ;;
+  logs) need_root logs; journalctl -u $SERVICE -n "${1:-100}" --no-pager ;;
+  restart) need_root restart; systemctl restart $SERVICE; wait_healthy ;;
+  set-domain)
+    need_root set-domain
+    domain=${1:-}; shift || true; email=""
+    [[ ${1:-} == --email ]] && email=${2:-}
+    [[ -n $domain ]] || { echo "Usage: sudo arynwood-grove set-domain grove.example.com [--email you@example.com]" >&2; exit 1; }
+    set_domain "${domain,,}" "$email"
+    ;;
+  apply-domain-request)
+    # Started by arynwood-grove-domain.path when the host asks in Settings. The request was
+    # written by the service, so it is read as data and validated again here.
+    need_root apply-domain-request
+    request=$DATA/requests/domain.json result=$DATA/requests/domain.result.json
+    [[ -f $request ]] || exit 0
+    fields=$(python3 -I -c 'import json,sys
+d=json.load(open(sys.argv[1])) if __import__("os").path.getsize(sys.argv[1])<4096 else {}
+print(str(d.get("domain","")).replace("\n"," ")); print(str(d.get("email","")).replace("\n"," "))' "$request" 2>/dev/null || printf '\n\n')
+    rm -f "$request"
+    domain=$(sed -n 1p <<<"$fields"); email=$(sed -n 2p <<<"$fields")
+    if output=$(set_domain "$domain" "$email" 2>&1); then status=done; else status=failed; fi
+    python3 -I -c 'import json,sys,time; json.dump({"status":sys.argv[1],"domain":sys.argv[2],"message":sys.argv[3].strip().splitlines()[-1] if sys.argv[3].strip() else "","finished":time.time()},open(sys.argv[4],"w"))' \
+      "$status" "$domain" "$output" "$result.tmp"
+    chown grove:grove "$result.tmp"; chmod 0640 "$result.tmp"; mv "$result.tmp" "$result"
+    echo "$output"
+    ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac

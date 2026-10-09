@@ -123,7 +123,7 @@ client.onMessage(({ src, payload }) => {
       contentType: 'receipt',
       targetId:    msgId,
       timestamp:   Date.now(),
-    }), { msgHoldingSeconds: 0 }).catch(() => {});
+    }), { encrypt: true, msgHoldingSeconds: 0 }).catch(() => {});
   }
 
   emit({ type: 'message', id: msgId, src, contentType, content, timestamp: Date.now() });
@@ -148,7 +148,7 @@ rl.on('line', (line) => {
       content:     cmd.content ?? cmd.text ?? '',
       timestamp:   Date.now(),
     };
-    client.send(cmd.dest, JSON.stringify(payload), { msgHoldingSeconds: 8_640_000 })
+    client.send(cmd.dest, JSON.stringify(payload), { encrypt: true, msgHoldingSeconds: 8_640_000 })
       .catch((err) => emit({ type: 'error', message: String(err) }));
   }
 });

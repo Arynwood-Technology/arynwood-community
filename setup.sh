@@ -21,3 +21,4 @@ if [[ ! -f .env ]]; then
 fi
 chmod 600 .env
 echo 'Setup complete. Start with ./start.sh or install the desktop launcher with ./desktop/install.sh'
+echo 'To run a Grove on a server for other people, use deploy/install.sh instead (see deploy/README.md).'

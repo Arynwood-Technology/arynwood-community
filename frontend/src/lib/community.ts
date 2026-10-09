@@ -8,7 +8,7 @@ export interface Entry {
   done: boolean | number; due: string; assigned_to: string | null; created: string; updated: string; version: number
 }
 export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const response = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Community-Request': '1' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
+  const response = await fetch('/community-api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Community-Request': '1' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith('/auth')) window.dispatchEvent(new Event('session-expired'))

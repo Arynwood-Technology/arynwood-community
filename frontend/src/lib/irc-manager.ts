@@ -499,11 +499,11 @@ export function ircConnect(config: {
     ircActiveChannel: config.channels[0] ?? 'server',
   })
 
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/irc/ws`)
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/community-api/irc/ws`)
 
   ws.onopen = () => ws!.send(JSON.stringify({
     host: config.host, port: config.port, nick: config.nick,
-    channels: config.channels, realname: config.realname ?? 'Arynwood Community',
+    channels: config.channels, realname: config.realname ?? 'Arynwood Grove',
     ...(config.socks5_proxy ? { socks5_proxy: config.socks5_proxy } : {}),
     ...(config.nick_password ? { nick_password: config.nick_password } : {}),
   }))
@@ -518,7 +518,7 @@ export function ircConnect(config: {
   }
 
   ws.onerror = () => {
-    pushMsg('server', { ...sysMsg('Lost contact with Arynwood Community. Check that it is still running.'), type: 'error' })
+    pushMsg('server', { ...sysMsg('Lost contact with Arynwood Grove. Check that it is still running.'), type: 'error' })
     set({ ircConnecting: false, ircConnected: false })
   }
   ws.onclose = () => set({ ircConnected: false, ircConnecting: false })

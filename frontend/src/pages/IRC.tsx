@@ -193,7 +193,7 @@ export function IRC() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connection config — persisted to localStorage
-  const savedCfg = (() => { try { return JSON.parse(localStorage.getItem('hub_irc_config') ?? '{}') } catch { return {} } })()
+  const savedCfg = (() => { try { return JSON.parse(localStorage.getItem('grove_irc_config') ?? '{}') } catch { return {} } })()
   const [host, setHost]               = useState<string>(savedCfg.host         ?? 'irc.arynwood.com')
   const [port, setPort]               = useState<string>(savedCfg.port         ?? '6697')
   const [nick, setNick]               = useState<string>(savedCfg.nick         ?? 'arynwood-hub')
@@ -201,14 +201,14 @@ export function IRC() {
   const [channels, setChannels]       = useState<string>(savedCfg.channels     ?? '#general')
 
   const saveCfg = (h = host, p = port, n = nick, ch = channels, pw = nickPassword) =>
-    localStorage.setItem('hub_irc_config', JSON.stringify({ host: h, port: p, nick: n, channels: ch, nickPassword: pw }))
+    localStorage.setItem('grove_irc_config', JSON.stringify({ host: h, port: p, nick: n, channels: ch, nickPassword: pw }))
 
   // Load backend client config to prefill the connect form — does NOT auto-connect
   useEffect(() => {
     const { ircConnected, ircConnecting } = useAppStore.getState()
     if (ircConnected || ircConnecting) return
 
-    fetch('/api/irc/client-config')
+    fetch('/community-api/irc/client-config')
       .then(r => r.json())
       .then((cfg: { host?: string; port?: number; nick?: string; nick_password?: string; channels?: string[]; socks5_proxy?: string }) => {
         if (cfg.host && cfg.nick && cfg.nick_password && cfg.channels?.length) {

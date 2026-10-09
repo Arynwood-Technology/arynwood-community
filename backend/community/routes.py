@@ -3,10 +3,14 @@ import os
 import time
 from datetime import datetime
 from typing import Literal
-from fastapi import APIRouter, Depends, HTTPException, Response
+from urllib.parse import quote
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from .auth import user, administrator, identifier, digest, now
-from .store import db, VERSION
+from starlette.concurrency import run_in_threadpool
+from .auth import session_token, invitation, user, administrator, identifier, digest, now
+from .store import db, public_origin, VERSION
+from . import live
 
 router=APIRouter()
 
@@ -58,6 +62,7 @@ def remove_member(sid:str,uid:str,current=Depends(user)):
         if target['role']=='owner': raise HTTPException(400,'The owner cannot leave or be removed.')
         c.execute('DELETE FROM members WHERE space_id=? AND user_id=?',(sid,uid))
         c.execute('UPDATE entries SET assigned_to=NULL WHERE space_id=? AND assigned_to=?',(sid,uid))
+    live.publish(sid)
     return {'ok':True}
 
 @router.post('/spaces/{sid}/invites')
@@ -67,7 +72,37 @@ def invite(sid:str,current=Depends(user)):
         membership(c,sid,current['id'],owner=True)
         c.execute('DELETE FROM invites WHERE expires<?',(time.time(),))
         c.execute('INSERT INTO invites VALUES (?,?,?,?)',(digest(token),sid,time.time()+86400*7,current['id']))
-    return {'token':token,'expires_in_days':7}
+    return {'token':token,'expires_in_days':7,'url':invite_url(token)}
+
+def invite_url(token):
+    # On a server, the link must name the address members reach, not the owner's local page.
+    origin=public_origin()
+    return origin+'/community?invite='+quote(token) if origin else None
+
+# A public invite link: one per space, reusable, posted wherever the owner likes, and
+# turned off by the owner at any time. It is kept readable so the owner can copy it again.
+@router.get('/spaces/{sid}/invite-link')
+def invite_link(sid:str,current=Depends(user)):
+    with db() as c:
+        membership(c,sid,current['id'],owner=True)
+        row=c.execute('SELECT token,created FROM invite_links WHERE space_id=?',(sid,)).fetchone()
+    return {'token':row['token'],'url':invite_url(row['token']),'created':row['created']} if row else {'token':None,'url':None,'created':None}
+
+@router.post('/spaces/{sid}/invite-link')
+def create_invite_link(sid:str,current=Depends(user)):
+    """Creates the space's public link, replacing any earlier one (which stops working)."""
+    token=identifier()+identifier()
+    with db() as c:
+        membership(c,sid,current['id'],owner=True)
+        c.execute('INSERT OR REPLACE INTO invite_links VALUES (?,?,?,?)',(sid,token,now(),current['id']))
+    return {'token':token,'url':invite_url(token),'created':now()}
+
+@router.delete('/spaces/{sid}/invite-link')
+def delete_invite_link(sid:str,current=Depends(user)):
+    with db() as c:
+        membership(c,sid,current['id'],owner=True)
+        c.execute('DELETE FROM invite_links WHERE space_id=?',(sid,))
+    return {'ok':True}
 
 class JoinBody(BaseModel):
     token: str=Field(min_length=1,max_length=128)
@@ -76,11 +111,13 @@ class JoinBody(BaseModel):
 def join(body:JoinBody,current=Depends(user)):
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
-        invitation=c.execute('SELECT * FROM invites WHERE token=? AND expires>?',(digest(body.token),time.time())).fetchone()
-        if not invitation: raise HTTPException(400,'Invite expired or unavailable.')
-        c.execute('INSERT OR IGNORE INTO members VALUES (?,?,?)',(invitation['space_id'],current['id'],'member'))
-        c.execute('DELETE FROM invites WHERE token=?',(digest(body.token),))
-        return dict(c.execute('SELECT s.*,m.role FROM spaces s JOIN members m ON m.space_id=s.id WHERE s.id=? AND m.user_id=?',(invitation['space_id'],current['id'])).fetchone())
+        sid,one_use=invitation(c,body.token)
+        if not sid: raise HTTPException(400,'Invite expired or unavailable.')
+        c.execute('INSERT OR IGNORE INTO members VALUES (?,?,?)',(sid,current['id'],'member'))
+        if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.token),))
+        joined=dict(c.execute('SELECT s.*,m.role FROM spaces s JOIN members m ON m.space_id=s.id WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
+    live.publish(joined['id'])
+    return joined
 
 Kind=Literal['board','note','task','event','chat','list','item','comment']
 class Entry(BaseModel):
@@ -139,7 +176,9 @@ def create_entry(sid:str,body:Entry,current=Depends(user)):
         validate_entry(c,sid,body,current['id'])
         c.execute('INSERT INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
           (eid,sid,current['id'],body.kind,body.title,body.body,body.visibility,body.parent_id,int(body.done),body.due,body.assigned_to,stamp,stamp,1))
-        return dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+        saved=dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+    changed(saved)
+    return saved
 
 @router.put('/spaces/{sid}/entries/{eid}')
 def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
@@ -155,7 +194,9 @@ def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
         validate_entry(c,sid,body,current['id'])
         c.execute('UPDATE entries SET title=?,body=?,done=?,due=?,assigned_to=?,updated=?,version=version+1 WHERE id=?',
                   (body.title,body.body,int(body.done),body.due,body.assigned_to,now(),eid))
-        return dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+        saved=dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+    changed(saved)
+    return saved
 
 @router.delete('/spaces/{sid}/entries/{eid}')
 def delete_entry(sid:str,eid:str,current=Depends(user)):
@@ -164,7 +205,27 @@ def delete_entry(sid:str,eid:str,current=Depends(user)):
         entry=visible_entry(c,sid,eid,current['id'])
         if entry['author_id']!=current['id'] and role!='owner': raise HTTPException(403,'Only the author or space owner can delete this item.')
         c.execute('DELETE FROM entries WHERE id=?',(eid,))
+    changed(entry)
     return {'ok':True}
+
+def changed(entry):
+    # A private entry is visible only to its author, so only the author's pages hear about it.
+    live.publish(entry['space_id'],only_user=entry['author_id'] if entry['visibility']=='private' else None)
+
+def session_in_space(token,sid,uid):
+    with db() as c:
+        return c.execute('SELECT 1 FROM sessions s JOIN members m ON m.user_id=s.user_id WHERE s.token=? AND s.expires>? AND s.user_id=? AND m.space_id=?',
+                         (token,time.time(),uid,sid)).fetchone() is not None
+
+@router.get('/spaces/{sid}/events')
+async def space_events(sid:str,request:Request,current=Depends(user)):
+    token=digest(session_token(request))
+    def allowed(): return session_in_space(token,sid,current['id'])
+    if not await run_in_threadpool(allowed): raise HTTPException(404,'Space not found.')
+    if live.streams_for(current['id'])>=live.MAX_STREAMS_PER_USER: raise HTTPException(429,'Too many open pages. Close some and reload.')
+    return StreamingResponse(live.stream(sid,current['id'],request.headers.get('last-event-id'),allowed),media_type='text/event-stream',
+                             # Nginx would otherwise hold notices in its buffer.
+                             headers={'X-Accel-Buffering':'no'})
 
 @router.get('/spaces/{sid}/export')
 def export_space(sid:str,current=Depends(user)):

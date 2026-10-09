@@ -1,78 +1,128 @@
-# Arynwood Community
+# Arynwood Grove
 
-Private community software for messages, plans, household work, lists, notes, and host connections. Version 0.3.0.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.4.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
-**Website:** [arynwood.com/community](https://arynwood.com/community/) · **Try it:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
+**Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
-- **Today:** a shared home screen for open tasks, upcoming events, and board posts.
-- **Boards, Chat, Calendar, Household, Lists, Notes:** shared-space content with replies, assignments, due dates, private notes, and search.
-- **Accounts and spaces:** the first account becomes the host and creates the first space. Space owners invite people with single-use links that expire after seven days. Anyone can start more spaces, and members can leave a space.
-- **Settings:** people in the space, invites, password changes, JSON export, and host connection status.
-- **Mail, IRC, Message:** host-only connections that run on the host's computer.
+## Put a Grove on your server
 
-The connections:
-
-- **Mail:** reads the inbox over IMAP, or from local Thunderbird mailboxes. You can write and reply in the app over SMTP, or open Thunderbird instead.
-- **IRC:** channels, direct messages, NickServ login, user lists and slash commands.
-- **Message:** private, direct peer-to-peer messages with contacts and groups, text and images, delivery receipts, and a portable identity. Message stays online while you use other pages.
-
-## Install
-
-Requires Linux or macOS, Python 3.10+, Node.js 20.19+ or 22.12+, and npm. Thunderbird is optional.
+You need a VPS running Ubuntu 22.04+ or Debian 12+, and ideally a domain name. Point the domain's DNS record (an `A` record, e.g. `grove` → your server's IP address) at the server, then run:
 
 ```bash
-cd communication-hub
-./setup.sh                 # creates .venv, installs dependencies, builds the app, creates .env
-./desktop/install.sh       # optional: adds Arynwood Community to the app menu and desktop (Linux)
+curl -fsSL https://github.com/Arynwood-Technology/arynwood-community/releases/latest/download/install.sh \
+  | sudo bash -s -- --domain grove.example.com --email you@example.com
 ```
 
-Start it from the desktop icon, or run `./start.sh` and open http://127.0.0.1:8018. The desktop launcher starts the server in the background if needed and opens the app in its own window. Right-click the icon and choose **Stop Arynwood Community** to stop the server, or run `desktop/arynwood-community --stop`. Server logs go to `data/logs/server.log`.
+About two minutes later it prints a link. Open it and choose **Create your Grove** to make your host account; the link carries a one-time setup code, so nobody else can claim your Grove first. (The same page offers **Join a Grove**, for someone who was sent an invitation link to another Grove.)
 
-For frontend development, keep the backend running and run `npm --prefix frontend run dev`, then open http://127.0.0.1:5174. Vite proxies HTTP and WebSockets to port 8018.
+### Make it your own domain
+
+No domain yet? Install with `--no-domain`: the Grove starts on a temporary address based on the server's IP. When you have a domain, the host opens **People & identity → Your Grove's address**, types the domain, and the Grove shows the exact DNS record to add (type `A`, the name, and this server's IP). Once the record is in place, **Use** the domain: the server checks that it reaches itself, gets the HTTPS certificate, moves the Grove there, and forwards the old address to the new one. Everyone signs in again at the new address. From a terminal, `sudo arynwood-grove set-domain grove.example.com` does the same.
+
+The installer sets up the service (as its own unprivileged user), nginx, a Let's Encrypt certificate, daily backups and the `arynwood-grove` command:
+
+```bash
+sudo arynwood-grove status         # running? version, address, last backup, certificate
+sudo arynwood-grove update         # newest release; keeps every account, space and setting
+sudo arynwood-grove rollback       # back to the previous release
+sudo arynwood-grove recovery-code person@example.com   # someone forgot their password
+sudo arynwood-grove help
+```
+
+Details, manual installation and troubleshooting: [deploy/README.md](deploy/README.md).
+
+## Invite your people
+
+Sign in, pick a space and choose **Invite members**:
+
+- **Invitation link:** admits one person and expires after seven days. Send it privately.
+- **Public invite link:** anyone who has it can join the space. Post it where your friends will see it, make a new one if it spreads too far, and turn it off when you are done. One address can open only a few accounts through it in 15 minutes.
+
+Each person makes their own account on your Grove, from any computer or phone. Everyone in a space sees changes within about a second, without reloading.
+
+## What a Grove has
+
+- **Calendar and Overview:** a shared day planner, upcoming events, open tasks and recent posts.
+- **Board, Space discussion, Tasks, Lists, Notes:** shared content with replies, assignments, due dates, private notes and search.
+- **Spaces and people:** the first account is the host. Anyone can start more spaces; space owners invite and remove people; members can leave.
+- **Live updates:** a change by anyone reaches every open page in that space at once.
+- **Host connections (host only):** Mail over IMAP/SMTP, IRC (irc.arynwood.com, `#general`, by default; change either in the IRC page), and Private messages over NKN.
+
+## Upgrading from Arynwood Community 0.3
+
+A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
+
+```bash
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.0.tar.gz
+```
+
+The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`.
+
+## Run it on your own computer
+
+For trying it out, or for a household on one machine. Requires Linux or macOS, Python 3.10+, Node.js 20.19+ or 22.12+, and npm.
+
+```bash
+./setup.sh                 # creates .venv, installs dependencies, builds the page, creates .env
+./desktop/install.sh       # optional: adds Arynwood Grove to the app menu and desktop (Linux)
+./start.sh                 # then open http://127.0.0.1:8018/community
+```
+
+For frontend development, keep the backend running and run `npm --prefix frontend run dev`, then open http://127.0.0.1:5174.
 
 ## Configuration
 
-Settings live in `.env`. Setup creates it from `.env.example` and makes it readable by your user only.
+Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood-grove/grove.env`). Community 0.3 names (`COMMUNITY_*`) are still read.
 
 | Setting | Purpose |
 |---|---|
-| `MAIL_IMAP_*`, `MAIL_SMTP_*`, `MAIL_FROM` | Mail reading and sending. SMTP falls back to the IMAP host and login. |
-| `COMMUNITY_BIND`, `COMMUNITY_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
-| `COMMUNITY_ORIGIN`, `COMMUNITY_HOSTS`, `COMMUNITY_SECURE_COOKIE` | Settings for a hosted install behind an HTTPS reverse proxy. |
-| `COMMUNITY_DATA_DIR` | Where the database lives. Defaults to `data/`. |
-| `NKN_IDENTIFIER`, `SOCKS5_PROXY` | Prefix for your Message address; optional SOCKS5 proxy for IRC. |
+| `GROVE_PUBLIC_URL` | The address members open, e.g. `https://grove.example.com`. Invite links use it; it is trusted as page origin and host name; cookies are `Secure` over HTTPS. |
+| `GROVE_BIND`, `GROVE_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
+| `GROVE_DATA_DIR` | Where the database lives. Defaults to `data/`. |
+| `GROVE_SETUP_CODE` | Set by the installer: required to create the host account. |
+| `GROVE_ORIGIN`, `GROVE_HOSTS` | Extra page origins and host names to accept, comma-separated. |
+| `MAIL_IMAP_*`, `MAIL_SMTP_*`, `MAIL_FROM` | The host's mailbox for Mail. |
+| `NKN_IDENTIFIER`, `SOCKS5_PROXY` | Prefix for the Private messages address; optional SOCKS5 proxy for IRC. |
 
-**Sharing with other people.** By default the app only accepts connections from this computer, so invite links only work here. To let other people join, put it behind an HTTPS reverse proxy (for example Caddy or nginx) on a domain. Set `COMMUNITY_ORIGIN=https://your.domain`, `COMMUNITY_HOSTS=your.domain` and `COMMUNITY_SECURE_COOKIE=1`, and keep `COMMUNITY_BIND=127.0.0.1` so that only the proxy can reach it. Do not expose the app over plain HTTP.
+Keep the service on `127.0.0.1` behind an HTTPS reverse proxy. Do not expose it over plain HTTP.
 
 ## Your data
 
-- Community records: `data/community.sqlite3` (readable by your user only). Back this file up. Export a space as JSON from Settings.
-- Message identity: `nkn/wallet.json`, created the first time you go online (readable by your user only). Keep a private backup; losing it changes your Message address.
-- In the browser: Message contacts and history, IRC connection settings (including a saved NickServ password), and your last-selected space. Clearing browser storage removes them. Message history keeps the latest 500 messages per conversation; if browser storage fills up, images are dropped from the saved history but text is kept.
-
-`.env`, `data/`, and the wallet are git-ignored. The folder can be moved or copied; it does not depend on ArynCore.
+- Accounts, spaces and everything in them: `grove.sqlite3` in the data folder (`community.sqlite3` on an upgraded 0.3 install), readable by the service only. Servers keep 14 daily copies in `backups/`; export a space as JSON from People & identity.
+- Private messages identity: `nkn/wallet.json` (on an installed server, `nkn-wallet.json` in the data folder). Keep a private backup; losing it changes the address.
+- In the browser: Private messages contacts and history, IRC settings, and your last-selected space.
 
 ## Checks
 
 ```bash
 .venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m unittest discover -s tests     # 21 backend tests
-npm --prefix frontend run lint
-npm --prefix frontend run build
-npm --prefix frontend audit && npm --prefix nkn audit   # nkn/ is the Message network bridge
+.venv/bin/python -m unittest discover -s tests
+npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
+scripts/package.sh         # builds release/arynwood-grove-<version>.tar.gz
 ```
 
-Tests use mocked mail, IRC and Message services; they never contact live accounts.
+Tests use mocked mail, IRC and NKN services; they never contact live accounts.
 
 ## Security
 
 - Passwords: PBKDF2-SHA256 (600,000 rounds). Sessions: HTTP-only, SameSite=Strict cookies, stored hashed.
-- Changing your password signs out your other sessions.
-- Sign-in, sign-up and password changes are rate-limited.
-- Every state-changing request needs a custom header and a same-origin `Origin`; WebSocket handshakes check the origin too.
-- A strict Content Security Policy is in place, with no third-party scripts, styles or fonts.
-- Mail, IRC and Message endpoints are for the host only. IRC input cannot inject extra IRC commands. Mail headers are validated. Images received in Message are only displayed if they are inline PNG, JPEG, GIF or WebP.
+- Sign-in, sign-up, password changes and public-link sign-ups are rate-limited. The host account needs the installer's setup code.
+- Every state-changing request needs a custom header and an allowed `Origin`; WebSocket handshakes check the origin too.
+- A strict Content Security Policy, with no third-party scripts, styles or fonts. Change notices carry no content: pages re-read through the normal permission checks.
+- On a server, the service runs as its own user with a read-only program folder; only the data folder is writable.
+- Mail, IRC and Private messages are for the host only. **On a public server the host reaches them from the public address**, so use a strong, unique host password.
 
-## Branding
+## FAQ
 
-The Arynwood tree logo (`frontend/public/arynwood-logo.png`, `favicon.png`, `apple-touch-icon.png`, `desktop/arynwood-community.png`) is artwork by Lorelei Noble (Arynwood Technology). All rights reserved. It is not covered by any licence that applies to the code.
+**Where are my community's messages and plans stored?** On the server that runs your Grove, in one database file there. Members' browsers read and write it through that server; nothing is copied to Arynwood or anywhere else, and community.arynwood.com is a separate Grove with its own accounts.
+
+**Do my friends need to install anything?** No. They open your invite link in a browser on any computer or phone and create an account on your Grove.
+
+**What does it cost to run?** The software is free (AGPL-3.0). The service itself uses about 60 MB of memory when idle, so a small VPS plan is enough for a household or a circle of friends; you pay your domain and server providers directly.
+
+## License and branding
+
+Code: GNU AGPL-3.0 (see `LICENSE`). A running server offers its source at `/api/source`. The members' page includes styling adapted from Arynwood MCP, contributed under the same licence.
+
+The Arynwood tree logo (`frontend/public/arynwood-tree.png`, `icon.png`, `favicon-32.png`, `favicon.svg`, `desktop/arynwood-community.png`) is artwork by Lorelei Noble (Arynwood Technology). All rights reserved. It is not covered by any licence that applies to the code.

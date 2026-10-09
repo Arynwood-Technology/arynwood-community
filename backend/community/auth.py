@@ -6,11 +6,14 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from starlette.requests import HTTPConnection
 from pydantic import BaseModel, Field, field_validator
-from .store import db
+from .store import db, public_origin, setting
+from . import live
 import os
 
 router = APIRouter()
-COOKIE = 'community_session'
+COOKIE = 'grove_session'
+# Members signed in to Community 0.3 stay signed in through the upgrade.
+LEGACY_COOKIE = 'community_session'
 SESSION_AGE = 60 * 60 * 24 * 14
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -24,8 +27,11 @@ def password_matches(value, stored):
     actual = hashlib.pbkdf2_hmac('sha256', value.encode(), salt.encode(), 600_000).hex()
     return hmac.compare_digest(actual, expected)
 
+def session_token(connection: HTTPConnection):
+    return connection.cookies.get(COOKIE) or connection.cookies.get(LEGACY_COOKIE) or ''
+
 def user(connection: HTTPConnection):
-    token = connection.cookies.get(COOKIE, '')
+    token = session_token(connection)
     with db() as c:
         row = c.execute('SELECT u.id,u.name,u.email,u.admin FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?', (digest(token), time.time())).fetchone()
     if not row: raise HTTPException(401, 'Sign in to continue.')
@@ -35,20 +41,39 @@ def administrator(current=Depends(user)):
     if not current['admin']: raise HTTPException(403, 'Host access required.')
     return current
 
-def session(response, uid):
+def session(request, response, uid):
     token = secrets.token_urlsafe(32)
     with db() as c:
         c.execute('DELETE FROM sessions WHERE expires < ?', (time.time(),))
         c.execute('INSERT INTO sessions VALUES (?,?,?)', (digest(token), uid, time.time()+SESSION_AGE))
-    response.set_cookie(COOKIE, token, httponly=True, secure=os.getenv('COMMUNITY_SECURE_COOKIE') == '1', samesite='strict', max_age=SESSION_AGE, path='/')
+    # Behind the server's HTTPS proxy the scheme arrives as https (uvicorn trusts the
+    # loopback proxy's X-Forwarded-Proto), so members' cookies are Secure there.
+    secure = setting('SECURE_COOKIE') == '1' or request.url.scheme == 'https'
+    response.set_cookie(COOKIE, token, httponly=True, secure=secure, samesite='strict', max_age=SESSION_AGE, path='/')
+
+def client_address(request):
+    return request.client.host if request.client else 'local'
+
+def count_use(c, key, limit):
+    """At most `limit` uses of `key` in 15 minutes, counted in transaction `c`."""
+    key = digest(key)
+    c.execute('DELETE FROM attempts WHERE at < ?', (time.time()-900,))
+    if c.execute('SELECT count(*) FROM attempts WHERE key=?', (key,)).fetchone()[0] >= limit:
+        raise HTTPException(429, 'Try again in 15 minutes.')
+    c.execute('INSERT INTO attempts VALUES (?,?)', (key, time.time()))
+
+def throttle(key, limit):
+    with db() as c: count_use(c, key, limit)
 
 def rate_limit(request, email):
-    key = digest((request.client.host if request.client else 'local') + ':' + email.lower())
-    with db() as c:
-        c.execute('DELETE FROM attempts WHERE at < ?', (time.time()-900,))
-        count = c.execute('SELECT count(*) FROM attempts WHERE key=?', (key,)).fetchone()[0]
-        if count >= 12: raise HTTPException(429, 'Try again in 15 minutes.')
-        c.execute('INSERT INTO attempts VALUES (?,?)', (key, time.time()))
+    throttle(client_address(request) + ':' + email.lower(), 12)
+
+# Accounts one address may open through public invite links in 15 minutes.
+PUBLIC_LINK_SIGNUPS = 10
+
+def setup_code():
+    """Set by the server installer, so only the person installing can create the host account."""
+    return os.getenv('GROVE_SETUP_CODE', '').strip()
 
 class Credentials(BaseModel):
     email: str = Field(min_length=3, max_length=254)
@@ -62,8 +87,9 @@ class Credentials(BaseModel):
 
 class Signup(Credentials):
     name: str = Field(min_length=1, max_length=80)
-    space: str = Field(default='My community', min_length=1, max_length=80)
+    space: str = Field(default='My Grove', min_length=1, max_length=80)
     invite: str = Field(default='', max_length=128)
+    setup_code: str = Field(default='', max_length=128)
     @field_validator('name','space')
     @classmethod
     def nonblank(cls, value):
@@ -72,7 +98,16 @@ class Signup(Credentials):
 
 @router.get('/status')
 def status():
-    with db() as c: return {'setup': c.execute('SELECT count(*) FROM users').fetchone()[0] == 0}
+    with db() as c: setup = c.execute('SELECT count(*) FROM users').fetchone()[0] == 0
+    return {'setup': setup, 'setup_code': setup and bool(setup_code()), 'recovery': 'host-code', 'public_url': public_origin() or None}
+
+def invitation(c, token):
+    """(space id, one-use) for a one-use invite or a space's public link, or (None, False)."""
+    if not token: return None, False
+    row = c.execute('SELECT space_id FROM invites WHERE token=? AND expires>?', (digest(token), time.time())).fetchone()
+    if row: return row['space_id'], True
+    row = c.execute('SELECT space_id FROM invite_links WHERE token=?', (token,)).fetchone()
+    return (row['space_id'], False) if row else (None, False)
 
 @router.post('/signup')
 def signup(body: Signup, request: Request, response: Response):
@@ -82,19 +117,24 @@ def signup(body: Signup, request: Request, response: Response):
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         first=c.execute('SELECT count(*) FROM users').fetchone()[0] == 0
-        invite=None
-        if not first:
-            invite=c.execute('SELECT * FROM invites WHERE token=? AND expires>?', (digest(body.invite),time.time())).fetchone()
-            if not invite: raise HTTPException(400, 'Invite expired or unavailable.')
+        sid, one_use = None, False
+        if first:
+            if setup_code() and not hmac.compare_digest(body.setup_code.strip().encode(), setup_code().encode()):
+                raise HTTPException(403, 'Enter the setup code the installer printed.')
+        else:
+            sid, one_use = invitation(c, body.invite)
+            if not sid: raise HTTPException(400, 'Invite expired or unavailable.')
+            # A public link can be posted anywhere, so one address may open only a few accounts through it.
+            if not one_use: count_use(c, 'public-link:' + client_address(request), PUBLIC_LINK_SIGNUPS)
         if c.execute('SELECT 1 FROM users WHERE email=?',(body.email,)).fetchone(): raise HTTPException(409, 'This email is already registered.')
         c.execute('INSERT INTO users VALUES (?,?,?,?,?,?)',(uid,body.name,body.email,hashed,int(first),now()))
         if first:
             sid=identifier()
             c.execute('INSERT INTO spaces VALUES (?,?,?)',(sid,body.space,now()))
-        else: sid=invite['space_id']
         c.execute('INSERT INTO members VALUES (?,?,?)',(sid,uid,'owner' if first else 'member'))
-        if invite: c.execute('DELETE FROM invites WHERE token=?',(digest(body.invite),))
-    session(response,uid)
+        if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.invite),))
+    if not first: live.publish(sid)
+    session(request,response,uid)
     return {'id':uid, 'name':body.name,'email':body.email,'admin':int(first)}
 
 @router.post('/login')
@@ -104,7 +144,7 @@ def login(body: Credentials, request: Request, response: Response):
     # Spend the same hashing work for unknown accounts.
     stored=row['password'] if row else '0'*32+':'+'0'*64
     if not password_matches(body.password,stored) or not row: raise HTTPException(401, 'Email or password is incorrect.')
-    session(response,row['id'])
+    session(request,response,row['id'])
     return {k:row[k] for k in ('id','name','email','admin')}
 
 @router.get('/me')
@@ -112,8 +152,8 @@ def me(current=Depends(user)): return current
 
 @router.post('/logout')
 def logout(request: Request, response: Response):
-    with db() as c: c.execute('DELETE FROM sessions WHERE token=?',(digest(request.cookies.get(COOKIE,'')),))
-    response.delete_cookie(COOKIE, path='/')
+    with db() as c: c.execute('DELETE FROM sessions WHERE token=?',(digest(session_token(request)),))
+    response.delete_cookie(COOKIE, path='/'); response.delete_cookie(LEGACY_COOKIE, path='/')
     return {'ok':True}
 
 class PasswordChange(BaseModel):
@@ -127,6 +167,29 @@ def change_password(body: PasswordChange, request: Request, response: Response, 
         row=c.execute('SELECT password FROM users WHERE id=?',(current['id'],)).fetchone()
         if not password_matches(body.current,row['password']): raise HTTPException(400,'Current password is incorrect.')
         c.execute('UPDATE users SET password=? WHERE id=?',(password_hash(body.password),current['id']))
+        c.execute('DELETE FROM password_resets WHERE user_id=?',(current['id'],))
         c.execute('DELETE FROM sessions WHERE user_id=?',(current['id'],))
-    session(response,current['id'])
+    session(request,response,current['id'])
     return {'ok':True}
+
+
+class PasswordReset(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=12, max_length=256)
+
+@router.post('/password/reset')
+def reset_password(body: PasswordReset, request: Request, response: Response):
+    # Rate limiting is per client, not per supplied token, to bound guessing attempts.
+    rate_limit(request, 'password-reset')
+    hashed = password_hash(body.password)
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        reset = c.execute('SELECT user_id FROM password_resets WHERE token=? AND expires>?',
+                          (digest(body.token), time.time())).fetchone()
+        if not reset: raise HTTPException(400, 'Reset code expired or unavailable. Ask the host for a new code.')
+        uid = reset['user_id']
+        c.execute('UPDATE users SET password=? WHERE id=?', (hashed, uid))
+        c.execute('DELETE FROM sessions WHERE user_id=?', (uid,))
+        c.execute('DELETE FROM password_resets WHERE user_id=?', (uid,))
+    response.delete_cookie(COOKIE, path='/')
+    return {'ok': True}

@@ -1,24 +1,26 @@
+@scope (.grove-community) {
 /* Arynwood Community */
 
-:root {
-  /* Arynwood: medium-dark grays with the tree logo's teal, plum and slate. */
-  --bg: #24272e;
-  --surface: #2d3139;
-  --surface2: #363b45;
-  --border: #414754;
-  --border-strong: #545b69;
-  --accent: #44d4d0;          /* light teal */
-  --accent-hover: #72e2de;
+:scope {
+  /* Grove: charcoal surfaces with the tree logo's green-teal light. */
+  --bg: #0f1314;
+  --surface: #171c1d;
+  --surface2: #202828;
+  --border: #354343;
+  --border-strong: #50645d;
+  --accent: #4fd1ab;          /* light teal */
+  --accent-hover: #7de4d5;
   --accent-soft: rgba(68, 212, 208, .14);
-  --accent-text: #6fe0dc;
+  --accent-text: #7de4d5;
   --on-accent: #0c2729;
-  --accent2: #e3a6c9;         /* plum, readable on dark */
-  --plum: #5a1040;
-  --plum-mid: #8e2a66;
-  --plum-soft: rgba(142, 42, 102, .28);
-  --slate: #2b5079;
-  --text: #e7eaef;
-  --text-muted: #a4acb9;
+  --accent2: #7de4d5;         /* light teal, readable on dark */
+  /* Kept names from the old plum/slate palette; now the Grove's greens. */
+  --plum: #10302a;
+  --plum-mid: #176b57;
+  --plum-soft: rgba(79, 209, 171, .16);
+  --slate: #1d4a47;
+  --text: #f4f8f6;
+  --text-muted: #b8c7c1;
   --success: #6fd3a0;
   --warning: #e8b86b;
   --danger: #ff8f8f;
@@ -212,11 +214,11 @@ main.full-bleed { overflow: hidden; }
 .today-banner {
   position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 20px;
   padding: 28px 30px; border-radius: 20px; color: #fff; border: 1px solid rgba(68, 212, 208, .25);
-  background: radial-gradient(90% 140% at 100% 0%, rgba(68, 212, 208, .35) 0%, transparent 55%), linear-gradient(120deg, var(--plum) 0%, #3d1f55 45%, var(--slate) 100%);
+  background: radial-gradient(90% 140% at 100% 0%, rgba(68, 212, 208, .35) 0%, transparent 55%), linear-gradient(120deg, var(--surface) 0%, var(--plum) 55%, var(--slate) 100%);
 }
 .today-banner .eyebrow { color: var(--accent); }
 .today-banner h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); letter-spacing: -.02em; margin-bottom: 6px; }
-.today-banner p { color: #e6dbe6; }
+.today-banner p { color: var(--text-muted); }
 .banner-mark { width: 116px; height: 116px; flex-shrink: 0; border-radius: 50%; box-shadow: 0 8px 30px rgba(0, 0, 0, .35), 0 0 0 3px rgba(68, 212, 208, .3); }
 
 .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -228,7 +230,7 @@ main.full-bleed { overflow: hidden; }
 .stat-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 .stat-card > svg:first-child { grid-row: span 2; width: 38px; height: 38px; padding: 9px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
 .stat-card:nth-child(2) > svg:first-child { background: var(--plum-soft); color: var(--accent2); }
-.stat-card:nth-child(3) > svg:first-child { background: rgba(43, 80, 121, .45); color: #9cc3ec; }
+.stat-card:nth-child(3) > svg:first-child { background: rgba(29, 74, 71, .6); color: var(--accent2); }
 .stat-card strong { font-size: 24px; line-height: 1.1; }
 .stat-card span { color: var(--text-muted); font-size: 13px; }
 .stat-card > svg:last-child { position: absolute; top: 14px; right: 14px; color: var(--text-muted); }
@@ -320,6 +322,19 @@ main.full-bleed { overflow: hidden; }
 /* Settings */
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
 .invite-box { display: flex; gap: 8px; }
+.public-link { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.public-link h3 { margin: 0 0 4px; font-size: 15px; }
+.public-link .action-row { margin-top: 8px; }
+.setup-choices { display: grid; gap: 14px; margin-top: 8px; }
+.setup-choices section { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface); }
+.setup-choices h3 { margin: 0 0 4px; font-size: 16px; }
+.join-by-link { display: grid; gap: 10px; margin-top: 10px; }
+.grove-address h2 { display: flex; align-items: center; gap: 8px; }
+.address-form { display: grid; gap: 10px; margin: 10px 0; }
+.dns-record { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 14px; }
+.dns-record th, .dns-record td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.dns-record td:last-child { display: flex; align-items: center; gap: 6px; }
+.grove-address .confirm { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px; }
 .invite-box input { flex: 1; font-size: 13px !important; }
 .member-list, .status-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .member-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -335,15 +350,15 @@ main.full-bleed { overflow: hidden; }
 .welcome { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 .welcome-story {
   display: flex; flex-direction: column; justify-content: space-between; gap: 40px; padding: 44px 52px; color: #fff;
-  background: radial-gradient(80% 70% at 0% 100%, rgba(68, 212, 208, .28) 0%, transparent 60%), linear-gradient(155deg, var(--plum) 0%, #3a1a50 50%, var(--slate) 100%);
+  background: radial-gradient(80% 70% at 0% 100%, rgba(68, 212, 208, .28) 0%, transparent 60%), linear-gradient(155deg, var(--surface) 0%, var(--plum) 55%, var(--slate) 100%);
 }
 .welcome-story .brand, .welcome-story .brand span { color: #fff; padding: 0; }
 .welcome-story .brand b { color: var(--accent); }
 .welcome-logo { width: 132px; height: 132px; border-radius: 50%; margin-bottom: 26px; box-shadow: 0 12px 40px rgba(0, 0, 0, .4), 0 0 0 4px rgba(68, 212, 208, .3); }
 .welcome-story h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); letter-spacing: -.035em; margin: 6px 0 12px; }
-.welcome-story p { font-size: 1.15rem; color: #e9dfea; max-width: 30ch; }
+.welcome-story p { font-size: 1.15rem; color: var(--text-muted); max-width: 30ch; }
 .welcome-story .eyebrow { color: var(--accent); }
-.welcome-story small { color: #c9b5cc; }
+.welcome-story small { color: var(--text-muted); }
 .welcome-features { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
 .welcome-features span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .12); font-size: 14px; }
 .welcome-features svg { width: 17px; height: 17px; }
@@ -456,3 +471,36 @@ main.full-bleed { overflow: hidden; }
   .irc-side, .p2p-side { width: 100% !important; max-height: 38%; border-right: none !important; border-bottom: 1px solid var(--border); overflow-y: auto; }
   .irc-users { display: none !important; }
 }
+
+.logo { filter: drop-shadow(0 0 12px rgba(79,209,171,.45)); }
+.grove-mark { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 42% 35%, #baf4df, #4fd1ab 48%, #176b57 80%); box-shadow: 0 0 18px rgba(79,209,171,.4); }
+.grove-mark img { width: 86%; height: 86%; object-fit: contain; }
+.avatar { background: #176b57; }
+
+}
+.grove-community { height:100%; overflow:auto; background:#0f1314; color:#f4f8f6; font:15px/1.5 Inter,system-ui,sans-serif; }
+@scope (.grove-community) {
+.planner-date { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
+.planner-date label { display:flex; align-items:center; gap:8px; }
+.planner-grid { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr); gap:22px; align-items:start; }
+.planner-hours { padding:20px; }
+.planner-hour { display:grid; grid-template-columns:100px minmax(0,1fr); min-height:62px; border-top:1px solid var(--border); padding:7px 0; }
+.planner-hour-add { display:flex; align-items:center; justify-content:space-between; gap:6px; align-self:start; background:none; border:none; padding:8px 10px 8px 0; color:var(--text-muted); cursor:pointer; font-size:13px; }
+.planner-hour-add:hover { color:var(--accent); }
+.planner-event { display:flex; flex-direction:column; align-items:start; gap:3px; width:100%; text-align:left; border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:8px; background:var(--accent-soft); padding:10px 12px; margin-bottom:5px; cursor:pointer; }
+.planner-event span { white-space:pre-wrap; overflow-wrap:anywhere; }
+.planner-event small { color:var(--accent-text); }
+.planner-focus { display:grid; gap:18px; position:sticky; top:20px; }
+.planner-list { padding:14px 0; border-top:1px solid var(--border); }
+.community-header { padding-bottom:0; }
+.community-identity { display:flex; gap:8px; align-items:center; color:var(--text-muted); margin-top:5px; flex-wrap:wrap; }
+.community-nav { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+.community-nav a { min-height:38px; }
+.community-connection { height:650px; min-height:400px; border:1px solid var(--border); border-radius:14px; overflow:hidden; margin:20px 32px 32px; }
+@media (max-width:1000px) { .planner-grid { grid-template-columns:minmax(0,1fr); } .planner-focus { position:static; grid-row:1; } .community-connection { margin:16px; } }
+}
+
+@scope (.grove-community) { .planner-time-window { position:relative; max-height:65vh; overflow:auto; scrollbar-gutter:stable; } }
+
+.grove-community .community-brand { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.grove-community .community-brand .tagline { text-transform:none; letter-spacing:normal; font-size:14px; margin-bottom:0; }

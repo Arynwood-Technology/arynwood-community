@@ -4,7 +4,7 @@ import stat
 import unittest
 import tempfile
 from unittest.mock import patch
-os.environ.setdefault('COMMUNITY_HOSTS', 'testserver,localhost,127.0.0.1')
+os.environ.setdefault('GROVE_HOSTS', 'testserver,localhost,127.0.0.1')
 from fastapi.testclient import TestClient
 from backend.api import app
 from backend.community import store
@@ -17,8 +17,11 @@ PASSWORD = 'correct horse battery staple'
 class HubTests(unittest.TestCase):
     def setUp(self):
         self.data = tempfile.TemporaryDirectory()
-        self.env = patch.dict(os.environ, {'COMMUNITY_DATA_DIR': self.data.name})
+        self.env = patch.dict(os.environ, {'GROVE_DATA_DIR': self.data.name})
         self.env.start()
+        # Hermetic: no server settings from the shell running the tests.
+        for name in [k for k in os.environ if k.startswith(('GROVE_', 'COMMUNITY_')) and k != 'GROVE_DATA_DIR']:
+            del os.environ[name]
     def tearDown(self):
         self.env.stop(); self.data.cleanup()
 
@@ -44,7 +47,7 @@ class HubTests(unittest.TestCase):
     def test_feature_routes_and_removed_endpoints(self):
         with TestClient(app) as client:
             health = client.get('/api/health').json()
-            self.assertEqual(health['name'], 'Arynwood Community')
+            self.assertEqual(health['name'], 'Arynwood Grove')
             self.assertEqual(health['version'], store.VERSION)
             for path in ['/api/servers', '/api/irc/bots', '/api/tools', '/api/spotify/status']:
                 self.assertEqual(client.get(path).status_code, 404)
@@ -168,10 +171,11 @@ class HubTests(unittest.TestCase):
             self.assertEqual(codes[-1], 429)
 
     def test_spa_routes_and_asset_caching(self):
+        from backend.api import web_dir
         with TestClient(app) as client:
-            if not (store.ROOT / 'frontend' / 'dist' / 'index.html').exists():
+            if not (web_dir() / 'index.html').exists():
                 self.skipTest('frontend not built')
-            for path in ['/', '/boards', '/join', '/settings']:
+            for path in ['/', '/boards', '/join', '/settings', '/community', '/community/calendar']:
                 self.assertEqual(client.get(path).status_code, 200)
             self.assertEqual(client.get('/nope').status_code, 404)
             self.assertEqual(client.get('/api/nope').status_code, 404)

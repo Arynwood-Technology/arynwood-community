@@ -1,4 +1,4 @@
-# Pinned for the 0.3.0 release. Update deliberately and re-run the tests.
+# Pinned for the 0.4.0 release. Update deliberately and re-run the tests.
 fastapi==0.141.1
 starlette==1.7.0
 pydantic==2.13.5
