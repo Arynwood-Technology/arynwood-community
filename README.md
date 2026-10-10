@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.4.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.4.1. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
