@@ -44,7 +44,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.4.0   # a particular release
+sudo arynwood-grove update --version 0.4.1   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -66,13 +66,15 @@ An update that fails to start is undone automatically: the previous release keep
 `upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, NKN wallet, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.0.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.0.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.1.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.1.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.
 
 Members stay signed in, and invitation links made in 0.3 keep working. `COMMUNITY_ORIGIN` (if it is an `https://` address) becomes the Grove's public address, so new invite links use it.
+
+A server upgraded this way doesn't have the `arynwood-grove` command. It takes later releases the same way: download the new `arynwood-grove-<version>.tar.gz` from the releases page and run both commands again with it. The folder it replaces is kept as `<dir>-<old version>-<date>`.
 
 ## By hand
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Upgrade an Arynwood Community 0.3 server to Arynwood Grove, in place.
+# Upgrade an Arynwood Community 0.3 server to Arynwood Grove, in place, or a Grove that was
+# upgraded this way to a newer release.
 #
-#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.0.tar.gz
+#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.1.tar.gz
 #
 # Run it as the account that owns the install, not as root. It keeps the install's folder,
 # .env, data, IRC settings, NKN wallet and Python environment, so the existing systemd service
@@ -19,7 +20,7 @@ while [[ $# -gt 0 ]]; do
     --service) SERVICE=$2; shift 2 ;;
     --port) PORT=$2; shift 2 ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -38,6 +39,7 @@ DATA=$(env_value COMMUNITY_DATA_DIR); DATA=${DATA:-$DIR/data}; [[ $DATA == /* ]]
 DATA=$(cd "$DATA" && pwd)
 python=$DIR/.venv/bin/python
 [[ -x $python ]] || die "No Python environment at $DIR/.venv."
+PREV=$(sed -n "s/^VERSION = '\(.*\)'/\1/p" "$DIR/backend/community/store.py"); PREV=${PREV:-unknown}
 
 stamp=$(date +%Y%m%d-%H%M%S)
 BACKUP=${DIR%/*}/arynwood-community-backups/$stamp
@@ -57,6 +59,7 @@ say "Staging the new release in $NEXT"
 rm -rf "$NEXT"; mkdir "$NEXT"
 tar -xzf "$FROM" -C "$NEXT" --strip-components=1
 [[ -f $NEXT/backend/api.py && -f $NEXT/frontend/dist/index.html ]] || die "$FROM is not a Grove release."
+NEW=$(cat "$NEXT/VERSION" 2>/dev/null || true)
 cp -p "$DIR/.env" "$NEXT/.env"
 [[ -d $DIR/config ]] && { rm -rf "$NEXT/config"; cp -rp "$DIR/config" "$NEXT/config"; }
 [[ -f $DIR/nkn/wallet.json ]] && cp -p "$DIR/nkn/wallet.json" "$NEXT/nkn/wallet.json"
@@ -86,7 +89,7 @@ if [[ $PREPARE_ONLY == 1 ]]; then
   exit 0
 fi
 
-OLD=$DIR-0.3-$stamp
+OLD=$DIR-$PREV-$stamp
 say "Switching: stopping $SERVICE for a few seconds (sudo)"
 sudo systemctl stop "$SERVICE"
 # The live data moves (never copied), so nothing written before the stop is lost.
@@ -94,19 +97,20 @@ if [[ $DATA == "$DIR/data" ]]; then rm -rf "$NEXT/data"; mv "$DIR/data" "$NEXT/d
 mv "$DIR" "$OLD"; mv "$NEXT" "$DIR"
 sudo systemctl start "$SERVICE"
 healthy=0
-for _ in $(seq 1 30); do curl -fsS -m 2 -H "Host: $HOST" "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q 'Arynwood Grove' && { healthy=1; break; }; sleep 1; done
+# The new version must be the one answering, not a process left over from before the stop.
+for _ in $(seq 1 30); do curl -fsS -m 2 -H "Host: $HOST" "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep 'Arynwood Grove' | grep -q "\"version\":\"$NEW" && { healthy=1; break; }; sleep 1; done
 if [[ $healthy == 0 ]]; then
-  echo "The Grove did not start. Putting Community 0.3 back." >&2
+  echo "The new release did not start. Putting $PREV back." >&2
   sudo systemctl stop "$SERVICE"
   mv "$DIR" "$NEXT"; mv "$OLD" "$DIR"
   if [[ $DATA == "$DIR/data" && -d $NEXT/data ]]; then mv "$NEXT/data" "$DIR/data"; fi
   sudo systemctl start "$SERVICE"
-  die "Back on Community 0.3. See: sudo journalctl -u $SERVICE -n 50"
+  die "Back on $PREV. See: sudo journalctl -u $SERVICE -n 50"
 fi
 say "Arynwood Grove is running in $DIR. Members stay signed in."
 cat <<DONE
 
-  Community 0.3 is kept in $OLD
+  The previous version ($PREV) is kept in $OLD
   Backups are in $BACKUP
   To go back:  sudo systemctl stop $SERVICE && mv $DIR/data $OLD/data && mv $DIR $DIR.grove && mv $OLD $DIR && sudo systemctl start $SERVICE
 

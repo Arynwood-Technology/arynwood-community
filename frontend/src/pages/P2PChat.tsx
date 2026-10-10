@@ -47,8 +47,8 @@ type WsEvent =
 // ---------------------------------------------------------------------------
 
 const AVATAR_COLORS = [
-  '#176b57', '#1d4a47', '#2f8a86', '#1a9894',
-  '#3f7d5c', '#2c6e8a', '#4a8f6f', '#25605a',
+  '#176b57', '#1d4a47', '#26716e', '#147c78',
+  '#3f7d5c', '#2c6e8a', '#3a7558', '#25605a',
 ]
 
 function addrColor(addr: string): string {
@@ -466,7 +466,8 @@ export function P2PChat() {
         : { seed: raw }
       const res = await fetch('/community-api/p2p/wallet', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // The Grove refuses a change without this header (its cross-site request guard).
+        headers: { 'Content-Type': 'application/json', 'X-Community-Request': '1' },
         body: JSON.stringify(body),
       })
       if (!res.ok) {

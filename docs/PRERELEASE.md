@@ -1,8 +1,24 @@
 # Arynwood Grove release notes
 
-Version: `0.4.0`
+Version: `0.4.1`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.4.1
+
+Fixes
+
+- Private messages: importing an identity (seed or wallet file) was refused by the Grove's own cross-site request guard. It now sends the guard header like every other change, and a test checks every change the members' page makes for it.
+- Three member avatar colours were too light for their white initials. All eight now meet the 4.5:1 contrast standard.
+
+Servers
+
+- `upgrade-from-community.sh` also updates a Grove that was upgraded in place from Community 0.3, which doesn't have the `arynwood-grove` command: run it again with the new release file. The kept folder is named after the version it replaced.
+
+Housekeeping
+
+- Dependency updates within their current versions (React 19.3, Vite 7.3, ESLint 9.39 and others), including the fix for the source-map-js advisory GHSA-68fv-2mgg-jv7q. npm audit and pip-audit report no known vulnerabilities.
+- Code changes for the updated React lint rules.
 
 ## 0.4.0
 

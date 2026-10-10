@@ -66,7 +66,8 @@ export function Community() {
   const requested=location.pathname.split('/')[2]
   const section=requested==='chat'?'discussion':sections.find(s=>s===requested)??'calendar'
   const space=spaces.find(s=>s.id===selected)??spaces[0]
-  useEffect(()=>{if(section==='messages'&&user?.admin)setPeerVisited(true)},[section,user?.admin])
+  // Peer messages stay connected once opened, so remember the first visit (it mounts P2PChat for good).
+  if(section==='messages'&&user?.admin&&!peerVisited)setPeerVisited(true)
   const hostPage=['irc','messages','mail'].includes(section)
   return <div className="grove-community">
     {!ready?<div className="workspace"><p>Opening Community…</p></div>:!user?<Welcome onLogin={async(u,usedInvite)=>{

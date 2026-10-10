@@ -12,13 +12,15 @@ export function GroveAddress() {
   const [domain, setDomain] = useState(''), [email, setEmail] = useState(''), [confirming, setConfirming] = useState(false)
   const [moving, setMoving] = useState(''), [movedTo, setMovedTo] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [copied, setCopied] = useState(false)
   const misses = useRef(0)
-  useEffect(() => { api<Address>('/grove-setup/address').then(a => { setInfo(a); if (a.pending) setMoving(a.pending) }).catch(e => setError((e as Error).message)) }, [])
+  // When the address was last read: how old a failed move is, without reading the clock during render.
+  const [checkedAt, setCheckedAt] = useState(0)
+  useEffect(() => { api<Address>('/grove-setup/address').then(a => { setInfo(a); setCheckedAt(Date.now()); if (a.pending) setMoving(a.pending) }).catch(e => setError((e as Error).message)) }, [])
   // While the server moves, ask how it is going. Once it has moved, this address may only forward.
   useEffect(() => {
     if (!moving) return
     const timer = setInterval(() => {
       api<Address>('/grove-setup/address').then(a => {
-        misses.current = 0; setInfo(a)
+        misses.current = 0; setInfo(a); setCheckedAt(Date.now())
         if (!a.pending && a.result?.domain === moving) { if (a.result.status === 'done') setMovedTo(moving); setMoving('') }
       }).catch(() => { if (++misses.current >= 3) { setMovedTo(moving); setMoving('') } })
     }, 3000)
@@ -40,7 +42,7 @@ export function GroveAddress() {
   if (!info) return error ? <section className="panel"><h2>Your Grove's address</h2><p className="error" role="alert">{error}</p></section> : null
   const scheme = info.address?.split('://')[0] ?? location.protocol.replace(':', '')
   // A failed attempt is worth showing for a while; a finished move is announced in the page that made it.
-  const failed = info.result?.status === 'failed' && Date.now() / 1000 - (info.result.finished ?? 0) < 3600 ? info.result : null
+  const failed = info.result?.status === 'failed' && checkedAt / 1000 - (info.result.finished ?? 0) < 3600 ? info.result : null
   return <section className="panel grove-address" aria-label="Your Grove's address">
     <h2><Globe size={18} /> Your Grove's address</h2>
     <p>Members open <strong>{info.address ?? 'this computer only'}</strong>{info.temporary && info.address ? ' — a temporary address' : ''}.</p>

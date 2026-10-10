@@ -48,6 +48,8 @@ export function Mail() {
     finally { setLoading(false) }
   }, [])
 
+  // Reloading the inbox for the chosen account resets the list first (fetchInbox's synchronous setState).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (activeAcct) void fetchInbox(activeAcct) }, [activeAcct, fetchInbox])
 
   async function openMsg(msg: MailMsg) {
