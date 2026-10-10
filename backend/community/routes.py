@@ -20,6 +20,13 @@ def membership(c, sid, uid, owner=False):
     if owner and row['role']!='owner': raise HTTPException(403,'Space owner access required.')
     return row['role']
 
+def owner_count(c, sid):
+    return c.execute("SELECT COUNT(*) FROM members WHERE space_id=? AND role='owner'",(sid,)).fetchone()[0]
+
+# A space as one member sees it: its topic, and that member's role.
+SPACE='''SELECT s.*,COALESCE(t.topic,'') AS topic,m.role FROM spaces s JOIN members m ON m.space_id=s.id
+         LEFT JOIN space_topics t ON t.space_id=s.id'''
+
 def visible_entry(c, sid, eid, uid):
     row=c.execute('SELECT * FROM entries WHERE id=? AND space_id=?',(eid,sid)).fetchone()
     if not row or (row['visibility']=='private' and row['author_id']!=uid): raise HTTPException(404,'Item not found.')
@@ -33,18 +40,45 @@ class SpaceBody(BaseModel):
         if not v.strip(): raise ValueError('Required.')
         return v.strip()
 
+class SpaceDetails(SpaceBody):
+    topic: str=Field(default='',max_length=300)
+    @field_validator('topic')
+    @classmethod
+    def one_line(cls,v): return ' '.join(v.split())
+
 @router.get('/spaces')
 def spaces(current=Depends(user)):
     with db() as c:
-        return [dict(r) for r in c.execute('SELECT s.*,m.role FROM spaces s JOIN members m ON m.space_id=s.id WHERE m.user_id=? ORDER BY s.created',(current['id'],))]
+        return [dict(r) for r in c.execute(SPACE+' WHERE m.user_id=? ORDER BY s.created',(current['id'],))]
 
 @router.post('/spaces',status_code=201)
 def create_space(body:SpaceBody,current=Depends(user)):
     sid=identifier()
     with db() as c:
-        c.execute('INSERT INTO spaces VALUES (?,?,?)',(sid,body.name,now()))
+        c.execute('INSERT INTO spaces (id,name,created) VALUES (?,?,?)',(sid,body.name,now()))
         c.execute('INSERT INTO members VALUES (?,?,?)',(sid,current['id'],'owner'))
-    return {'id':sid,'name':body.name,'role':'owner'}
+    return {'id':sid,'name':body.name,'topic':'','role':'owner'}
+
+@router.put('/spaces/{sid}')
+def update_space(sid:str,body:SpaceDetails,current=Depends(user)):
+    with db() as c:
+        membership(c,sid,current['id'],owner=True)
+        c.execute('UPDATE spaces SET name=? WHERE id=?',(body.name,sid))
+        if body.topic: c.execute('INSERT OR REPLACE INTO space_topics VALUES (?,?)',(sid,body.topic))
+        else: c.execute('DELETE FROM space_topics WHERE space_id=?',(sid,))
+        saved=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
+    live.publish(sid)
+    return saved
+
+@router.delete('/spaces/{sid}')
+def delete_space(sid:str,current=Depends(user)):
+    """Deletes the space for everyone: its members, invitations and everything written in it."""
+    with db() as c:
+        membership(c,sid,current['id'],owner=True)
+        c.execute('DELETE FROM spaces WHERE id=?',(sid,))
+    # Members' open pages refetch, are refused, and move to another space.
+    live.publish(sid)
+    return {'ok':True}
 
 @router.get('/spaces/{sid}/members')
 def members(sid:str,current=Depends(user)):
@@ -52,14 +86,32 @@ def members(sid:str,current=Depends(user)):
         membership(c,sid,current['id'])
         return [dict(r) for r in c.execute('SELECT u.id,u.name,m.role FROM members m JOIN users u ON u.id=m.user_id WHERE m.space_id=? ORDER BY u.name',(sid,))]
 
+class RoleBody(BaseModel):
+    role: Literal['owner','member']
+
+@router.put('/spaces/{sid}/members/{uid}')
+def set_role(sid:str,uid:str,body:RoleBody,current=Depends(user)):
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        membership(c,sid,current['id'],owner=True)
+        target=c.execute('SELECT role FROM members WHERE space_id=? AND user_id=?',(sid,uid)).fetchone()
+        if not target: raise HTTPException(404,'Member not found.')
+        if target['role']=='owner' and body.role=='member' and owner_count(c,sid)==1:
+            raise HTTPException(400,'A space needs an owner. Make someone else an owner first.')
+        c.execute('UPDATE members SET role=? WHERE space_id=? AND user_id=?',(body.role,sid,uid))
+    live.publish(sid)
+    return {'id':uid,'role':body.role}
+
 @router.delete('/spaces/{sid}/members/{uid}')
 def remove_member(sid:str,uid:str,current=Depends(user)):
     with db() as c:
-        # Members may leave a space; only the owner may remove someone else.
+        c.execute('BEGIN IMMEDIATE')
+        # Members may leave a space; only an owner may remove someone else.
         membership(c,sid,current['id'],owner=uid!=current['id'])
         target=c.execute('SELECT role FROM members WHERE space_id=? AND user_id=?',(sid,uid)).fetchone()
         if not target: raise HTTPException(404,'Member not found.')
-        if target['role']=='owner': raise HTTPException(400,'The owner cannot leave or be removed.')
+        if target['role']=='owner' and owner_count(c,sid)==1:
+            raise HTTPException(400,'A space needs an owner. Make someone else an owner first, or delete the space.')
         c.execute('DELETE FROM members WHERE space_id=? AND user_id=?',(sid,uid))
         c.execute('UPDATE entries SET assigned_to=NULL WHERE space_id=? AND assigned_to=?',(sid,uid))
     live.publish(sid)
@@ -115,7 +167,7 @@ def join(body:JoinBody,current=Depends(user)):
         if not sid: raise HTTPException(400,'Invite expired or unavailable.')
         c.execute('INSERT OR IGNORE INTO members VALUES (?,?,?)',(sid,current['id'],'member'))
         if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.token),))
-        joined=dict(c.execute('SELECT s.*,m.role FROM spaces s JOIN members m ON m.space_id=s.id WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
+        joined=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
     live.publish(joined['id'])
     return joined
 
@@ -154,6 +206,8 @@ def validate_entry(c,sid,body,uid):
             raise HTTPException(422,'Invalid parent item.')
         body.visibility=parent['visibility']
     elif body.parent_id: raise HTTPException(422,'This item cannot have a parent.')
+    if body.visibility=='private' and body.assigned_to and body.assigned_to!=uid:
+        raise HTTPException(422,'Only you can see a private item, so only you can be assigned to it.')
 
 @router.get('/spaces/{sid}/entries')
 def entries(sid:str,kind:Kind|None=None,q:str='',current=Depends(user)):
@@ -231,7 +285,7 @@ async def space_events(sid:str,request:Request,current=Depends(user)):
 def export_space(sid:str,current=Depends(user)):
     with db() as c:
         membership(c,sid,current['id'])
-        space=dict(c.execute('SELECT * FROM spaces WHERE id=?',(sid,)).fetchone())
+        space=dict(c.execute("SELECT s.*,COALESCE(t.topic,'') AS topic FROM spaces s LEFT JOIN space_topics t ON t.space_id=s.id WHERE s.id=?",(sid,)).fetchone())
         records=[dict(r) for r in c.execute("SELECT * FROM entries WHERE space_id=? AND (visibility='shared' OR author_id=?)",(sid,current['id']))]
     data={'format':'arynwood-community','version':1,'exported':now(),'space':space,'entries':records}
     return Response(json.dumps(data,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="community-export.json"'})

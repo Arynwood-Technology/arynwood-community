@@ -1,8 +1,18 @@
 # Arynwood Grove release notes
 
-Version: `0.4.1`
+Version: `0.4.2`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.4.2
+
+Added
+
+- Managing a space (Manage space, or People & identity): owners rename it and give it a topic, which every member sees under its name, and can delete it for everyone after typing its name. Members' open pages move to another space and say why.
+- Member roles: owners make other members owners, or members again. A space always keeps at least one owner, so the only owner can neither step down nor leave; with two owners, either can do both.
+- Assigning tasks from the Calendar as well as Tasks, with the assignee shown on each goal. A private task can be assigned only to its author, the only person who can see it.
+
+Topics are kept in a table of their own, so a Grove rolled back to 0.4.1 keeps working on the same database.
 
 ## 0.4.1
 

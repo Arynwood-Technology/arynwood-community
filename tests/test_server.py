@@ -184,6 +184,23 @@ class LiveTests(unittest.TestCase):
         self.assertEqual(member_events.next(), 'END')
         reopened = Events(member, sid); self.assertEqual(reopened.next(), 'END'); self.assertEqual(reopened.status, 404)
 
+    def test_space_changes_reach_members_and_deleting_ends_their_streams(self):
+        host, member = self.client(), self.client()
+        self.signup(host, 'host@example.test', 'Host')
+        sid = host.get('/api/community/spaces').json()[0]['id']
+        self.signup(member, 'member@example.test', 'Member', self.invite(host, sid))
+        events = Events(member, sid); self.assertEqual(events.next(), 'ready')
+        # A new name or topic and a new role are announced, so open pages show them.
+        self.assertEqual(host.put(f'/api/community/spaces/{sid}', headers=H, json={'name': 'Our house', 'topic': 'Sundays'}).status_code, 200)
+        self.assertEqual(events.next(), 'changed')
+        member_id = next(m['id'] for m in host.get(f'/api/community/spaces/{sid}/members').json() if m['name'] == 'Member')
+        self.assertEqual(host.put(f'/api/community/spaces/{sid}/members/{member_id}', headers=H, json={'role': 'owner'}).status_code, 200)
+        self.assertEqual(events.next(), 'changed')
+        # Deleting the space ends every member's stream, and it cannot reopen.
+        self.assertEqual(host.delete(f'/api/community/spaces/{sid}', headers=H).status_code, 200)
+        self.assertEqual(events.next(), 'END')
+        reopened = Events(member, sid); self.assertEqual(reopened.next(), 'END'); self.assertEqual(reopened.status, 404)
+
     def test_reconnect_catches_up_and_sign_out_stops_notices(self):
         host = self.client()
         self.signup(host, 'host@example.test', 'Host')

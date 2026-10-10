@@ -130,7 +130,7 @@ def signup(body: Signup, request: Request, response: Response):
         c.execute('INSERT INTO users VALUES (?,?,?,?,?,?)',(uid,body.name,body.email,hashed,int(first),now()))
         if first:
             sid=identifier()
-            c.execute('INSERT INTO spaces VALUES (?,?,?)',(sid,body.space,now()))
+            c.execute('INSERT INTO spaces (id,name,created) VALUES (?,?,?)',(sid,body.space,now()))
         c.execute('INSERT INTO members VALUES (?,?,?)',(sid,uid,'owner' if first else 'member'))
         if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.invite),))
     if not first: live.publish(sid)

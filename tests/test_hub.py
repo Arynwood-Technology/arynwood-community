@@ -154,6 +154,78 @@ class HubTests(unittest.TestCase):
         self.assertEqual(member.get('/api/community/spaces').json(), [])
         self.assertEqual(member.get(f'/api/community/spaces/{sid}/entries').status_code, 404)
 
+    def test_owner_renames_sets_topic_and_deletes_space(self):
+        host, member, sid = self.host_and_member()
+        root = f'/api/community/spaces/{sid}'
+        # Only an owner manages the space.
+        self.assertEqual(member.put(root, headers=H, json={'name': 'Mine now'}).status_code, 403)
+        self.assertEqual(member.delete(root, headers=H).status_code, 403)
+        saved = host.put(root, headers=H, json={'name': ' Our house ', 'topic': 'Dinner on\n Sundays '})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual([saved.json()[k] for k in ('name', 'topic', 'role')], ['Our house', 'Dinner on Sundays', 'owner'])
+        seen = member.get('/api/community/spaces').json()[0]
+        self.assertEqual([seen[k] for k in ('name', 'topic', 'role')], ['Our house', 'Dinner on Sundays', 'member'])
+        self.assertEqual(member.get(root + '/export').json()['space']['topic'], 'Dinner on Sundays')
+        self.assertEqual(host.put(root, headers=H, json={'name': 'Our house', 'topic': ''}).json()['topic'], '')
+        self.assertEqual(host.put(root, headers=H, json={'name': '  '}).status_code, 422)
+        self.assertEqual(host.put(root, headers=H, json={'name': 'Our house', 'topic': 'x' * 301}).status_code, 422)
+        # Deleting removes the space, and everything in it, for every member.
+        host.post(root + '/entries', headers=H, json={'kind': 'list', 'title': 'Groceries'})
+        host.put(root, headers=H, json={'name': 'Our house', 'topic': 'Kept until deleted'})
+        self.invite(host, sid); host.post(root + '/invite-link', headers=H)
+        self.assertEqual(host.delete(root, headers=H).status_code, 200)
+        self.assertEqual(host.get('/api/community/spaces').json(), [])
+        self.assertEqual(member.get('/api/community/spaces').json(), [])
+        self.assertEqual(member.get(root + '/entries').status_code, 404)
+        self.assertEqual(host.delete(root, headers=H).status_code, 404)
+        with store.db() as c:
+            for table in ('members', 'entries', 'invites', 'invite_links', 'space_topics'):
+                self.assertEqual(c.execute(f'SELECT COUNT(*) FROM {table} WHERE space_id=?', (sid,)).fetchone()[0], 0, table)
+
+    def test_owners_change_roles_and_a_space_keeps_an_owner(self):
+        host, member, sid = self.host_and_member()
+        people = f'/api/community/spaces/{sid}/members'
+        ids = {m['role']: m['id'] for m in host.get(people).json()}
+        host_id, member_id = ids['owner'], ids['member']
+        # A member cannot change roles, their own included.
+        self.assertEqual(member.put(f'{people}/{member_id}', headers=H, json={'role': 'owner'}).status_code, 403)
+        # The only owner can neither step down nor leave.
+        self.assertEqual(host.put(f'{people}/{host_id}', headers=H, json={'role': 'member'}).status_code, 400)
+        self.assertEqual(host.put(f'{people}/{member_id}', headers=H, json={'role': 'admin'}).status_code, 422)
+        self.assertEqual(host.put(f'{people}/nobody', headers=H, json={'role': 'owner'}).status_code, 404)
+        self.assertEqual(host.put(f'{people}/{member_id}', headers=H, json={'role': 'owner'}).status_code, 200)
+        self.assertEqual(member.get('/api/community/spaces').json()[0]['role'], 'owner')
+        self.assertEqual(member.post(f'/api/community/spaces/{sid}/invites', headers=H).status_code, 200)
+        # With a second owner, the first may step down; the new owner may then remove them.
+        self.assertEqual(host.put(f'{people}/{host_id}', headers=H, json={'role': 'member'}).status_code, 200)
+        self.assertEqual(host.put(f'{people}/{member_id}', headers=H, json={'role': 'member'}).status_code, 403)
+        self.assertEqual(member.delete(f'{people}/{host_id}', headers=H).status_code, 200)
+        self.assertEqual([m['name'] for m in member.get(people).json()], ['Member Person'])
+        self.assertEqual(member.delete(f'{people}/{member_id}', headers=H).status_code, 400)
+
+    def test_tasks_are_assigned_to_members_and_private_ones_only_to_their_author(self):
+        host, member, sid = self.host_and_member()
+        root = f'/api/community/spaces/{sid}/entries'
+        ids = {m['role']: m['id'] for m in host.get(f'/api/community/spaces/{sid}/members').json()}
+        task = host.post(root, headers=H, json={'kind': 'task', 'title': 'Bins', 'assigned_to': ids['member']})
+        self.assertEqual(task.status_code, 201, task.text)
+        self.assertEqual([e['assigned_to'] for e in member.get(root).json()], [ids['member']])
+        # Anyone in the space may hand a task on.
+        moved = member.put(f"{root}/{task.json()['id']}", headers=H, json={**task.json(), 'assigned_to': ids['owner']})
+        self.assertEqual(moved.json()['assigned_to'], ids['owner'])
+        # The other person could never see a private task.
+        hidden = host.post(root, headers=H, json={'kind': 'task', 'title': 'Gift', 'visibility': 'private', 'assigned_to': ids['member']})
+        self.assertEqual(hidden.status_code, 422)
+        self.assertIn('only you', hidden.json()['detail'])
+        mine = host.post(root, headers=H, json={'kind': 'task', 'title': 'Gift', 'visibility': 'private', 'assigned_to': ids['owner']})
+        self.assertEqual(mine.status_code, 201)
+
+    def test_database_still_works_for_a_grove_rolled_back_to_0_4_1(self):
+        store.initialize()
+        # 0.4.1 inserts spaces positionally, so topics must not add a column to spaces.
+        with store.db() as c:
+            c.execute('INSERT INTO spaces VALUES (?,?,?)', ('old', 'Made by 0.4.1', 'now'))
+
     def test_password_change_signs_out_other_sessions(self):
         with TestClient(app) as a, TestClient(app) as b:
             self.signup(a)

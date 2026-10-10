@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.4.1'
+VERSION = '0.4.2'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
@@ -83,6 +83,11 @@ def initialize():
           space_id TEXT PRIMARY KEY REFERENCES spaces(id) ON DELETE CASCADE,
           token TEXT NOT NULL UNIQUE, created TEXT NOT NULL,
           created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE);
+        -- A table of its own rather than a column on spaces: 0.4.1 inserts spaces positionally,
+        -- so a Grove rolled back to it keeps working on the same database.
+        CREATE TABLE IF NOT EXISTS space_topics (
+          space_id TEXT PRIMARY KEY REFERENCES spaces(id) ON DELETE CASCADE,
+          topic TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS attempts (key TEXT NOT NULL, at REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS attempts_key ON attempts(key,at);
         PRAGMA user_version = 1;
