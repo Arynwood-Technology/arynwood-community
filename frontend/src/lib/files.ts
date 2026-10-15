@@ -51,3 +51,11 @@ export async function uploadFile(spaceId: string, file: File, options: { folder?
   }
   return api<FileItem>(`${root}/${started.id}/finish`, 'POST')
 }
+
+export const saveText = (spaceId: string, id: string, text: string, version: number) => api<FileItem>(`/community/spaces/${spaceId}/files/${id}/text`, 'PUT', { text, version })
+export const previewFolder = (spaceId: string, folder: string) => api<{ url: string }>(`/community/spaces/${spaceId}/previews`, 'POST', { folder })
+export async function readText(spaceId: string, item: Pick<FileItem, 'id' | 'version'>) {
+  const response = await fetch(contentUrl(spaceId, item.id, `?inline=1&version=${item.version}`))
+  if (!response.ok) throw new Error('The file could not be opened. Try again.')
+  return response.text()
+}
