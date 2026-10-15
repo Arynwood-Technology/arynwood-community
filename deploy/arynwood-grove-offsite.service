@@ -1,0 +1,12 @@
+[Unit]
+Description=Copy every Arynwood Grove off this server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# restic and ssh look for root's keys and settings here.
+Environment=HOME=/root
+ExecStart=/usr/local/bin/arynwood-grove offsite run
+Nice=10
+IOSchedulingClass=idle

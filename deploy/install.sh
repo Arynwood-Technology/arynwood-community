@@ -245,7 +245,7 @@ fi
 
 install_cli
 install -m 0644 "$target"/deploy/arynwood-grove{,@}.service "$target"/deploy/arynwood-grove-backup{,@}.{service,timer} \
-  "$target"/deploy/arynwood-grove-domain{,@}.{path,service} /etc/systemd/system/
+  "$target"/deploy/arynwood-grove-domain{,@}.{path,service} "$target"/deploy/arynwood-grove-offsite.{service,timer} /etc/systemd/system/
 # Settings written by an older installer gain the address helper.
 grep -q '^GROVE_DOMAIN_HELPER=' "$ENV_FILE" || printf 'GROVE_DOMAIN_HELPER=1\nGROVE_SERVER_IP=%s\n' "$(public_ipv4 || true)" >>"$ENV_FILE"
 systemctl daemon-reload

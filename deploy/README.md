@@ -33,6 +33,7 @@ What it sets up:
 | `/var/lib/arynwood-grove` | The database, daily backups (`backups/`, 14 kept), IRC settings and the Private messages identity. Only the `grove` user can read it. |
 | `/etc/arynwood-grove/grove.env` | Settings (address, port, setup code, optional mailbox). Readable by root and the service. |
 | `arynwood-grove.service`, `arynwood-grove-backup.timer` | The service, hardened with `ProtectSystem=strict`, and the daily backup. |
+| `arynwood-grove-offsite.timer` | Nightly off-server copies of every Grove, once you set them up (see Off-server copies). |
 | `/etc/nginx/sites-available/arynwood-grove` | The site, with HTTPS added by Certbot. |
 | `/usr/local/bin/arynwood-grove` | The management command (below). |
 | `arynwood-grove-domain.path`, `.service` | When the host asks for a new address in Settings, the service writes `requests/domain.json`; this root helper re-checks the name, publishes it with nginx and Certbot, and writes back the result. The service itself never runs anything as root. |
@@ -44,7 +45,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.5.1   # a particular release
+sudo arynwood-grove update --version 0.5.2   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -59,7 +60,56 @@ An update that fails to start is undone automatically: the previous release keep
 
 **Password recovery is host-only.** There is no reset email. When someone forgets their password, run `recovery-code` with their email and give them the code privately; they enter it under "Forgot password?".
 
-**Back up off the server too.** Daily copies protect against mistakes, not against losing the server. Copy `/var/lib/arynwood-grove/backups/`, `/var/lib/arynwood-grove/files/` (everyone's uploaded files; the daily copy holds only the database) and `/etc/arynwood-grove/grove.env` somewhere else now and then, and test a restore once.
+**Back up off the server too.** The daily copies stay on the server and hold only the database: they protect against mistakes, not against losing the server. Turn on off-server copies (next section).
+
+## Off-server copies
+
+`arynwood-grove offsite` copies every Grove on the server off it each night with [restic](https://restic.net). Each copy holds:
+- a consistent copy of each database;
+- everyone's files;
+- the settings;
+- the nginx sites.
+
+The copies are encrypted and deduplicated, so each night only adds what changed. 14 daily, 8 weekly and 12 monthly copies are kept.
+
+```bash
+sudo arynwood-grove offsite setup sftp://u123456@u123456.your-storagebox.de:23/grove
+```
+
+Setup creates the repository, makes the first copy, turns on the nightly ones, and shows the repository's password once. **Save that password somewhere off the server**, in a password manager for example. Without it nobody can read the copies, and the copy of it in `/etc/arynwood-grove-offsite.env` is lost with the server.
+
+The repository can be anything restic accepts:
+
+| Destination | Repository |
+|---|---|
+| A Hetzner Storage Box | `sftp://u123456@u123456.your-storagebox.de:23/grove` |
+| Any SFTP server | `sftp:backup@backup.example.com:/srv/grove` |
+| S3, or B2 and R2 through their S3 addresses | `s3:https://s3.eu-central-1.amazonaws.com/bucket/grove` |
+
+- **SFTP:** root must be able to log in with a key.
+  1. Create one with `sudo ssh-keygen -t ed25519`.
+  2. Add `/root/.ssh/id_ed25519.pub` to the backup server.
+  3. Connect once with `sudo sftp …` to accept the server's host key.
+- **S3:** put `AWS_ACCESS_KEY_ID=` and `AWS_SECRET_ACCESS_KEY=` lines in `/etc/arynwood-grove-offsite.env` (root only, mode 0600) before running setup.
+
+```bash
+sudo arynwood-grove offsite status           # where, nightly on or off, last copy (also in arynwood-grove status)
+sudo arynwood-grove offsite list             # every copy, from every server that uses this repository
+sudo arynwood-grove offsite run              # a copy now
+sudo arynwood-grove offsite check            # read the repository's structure for damage
+sudo arynwood-grove [--grove NAME] offsite restore [SNAPSHOT]   # put a Grove back, by default from the latest copy
+```
+
+**Restoring** stops the Grove and moves its current data aside to a `….before-restore-<time>` folder beside it. It then puts back that Grove's database and files from the copy and starts the Grove again. Settings are never overwritten. If the copy's settings differ from the server's, they are left next to them as `….env.from-copy` to compare.
+
+**A new server, after losing the old one:**
+1. Install each Grove under the name it had, with `install.sh`, then `arynwood-grove create NAME`.
+2. Connect to the copies: `sudo arynwood-grove offsite setup <repository> --existing`. It asks for the saved password, or reads it from a `RESTIC_PASSWORD=` line in `/etc/arynwood-grove-offsite.env`.
+3. Restore each Grove: `sudo arynwood-grove [--grove NAME] offsite restore`.
+4. Turn the nightly copies back on: `sudo arynwood-grove offsite on`.
+5. Point the DNS records at the new server.
+
+Don't turn the nightly copies on before restoring, or the empty new Groves become the latest copy. The older copies would still be there, under `offsite list`.
 
 ## Several Groves on one server
 
@@ -93,8 +143,8 @@ Named Groves have `GROVE_HOST_TOOLS=off`: Mail, IRC and Private messages use the
 `upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, NKN wallet, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.2.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.2.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.

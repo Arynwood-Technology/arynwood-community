@@ -49,6 +49,59 @@ wait_healthy() {
 admin() { (cd "$CURRENT" && runuser -u "$RUN_USER" -- env GROVE_ENV_FILE="$ENV_FILE" .venv/bin/python deploy/grove_admin.py "$@"); }
 newest_release() { ls -1 "$PREFIX/releases" 2>/dev/null | grep -vE '\.(new|old)$' | sort -V | tail -n1; }
 
+# Off-server copies of every Grove, made with restic. The settings are server-wide and root's alone.
+OFFSITE_ENV=/etc/arynwood-grove-offsite.env OFFSITE_STATE=/var/lib/arynwood-grove-offsite
+# restic with the repository, its password and any provider keys, read literally from the settings.
+offsite_restic() {
+  local vars=() line
+  while IFS= read -r line; do [[ $line =~ ^[A-Z][A-Z0-9_]*= ]] && vars+=("$line"); done <"$OFFSITE_ENV"
+  env "${vars[@]}" restic --cache-dir "$OFFSITE_STATE/cache" "$@"
+}
+# The repository without any password written into it.
+offsite_repo() { sed -n 's/^RESTIC_REPOSITORY=//p' "$OFFSITE_ENV" | tail -n1 | sed -E 's#//[^/@]*@#//…@#'; }
+offsite_ready() { grep -q '^RESTIC_REPOSITORY=.' "$OFFSITE_ENV" 2>/dev/null; }
+need_offsite() { offsite_ready || { echo "Off-server copies are not set up. See: sudo arynwood-grove offsite help" >&2; exit 1; }; }
+# A consistent copy of the live database, made as the Grove's own user. It is kept apart from the
+# daily copies, so it doesn't shorten their 14 days.
+offsite_db_copy() {
+  local db; db=$(admin path </dev/null) || return 1
+  [[ -f $db ]] || return 0
+  (cd / && runuser -u "$RUN_USER" -- python3 -I -c 'import os, sqlite3, sys
+folder = os.path.join(os.path.dirname(sys.argv[1]), "backups")
+os.makedirs(folder, mode=0o700, exist_ok=True)
+target = os.path.join(folder, "offsite.sqlite3")
+live, copy = sqlite3.connect(sys.argv[1]), sqlite3.connect(target + ".tmp")
+live.backup(copy); copy.close(); live.close()
+os.chmod(target + ".tmp", 0o600); os.replace(target + ".tmp", target)' "$db")
+}
+offsite_run() {
+  need_offsite
+  local paths=() grove path failed=0
+  while read -r grove; do
+    grove_paths "$grove"
+    offsite_db_copy || { echo "Could not copy the database of ${grove:-the Grove without a name}." >&2; failed=1; }
+    for path in "$DATA" "$ENV_FILE" "$SITE"; do [[ -e $path ]] && paths+=("$path"); done
+  done < <(groves)
+  [[ ${#paths[@]} -gt 0 ]] || { echo "There is no Grove on this server to copy." >&2; return 1; }
+  install -d -m 0700 "$OFFSITE_STATE"
+  offsite_restic unlock >/dev/null 2>&1 || true
+  # The live database is left out: backups/offsite.sqlite3 is its consistent copy.
+  offsite_restic backup --quiet --tag arynwood-grove --exclude grove.sqlite3 --exclude 'grove.sqlite3-*' \
+    --exclude community.sqlite3 --exclude 'community.sqlite3-*' --exclude files/tmp --exclude files/uploads "${paths[@]}" \
+    || { echo "The off-server copy failed." >&2; return 1; }
+  date -Is >"$OFFSITE_STATE/last"
+  # Grouped by server, so adding a Grove doesn't start a separate history that is never thinned.
+  offsite_restic forget --quiet --tag arynwood-grove --group-by host,tags --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune >/dev/null \
+    || { echo "The copy was made, but older copies could not be thinned out." >&2; failed=1; }
+  echo "Copied ${#paths[@]} paths off the server: $(offsite_repo)"
+  return $failed
+}
+offsite_on() {
+  systemctl enable -q --now arynwood-grove-offsite.timer
+  echo "Making the first copy now. Further copies are made every night."
+  offsite_run
+}
+
 usage() {
   cat <<'USAGE'
 Usage: sudo arynwood-grove [--grove NAME] <command>
@@ -64,6 +117,12 @@ Without --grove, commands act on the server's own Grove; with it, on the Grove o
   recovery-code EMAIL  A 15-minute password reset code for someone who forgot theirs
   backup [--all]       Copy the database now (a daily copy is automatic; 14 are kept)
   restore FILE         Put a backup back (the current data is backed up first)
+  offsite setup REPOSITORY [--existing]
+                       Copy every Grove off this server each night, encrypted, with restic: to an
+                       SFTP server (a Hetzner Storage Box), S3, B2 and others. See offsite help
+  offsite status | list | run | check | on | off
+  offsite restore [SNAPSHOT]
+                       Put this Grove's data back from an off-server copy (by default the latest)
   update [--version X | --from FILE] [--all [--canary NAME]]
                        Install the latest release, keeping all data and settings. With --all,
                        every Grove: the first (or the canary) alone, and the rest only if it works
@@ -169,6 +228,8 @@ case $command in
     db=$(admin path); printf 'Data:      %s (%s)\n' "$db" "$(du -h "$db" 2>/dev/null | cut -f1 || echo none yet)"
     last=$(ls -1t "$(dirname "$db")/backups/"grove-*.sqlite3 2>/dev/null | head -n1 || true)
     printf 'Backup:    %s\n' "${last:-none yet}"
+    if offsite_ready; then printf 'Off-site:  last copy %s\n' "$(cat "$OFFSITE_STATE/last" 2>/dev/null || echo 'none yet')"
+    else printf 'Off-site:  not set up (sudo arynwood-grove offsite help)\n'; fi
     cert=/etc/letsencrypt/live/$domain/cert.pem
     if [[ -f $cert ]]; then printf 'HTTPS:     certificate valid until %s\n' "$(openssl x509 -enddate -noout -in "$cert" | cut -d= -f2)"
     else printf 'HTTPS:     no certificate\n'; fi
@@ -267,6 +328,151 @@ case $command in
     systemctl restart "$SERVICE"
     echo "Now running $(basename "$previous")."
     wait_healthy
+    ;;
+  offsite)
+    need_root offsite
+    action=${1:-status}; shift || true
+    case $action in
+      setup)
+        repo="" existing=0
+        while [[ $# -gt 0 ]]; do
+          case $1 in --existing) existing=1; shift ;; -*) echo "Unknown option: $1" >&2; exit 1 ;; *) repo=$1; shift ;; esac
+        done
+        [[ -n $repo && $repo != *$'\n'* ]] || { echo "Usage: sudo arynwood-grove offsite setup REPOSITORY [--existing]. See: sudo arynwood-grove offsite help" >&2; exit 1; }
+        packages=(); command -v restic >/dev/null || packages+=(restic)
+        [[ $repo != sftp:* ]] || command -v ssh >/dev/null || packages+=(openssh-client)
+        if [[ ${#packages[@]} -gt 0 ]]; then
+          echo "Installing ${packages[*]}"
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${packages[@]}" >/dev/null 2>&1 \
+            || { echo "Could not install ${packages[*]}. Try: sudo apt-get update" >&2; exit 1; }
+        fi
+        install -d -m 0700 "$OFFSITE_STATE"
+        password="" new_password=0
+        [[ -f $OFFSITE_ENV ]] && password=$(sed -n 's/^RESTIC_PASSWORD=//p' "$OFFSITE_ENV" | tail -n1)
+        # Copies made elsewhere: their password, from the settings file or typed in.
+        if [[ $existing == 1 && -z $password ]]; then
+          ( : </dev/tty ) 2>/dev/null || { echo "Put the copies' password in $OFFSITE_ENV as RESTIC_PASSWORD=…, or run this in a terminal to type it." >&2; exit 1; }
+          read -r -s -p "Password of the existing copies: " password </dev/tty; echo
+        fi
+        [[ -n $password ]] || { password=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n'); new_password=1; }
+        # Provider keys already in the file (for S3, B2 and the like) are kept.
+        settings=$(mktemp "$OFFSITE_ENV.XXXXXX")
+        {
+          echo "# Off-server copies of every Grove (restic). Keep RESTIC_PASSWORD somewhere safe as well:"
+          echo "# without it nobody, you included, can read the copies."
+          echo "RESTIC_REPOSITORY=$repo"
+          echo "RESTIC_PASSWORD=$password"
+          [[ -f $OFFSITE_ENV ]] && grep -vE '^(RESTIC_REPOSITORY|RESTIC_PASSWORD)=|^# (Off-server copies of every Grove|without it nobody)' "$OFFSITE_ENV" || true
+        } >"$settings"
+        before=""; [[ -f $OFFSITE_ENV ]] && { before=$(mktemp "$OFFSITE_ENV.XXXXXX"); cp -p "$OFFSITE_ENV" "$before"; }
+        mv "$settings" "$OFFSITE_ENV"
+        put_back() { if [[ -n $before ]]; then mv "$before" "$OFFSITE_ENV"; else rm -f "$OFFSITE_ENV"; fi; }
+        if offsite_restic cat config >/dev/null 2>&1; then echo "Connected to the copies at $(offsite_repo)."
+        elif [[ $existing == 1 ]]; then
+          put_back; echo "Could not open $repo with that password. (A RESTIC_PASSWORD= line in $OFFSITE_ENV is used before asking.)" >&2; exit 1
+        elif ! output=$(offsite_restic init 2>&1); then
+          put_back
+          echo "Could not create a repository at $repo:" >&2; tail -n3 <<<"$output" >&2
+          echo "If it already holds copies from another server, add --existing and enter their password." >&2; exit 1
+        else echo "Created a repository at $(offsite_repo)."
+        fi
+        [[ -z $before ]] || rm -f "$before"
+        if [[ $existing == 1 ]]; then
+          # A new server: restore first, or the empty Groves become the latest copy.
+          echo "Restore each Grove with: sudo arynwood-grove [--grove NAME] offsite restore"
+          echo "Then start the nightly copies: sudo arynwood-grove offsite on"
+          exit 0
+        fi
+        offsite_on || exit 1
+        if [[ $new_password == 1 ]]; then
+          echo
+          echo "Save this password in your password manager now. Without it nobody, you included, can read the copies:"
+          echo "  $password"
+          echo "(It is also in $OFFSITE_ENV, which is lost with this server.)"
+        fi
+        ;;
+      on) need_offsite; offsite_on ;;
+      off)
+        systemctl disable -q --now arynwood-grove-offsite.timer 2>/dev/null || true
+        echo "Nightly off-server copies are off. The copies already made and the settings are kept; turn them on again with: sudo arynwood-grove offsite on"
+        ;;
+      run) offsite_run ;;
+      status)
+        offsite_ready || { echo "Off-server copies are not set up. See: sudo arynwood-grove offsite help"; exit 0; }
+        last=$(cat "$OFFSITE_STATE/last" 2>/dev/null || true)
+        printf 'Repository:  %s\n' "$(offsite_repo)"
+        printf 'Nightly:     %s\n' "$(systemctl is-enabled arynwood-grove-offsite.timer 2>/dev/null | sed 's/^enabled$/on/; s/^disabled$/off/')"
+        printf 'Last copy:   %s\n' "${last:-none yet}"
+        if [[ -n $last ]] && (( $(date +%s) - $(date -d "$last" +%s) > 2 * 86400 )); then
+          echo "The last copy is more than two days old. See: sudo journalctl -u arynwood-grove-offsite -n 50" >&2
+        fi
+        ;;
+      list) need_offsite; offsite_restic snapshots --tag arynwood-grove --compact ;;
+      check) need_offsite; offsite_restic check ;;
+      restore)
+        need_grove; need_offsite
+        snapshot=${1:-latest}
+        [[ $snapshot =~ ^(latest|[0-9a-f]{8,64})$ ]] || { echo "Usage: sudo $ME offsite restore [SNAPSHOT]. See: sudo arynwood-grove offsite list" >&2; exit 1; }
+        stage=$(mktemp -d /root/grove-restore.XXXXXX); trap 'rm -rf "$stage"' EXIT
+        echo "Fetching this Grove's data from copy $snapshot"
+        offsite_restic restore "$snapshot" --target "$stage" --include "$DATA" --include "$ENV_FILE" >/dev/null \
+          || { echo "Could not fetch copy $snapshot. See: sudo arynwood-grove offsite list" >&2; exit 1; }
+        [[ -f $stage$DATA/backups/offsite.sqlite3 ]] || { echo "Copy $snapshot holds no data for this Grove." >&2; exit 1; }
+        db=$(admin path); stamp=$(date +%Y%m%d-%H%M%S) restored=0
+        echo "Saving the current data first: $(admin backup)"
+        # Until the restored Grove answers, any failure puts its data from before back.
+        trap 'if [[ $restored == 0 && -d $DATA.before-restore-$stamp ]]; then
+            systemctl stop "$SERVICE"; rm -rf "$DATA"; mv "$DATA.before-restore-$stamp" "$DATA"; systemctl start "$SERVICE"
+            wait_healthy >/dev/null 2>&1 || true
+            echo "The restore did not finish, so the Grove has the data it had before." >&2
+          fi; rm -rf "$stage"' EXIT
+        systemctl stop "$SERVICE"
+        mv "$DATA" "$DATA.before-restore-$stamp"
+        mv "$stage$DATA" "$DATA"
+        install -m 0600 "$DATA/backups/offsite.sqlite3" "$db"
+        # A domain move the old server had pending is not repeated here.
+        rm -f "$DATA"/requests/*
+        chown -R "$RUN_USER:$RUN_USER" "$DATA"; chmod 0750 "$DATA"
+        [[ -f $stage$ENV_FILE ]] && install -m 0600 "$stage$ENV_FILE" "$ENV_FILE.from-copy"
+        systemctl start "$SERVICE"
+        wait_healthy
+        restored=1
+        echo "Restored from copy $snapshot. The data from before is in $DATA.before-restore-$stamp: delete it once the Grove looks right."
+        if [[ -f $ENV_FILE.from-copy ]] && ! cmp -s "$ENV_FILE" "$ENV_FILE.from-copy"; then
+          echo "The copy's settings differ from this server's. They are in $ENV_FILE.from-copy. Compare them:"
+          echo "  sudo diff $ENV_FILE $ENV_FILE.from-copy"
+          echo "Copy across what you need, but keep this server's GROVE_PORT and GROVE_PUBLIC_URL. Then run: sudo $ME restart"
+        else rm -f "$ENV_FILE.from-copy"; fi
+        ;;
+      help|-h|--help)
+        cat <<'HELP'
+Off-server copies: every Grove on this server, copied each night with restic, encrypted, and
+deduplicated so each copy only adds what changed. 14 daily, 8 weekly and 12 monthly copies are kept.
+Each copy holds the database, everyone's files, the settings and the nginx site.
+
+  sudo arynwood-grove offsite setup REPOSITORY
+      Creates the repository and a password, makes the first copy and turns on the nightly ones.
+      Save the password it shows: without it nobody can read the copies.
+      REPOSITORY is anything restic accepts, for example:
+        sftp://u123456@u123456.your-storagebox.de:23/grove     a Hetzner Storage Box
+        sftp:backup@backup.example.com:/srv/grove              any SFTP server
+        s3:https://s3.eu-central-1.amazonaws.com/bucket/grove  S3 (also B2's and R2's S3 address)
+      For SFTP, root must be able to log in with a key: create one with sudo ssh-keygen -t ed25519,
+      add /root/.ssh/id_ed25519.pub to the backup server, and connect once with sudo sftp to accept
+      its host key. For S3, first put AWS_ACCESS_KEY_ID= and AWS_SECRET_ACCESS_KEY= lines in
+      /etc/arynwood-grove-offsite.env (mode 0600).
+  sudo arynwood-grove offsite setup REPOSITORY --existing
+      On a new server: connects to copies made elsewhere. It asks for their password, unless the
+      settings file already has it. Install each Grove under the same name first, restore them, then
+      turn on the nightly copies with offsite on.
+  sudo arynwood-grove offsite status | list | run | check | on | off
+  sudo arynwood-grove [--grove NAME] offsite restore [SNAPSHOT]
+      Puts a Grove's data back from a copy (by default the latest; offsite list shows them all).
+      The data it had is kept in a folder beside it.
+HELP
+        ;;
+      *) echo "Unknown offsite command: $action. See: sudo arynwood-grove offsite help" >&2; exit 1 ;;
+    esac
     ;;
   logs) need_root logs; need_grove; journalctl -u "$SERVICE" -n "${1:-100}" --no-pager ;;
   restart) need_root restart; need_grove; systemctl restart "$SERVICE"; wait_healthy ;;

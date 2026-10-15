@@ -4,6 +4,16 @@ Version: `0.5.1`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
 
+## 0.5.2
+
+Servers
+
+- **Off-server copies.** `sudo arynwood-grove offsite setup <repository>` copies every Grove on the server off it each night with restic: to a Hetzner Storage Box or any SFTP server, S3, B2 or R2.
+  - Each copy holds the database, everyone's files, the settings and the nginx sites.
+  - The copies are encrypted and deduplicated. 14 daily, 8 weekly and 12 monthly copies are kept.
+  - `offsite restore` puts a Grove back from a copy, on the same server or on a new one. The data it had is kept aside.
+  - `offsite status`, `list`, `run`, `check`, `on` and `off`. `arynwood-grove status` shows the last off-server copy.
+
 ## 0.5.1
 
 Servers
