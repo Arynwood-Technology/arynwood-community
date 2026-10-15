@@ -81,7 +81,7 @@ export function Webmaster({ spaces, current, onOpen }: { spaces: Space[]; curren
 }
 
 function ImportResult({ job, onOpen }: { job: SiteImport; onOpen: (spaceId: string, folder: string) => void }) {
-  return <div className={'import-result ' + job.status}>
+  return <div className={'import-result import-' + job.status}>
     <p><strong>{host(job.url)}</strong> into {job.space_name || 'a space that was deleted'} · {stamp(job.started)}</p>
     {job.status === 'running' ? <p role="status"><LoaderCircle size={15} className="spinning" aria-hidden="true" /> Importing… {count(job.added + job.changed + job.unchanged, 'file')} so far</p>
       : job.status === 'failed' ? <p className="danger" role="alert">{job.message || 'The import failed.'}</p> : <>

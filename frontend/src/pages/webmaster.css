@@ -6,7 +6,7 @@
 .webmaster-steps form { display: grid; gap: 10px; }
 .step { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 800; flex-shrink: 0; }
 .import-result { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
-.import-result.failed { border-color: var(--danger); }
+.import-result.import-failed { border-color: var(--danger); }
 .import-result p { margin: 0; overflow-wrap: anywhere; }
 .import-result [role="status"] { display: flex; align-items: center; gap: 8px; }
 .import-result button { align-self: flex-start; }
