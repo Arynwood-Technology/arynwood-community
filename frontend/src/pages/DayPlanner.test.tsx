@@ -5,7 +5,7 @@ import { DayPlanner } from './DayPlanner'
 import { api } from '../lib/community'
 vi.mock('../lib/community', () => ({ api: vi.fn() }))
 const mocked = vi.mocked(api)
-const me = { id: 'me', name: 'Rowan', email: 'rowan@example.test', admin: 0 }
+const me = { id: 'me', name: 'Rowan', email: 'rowan@example.test', admin: 0, role: 'member' as const, can_start_spaces: true }
 const people = [{ id: 'me', name: 'Rowan', role: 'owner' }, { id: 'sam', name: 'Sam', role: 'member' }]
 const bins = { id: 'bins', space_id: 'home', author_id: 'me', author: 'Rowan', kind: 'task', title: 'Bins out', body: '', visibility: 'shared', parent_id: null, done: 0, due: '', assigned_to: 'sam', created: '2026-10-10T09:00:00Z', updated: '2026-10-10T09:00:00Z', version: 1 }
 beforeEach(() => { mocked.mockReset(); mocked.mockImplementation(async path => path.endsWith('/members') ? people : path.endsWith('/entries') ? [bins] : bins) })

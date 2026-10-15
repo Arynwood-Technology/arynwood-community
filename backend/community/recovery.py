@@ -2,6 +2,7 @@
 import secrets
 import time
 from .auth import digest
+from .activity import record
 from .store import db, database_path, initialize
 
 
@@ -17,6 +18,7 @@ def issue_reset(email: str) -> str:
             raise ValueError('Account not found on this host.')
         c.execute('DELETE FROM password_resets WHERE user_id=? OR expires<?', (row['id'], time.time()))
         c.execute('INSERT INTO password_resets VALUES (?,?,?)', (digest(token), row['id'], time.time()+900))
+        record(c, 'recovery_code_issued', target=row['id'])
     return token
 
 

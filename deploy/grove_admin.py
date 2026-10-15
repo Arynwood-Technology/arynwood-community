@@ -11,6 +11,7 @@ load_dotenv(os.getenv('GROVE_ENV_FILE', '/etc/arynwood-grove/grove.env'))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.community.store import database_path, public_origin, initialize, db  # noqa: E402
 from backend.community.recovery import issue_reset  # noqa: E402
+from backend.community.files import sweep  # noqa: E402
 
 
 def backup(keep):
@@ -28,6 +29,8 @@ def backup(keep):
     for old in sorted(folder.glob('grove-*.sqlite3'))[:-keep]:
         old.unlink()
     print(target)
+    # The file bank's trash and unused contents, now that today's copy is safe.
+    sweep()
 
 
 def setup_link():

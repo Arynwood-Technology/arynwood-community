@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 from backend.routers import mail, irc, p2p
-from backend.community import auth, routes, store
+from backend.community import admin, auth, files, routes, store, wishes
 from backend import grove, setup
 
 @asynccontextmanager
@@ -48,7 +48,8 @@ async def protections(request, call_next):
     # Vite fingerprints everything under /assets, so it can be cached indefinitely.
     # Live notices must pass through proxies (Cloudflare, nginx) unaltered and unbuffered.
     response.headers['Cache-Control']=('no-store, no-transform' if path.endswith('/events') else 'no-store') if path.startswith('/api') else 'public, max-age=31536000, immutable' if path.startswith('/assets/') else 'no-cache'
-    response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    # A file from the file bank brings its own, stricter policy.
+    if 'content-security-policy' not in response.headers: response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     return response
 
 # Origin checks also cover WebSocket handshakes, which do not run HTTP middleware.
@@ -80,6 +81,9 @@ app.include_router(grove.router,prefix='/api/grove')
 app.include_router(setup.router,prefix='/api/grove-setup')
 app.include_router(auth.router,prefix='/api/auth')
 app.include_router(routes.router,prefix='/api/community')
+app.include_router(files.router,prefix='/api/community')
+app.include_router(admin.router,prefix='/api/admin')
+app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(auth.administrator)])
 app.include_router(irc.router,prefix='/api/irc',dependencies=[Depends(auth.administrator)])
 app.include_router(p2p.router,prefix='/api/p2p',dependencies=[Depends(auth.administrator)])

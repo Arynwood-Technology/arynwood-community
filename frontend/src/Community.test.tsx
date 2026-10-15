@@ -8,7 +8,7 @@ vi.mock('./pages/DayPlanner',()=>({DayPlanner:()=> <div>Daily planner</div>}))
 vi.mock('./pages/IRC',()=>({IRC:()=>null}))
 vi.mock('./pages/P2PChat',()=>({P2PChat:()=>null}))
 vi.mock('./pages/Mail',()=>({Mail:()=>null}))
-const user={id:'owner',name:'Test owner',email:'owner@example.test',admin:0}
+const user={id:'owner',name:'Test owner',email:'owner@example.test',admin:0,role:'member',can_start_spaces:true}
 const home={id:'home',name:'Home',role:'owner'}
 const team={id:'team',name:'Team',role:'owner'}
 const mocked=vi.mocked(api)
@@ -73,4 +73,16 @@ it('shows the space topic and, to its owners, a way to manage the space',async()
  fireEvent.change(screen.getByRole('combobox'),{target:{value:'team'}})
  expect(screen.queryByRole('link',{name:'Manage space'})).toBeNull()
  expect(screen.queryByText('Sunday dinners')).toBeNull()
+})
+it('gives the Grove admin page to owners and managers, and the wish lamp to everyone',async()=>{
+ mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,can_start_spaces:false}:[home])
+ show();await screen.findByRole('option',{name:'Home'})
+ expect(screen.queryByRole('link',{name:'Grove admin'})).toBeNull()
+ expect(screen.queryByRole('button',{name:'Create new space'})).toBeNull()
+ expect(screen.getByRole('button',{name:'Make a wish'})).toBeInTheDocument()
+ cleanup()
+ show('/community/admin');expect(await screen.findByText(/Only this Grove’s owners and managers/)).toBeInTheDocument()
+ cleanup()
+ mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,role:'manager'}:[home])
+ show();expect(await screen.findByRole('link',{name:'Grove admin'})).toHaveAttribute('href','/community/admin')
 })

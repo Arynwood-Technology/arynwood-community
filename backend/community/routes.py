@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
-from .auth import session_token, invitation, user, administrator, identifier, digest, now
+from .auth import session_token, invitation, joined_through, user, administrator, may_start_spaces, identifier, digest, now
 from .store import db, public_origin, VERSION
+from .activity import record, summary, name_of
 from . import live
 
 router=APIRouter()
@@ -55,18 +56,23 @@ def spaces(current=Depends(user)):
 def create_space(body:SpaceBody,current=Depends(user)):
     sid=identifier()
     with db() as c:
+        if not may_start_spaces(c,current['role']): raise HTTPException(403,'Only the Grove’s owners and managers can start spaces here.')
         c.execute('INSERT INTO spaces (id,name,created) VALUES (?,?,?)',(sid,body.name,now()))
         c.execute('INSERT INTO members VALUES (?,?,?)',(sid,current['id'],'owner'))
+        record(c,'space_created',actor=current['id'],space=sid)
     return {'id':sid,'name':body.name,'topic':'','role':'owner'}
 
 @router.put('/spaces/{sid}')
 def update_space(sid:str,body:SpaceDetails,current=Depends(user)):
     with db() as c:
         membership(c,sid,current['id'],owner=True)
+        before=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
         c.execute('UPDATE spaces SET name=? WHERE id=?',(body.name,sid))
         if body.topic: c.execute('INSERT OR REPLACE INTO space_topics VALUES (?,?)',(sid,body.topic))
         else: c.execute('DELETE FROM space_topics WHERE space_id=?',(sid,))
         saved=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
+        changes={**({'renamed_from':before['name']} if before['name']!=body.name else {}),**({'topic':body.topic} if before['topic']!=body.topic else {})}
+        if changes: record(c,'space_updated',actor=current['id'],space=sid,**changes)
     live.publish(sid)
     return saved
 
@@ -75,6 +81,8 @@ def delete_space(sid:str,current=Depends(user)):
     """Deletes the space for everyone: its members, invitations and everything written in it."""
     with db() as c:
         membership(c,sid,current['id'],owner=True)
+        count=lambda table: c.execute(f'SELECT COUNT(*) FROM {table} WHERE space_id=?',(sid,)).fetchone()[0]
+        record(c,'space_deleted',actor=current['id'],space=sid,members=count('members'),items=count('entries'))
         c.execute('DELETE FROM spaces WHERE id=?',(sid,))
     # Members' open pages refetch, are refused, and move to another space.
     live.publish(sid)
@@ -99,6 +107,7 @@ def set_role(sid:str,uid:str,body:RoleBody,current=Depends(user)):
         if target['role']=='owner' and body.role=='member' and owner_count(c,sid)==1:
             raise HTTPException(400,'A space needs an owner. Make someone else an owner first.')
         c.execute('UPDATE members SET role=? WHERE space_id=? AND user_id=?',(body.role,sid,uid))
+        if target['role']!=body.role: record(c,'space_role_changed',actor=current['id'],space=sid,target=uid,role=body.role)
     live.publish(sid)
     return {'id':uid,'role':body.role}
 
@@ -114,6 +123,8 @@ def remove_member(sid:str,uid:str,current=Depends(user)):
             raise HTTPException(400,'A space needs an owner. Make someone else an owner first, or delete the space.')
         c.execute('DELETE FROM members WHERE space_id=? AND user_id=?',(sid,uid))
         c.execute('UPDATE entries SET assigned_to=NULL WHERE space_id=? AND assigned_to=?',(sid,uid))
+        if uid==current['id']: record(c,'member_left',actor=uid,space=sid)
+        else: record(c,'member_removed',actor=current['id'],space=sid,target=uid)
     live.publish(sid)
     return {'ok':True}
 
@@ -124,6 +135,7 @@ def invite(sid:str,current=Depends(user)):
         membership(c,sid,current['id'],owner=True)
         c.execute('DELETE FROM invites WHERE expires<?',(time.time(),))
         c.execute('INSERT INTO invites VALUES (?,?,?,?)',(digest(token),sid,time.time()+86400*7,current['id']))
+        record(c,'invite_created',actor=current['id'],space=sid)
     return {'token':token,'expires_in_days':7,'url':invite_url(token)}
 
 def invite_url(token):
@@ -146,14 +158,16 @@ def create_invite_link(sid:str,current=Depends(user)):
     token=identifier()+identifier()
     with db() as c:
         membership(c,sid,current['id'],owner=True)
+        replaced=c.execute('SELECT 1 FROM invite_links WHERE space_id=?',(sid,)).fetchone() is not None
         c.execute('INSERT OR REPLACE INTO invite_links VALUES (?,?,?,?)',(sid,token,now(),current['id']))
+        record(c,'public_link_created',actor=current['id'],space=sid,replaced=replaced)
     return {'token':token,'url':invite_url(token),'created':now()}
 
 @router.delete('/spaces/{sid}/invite-link')
 def delete_invite_link(sid:str,current=Depends(user)):
     with db() as c:
         membership(c,sid,current['id'],owner=True)
-        c.execute('DELETE FROM invite_links WHERE space_id=?',(sid,))
+        if c.execute('DELETE FROM invite_links WHERE space_id=?',(sid,)).rowcount: record(c,'public_link_turned_off',actor=current['id'],space=sid)
     return {'ok':True}
 
 class JoinBody(BaseModel):
@@ -163,9 +177,10 @@ class JoinBody(BaseModel):
 def join(body:JoinBody,current=Depends(user)):
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
-        sid,one_use=invitation(c,body.token)
+        sid,one_use,inviter=invitation(c,body.token)
         if not sid: raise HTTPException(400,'Invite expired or unavailable.')
-        c.execute('INSERT OR IGNORE INTO members VALUES (?,?,?)',(sid,current['id'],'member'))
+        if c.execute('INSERT OR IGNORE INTO members VALUES (?,?,?)',(sid,current['id'],'member')).rowcount:
+            record(c,'joined_space',actor=current['id'],space=sid,**joined_through(c,one_use,inviter))
         if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.token),))
         joined=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
     live.publish(joined['id'])
@@ -231,6 +246,7 @@ def create_entry(sid:str,body:Entry,current=Depends(user)):
         c.execute('INSERT INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
           (eid,sid,current['id'],body.kind,body.title,body.body,body.visibility,body.parent_id,int(body.done),body.due,body.assigned_to,stamp,stamp,1))
         saved=dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+        logged(c,'entry_created',current,saved)
     changed(saved)
     return saved
 
@@ -249,6 +265,7 @@ def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
         c.execute('UPDATE entries SET title=?,body=?,done=?,due=?,assigned_to=?,updated=?,version=version+1 WHERE id=?',
                   (body.title,body.body,int(body.done),body.due,body.assigned_to,now(),eid))
         saved=dict(c.execute('SELECT e.*,u.name AS author FROM entries e JOIN users u ON u.id=e.author_id WHERE e.id=?',(eid,)).fetchone())
+        logged(c,'entry_updated',current,saved,**({'done':bool(body.done)} if bool(body.done)!=bool(entry['done']) else {}))
     changed(saved)
     return saved
 
@@ -258,9 +275,19 @@ def delete_entry(sid:str,eid:str,current=Depends(user)):
         role=membership(c,sid,current['id'])
         entry=visible_entry(c,sid,eid,current['id'])
         if entry['author_id']!=current['id'] and role!='owner': raise HTTPException(403,'Only the author or space owner can delete this item.')
+        children=c.execute('SELECT COUNT(*) FROM entries WHERE parent_id=?',(eid,)).fetchone()[0]
+        logged(c,'entry_deleted',current,entry,**({'children':children} if children else {}))
         c.execute('DELETE FROM entries WHERE id=?',(eid,))
     changed(entry)
     return {'ok':True}
+
+def logged(c,action,current,entry,**details):
+    """Records a change to an item. A private item is logged without its words; a list item or
+    reply names its list or post; changing someone else's item names whose it is."""
+    if entry['visibility']=='private': details['private']=True
+    if entry['parent_id']: details['parent']=summary(c.execute('SELECT * FROM entries WHERE id=?',(entry['parent_id'],)).fetchone())
+    if entry['author_id']!=current['id']: details['author']=name_of(c,'users',entry['author_id'])
+    record(c,action,actor=current['id'],space=entry['space_id'],target=entry['id'],target_name=summary(entry),kind=entry['kind'],**details)
 
 def changed(entry):
     # A private entry is visible only to its author, so only the author's pages hear about it.
@@ -287,6 +314,7 @@ def export_space(sid:str,current=Depends(user)):
         membership(c,sid,current['id'])
         space=dict(c.execute("SELECT s.*,COALESCE(t.topic,'') AS topic FROM spaces s LEFT JOIN space_topics t ON t.space_id=s.id WHERE s.id=?",(sid,)).fetchone())
         records=[dict(r) for r in c.execute("SELECT * FROM entries WHERE space_id=? AND (visibility='shared' OR author_id=?)",(sid,current['id']))]
+        record(c,'space_exported',actor=current['id'],space=sid)
     data={'format':'arynwood-community','version':1,'exported':now(),'space':space,'entries':records}
     return Response(json.dumps(data,indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="community-export.json"'})
 

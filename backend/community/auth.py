@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from starlette.requests import HTTPConnection
 from pydantic import BaseModel, Field, field_validator
-from .store import db, public_origin, setting
+from .store import db, public_origin, setting, grove_setting, GROVE_ROLE
+from .activity import record, name_of
 from . import live
 import os
 
@@ -33,13 +34,32 @@ def session_token(connection: HTTPConnection):
 def user(connection: HTTPConnection):
     token = session_token(connection)
     with db() as c:
-        row = c.execute('SELECT u.id,u.name,u.email,u.admin FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?', (digest(token), time.time())).fetchone()
+        row = c.execute(f'''SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role FROM users u JOIN sessions s ON s.user_id=u.id
+                            LEFT JOIN grove_roles r ON r.user_id=u.id WHERE s.token=? AND s.expires>?''', (digest(token), time.time())).fetchone()
     if not row: raise HTTPException(401, 'Sign in to continue.')
     return dict(row)
 
 def administrator(current=Depends(user)):
     if not current['admin']: raise HTTPException(403, 'Host access required.')
     return current
+
+# Grove-wide roles: owners run the Grove and appoint owners and managers; managers see
+# everything owners see, but change no roles or Grove settings. The host is always an owner.
+def grove_manager(current=Depends(user)):
+    if current['role'] == 'member': raise HTTPException(403, 'Only the Grove’s owners and managers can do this.')
+    return current
+
+def grove_owner(current=Depends(user)):
+    if current['role'] != 'owner': raise HTTPException(403, 'Only the Grove’s owners can do this.')
+    return current
+
+def may_start_spaces(c, role):
+    return role != 'member' or grove_setting(c, 'space_creation', 'everyone') == 'everyone'
+
+def profile(c, uid):
+    """The signed-in person as the members' page sees them."""
+    row = dict(c.execute(f'SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id WHERE u.id=?', (uid,)).fetchone())
+    return {**row, 'can_start_spaces': may_start_spaces(c, row['role'])}
 
 def session(request, response, uid):
     token = secrets.token_urlsafe(32)
@@ -102,12 +122,16 @@ def status():
     return {'setup': setup, 'setup_code': setup and bool(setup_code()), 'recovery': 'host-code', 'public_url': public_origin() or None}
 
 def invitation(c, token):
-    """(space id, one-use) for a one-use invite or a space's public link, or (None, False)."""
-    if not token: return None, False
-    row = c.execute('SELECT space_id FROM invites WHERE token=? AND expires>?', (digest(token), time.time())).fetchone()
-    if row: return row['space_id'], True
-    row = c.execute('SELECT space_id FROM invite_links WHERE token=?', (token,)).fetchone()
-    return (row['space_id'], False) if row else (None, False)
+    """(space id, one-use, who made it) for a one-use invite or a space's public link, or (None, False, None)."""
+    if not token: return None, False, None
+    row = c.execute('SELECT space_id,created_by FROM invites WHERE token=? AND expires>?', (digest(token), time.time())).fetchone()
+    if row: return row['space_id'], True, row['created_by']
+    row = c.execute('SELECT space_id,created_by FROM invite_links WHERE token=?', (token,)).fetchone()
+    return (row['space_id'], False, row['created_by']) if row else (None, False, None)
+
+def joined_through(c, one_use, inviter):
+    """How someone came into a space, for the activity log."""
+    return {'via': 'invitation' if one_use else 'public link', 'invited_by': name_of(c, 'users', inviter)}
 
 @router.post('/signup')
 def signup(body: Signup, request: Request, response: Response):
@@ -117,12 +141,12 @@ def signup(body: Signup, request: Request, response: Response):
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         first=c.execute('SELECT count(*) FROM users').fetchone()[0] == 0
-        sid, one_use = None, False
+        sid, one_use, inviter = None, False, None
         if first:
             if setup_code() and not hmac.compare_digest(body.setup_code.strip().encode(), setup_code().encode()):
                 raise HTTPException(403, 'Enter the setup code the installer printed.')
         else:
-            sid, one_use = invitation(c, body.invite)
+            sid, one_use, inviter = invitation(c, body.invite)
             if not sid: raise HTTPException(400, 'Invite expired or unavailable.')
             # A public link can be posted anywhere, so one address may open only a few accounts through it.
             if not one_use: count_use(c, 'public-link:' + client_address(request), PUBLIC_LINK_SIGNUPS)
@@ -133,9 +157,12 @@ def signup(body: Signup, request: Request, response: Response):
             c.execute('INSERT INTO spaces (id,name,created) VALUES (?,?,?)',(sid,body.space,now()))
         c.execute('INSERT INTO members VALUES (?,?,?)',(sid,uid,'owner' if first else 'member'))
         if one_use: c.execute('DELETE FROM invites WHERE token=?',(digest(body.invite),))
+        if first: record(c,'signed_up',actor=uid,space=sid,via='setup')
+        else: record(c,'signed_up',actor=uid,space=sid,**joined_through(c,one_use,inviter))
+        created=profile(c,uid)
     if not first: live.publish(sid)
     session(request,response,uid)
-    return {'id':uid, 'name':body.name,'email':body.email,'admin':int(first)}
+    return created
 
 @router.post('/login')
 def login(body: Credentials, request: Request, response: Response):
@@ -143,12 +170,19 @@ def login(body: Credentials, request: Request, response: Response):
     with db() as c: row=c.execute('SELECT * FROM users WHERE email=?',(body.email,)).fetchone()
     # Spend the same hashing work for unknown accounts.
     stored=row['password'] if row else '0'*32+':'+'0'*64
-    if not password_matches(body.password,stored) or not row: raise HTTPException(401, 'Email or password is incorrect.')
+    if not password_matches(body.password,stored) or not row:
+        # Someone may be guessing at a real account, so the log says whose.
+        if row:
+            with db() as c: record(c,'sign_in_failed',target=row['id'])
+        raise HTTPException(401, 'Email or password is incorrect.')
     session(request,response,row['id'])
-    return {k:row[k] for k in ('id','name','email','admin')}
+    with db() as c:
+        record(c,'signed_in',actor=row['id'])
+        return profile(c,row['id'])
 
 @router.get('/me')
-def me(current=Depends(user)): return current
+def me(current=Depends(user)):
+    with db() as c: return profile(c,current['id'])
 
 @router.post('/logout')
 def logout(request: Request, response: Response):
@@ -169,6 +203,7 @@ def change_password(body: PasswordChange, request: Request, response: Response, 
         c.execute('UPDATE users SET password=? WHERE id=?',(password_hash(body.password),current['id']))
         c.execute('DELETE FROM password_resets WHERE user_id=?',(current['id'],))
         c.execute('DELETE FROM sessions WHERE user_id=?',(current['id'],))
+        record(c,'password_changed',actor=current['id'])
     session(request,response,current['id'])
     return {'ok':True}
 
@@ -191,5 +226,6 @@ def reset_password(body: PasswordReset, request: Request, response: Response):
         c.execute('UPDATE users SET password=? WHERE id=?', (hashed, uid))
         c.execute('DELETE FROM sessions WHERE user_id=?', (uid,))
         c.execute('DELETE FROM password_resets WHERE user_id=?', (uid,))
+        record(c, 'password_reset', actor=uid)
     response.delete_cookie(COOKIE, path='/')
     return {'ok': True}

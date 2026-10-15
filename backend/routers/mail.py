@@ -319,10 +319,14 @@ class SendRequest(BaseModel):
         return value
 
 
-@router.post("/send")
-def send_email(req: SendRequest):
-    """Send a plain-text email via SMTP. Uses MAIL_SMTP_* env vars,
-    falling back to MAIL_IMAP_* credentials on the same host."""
+def sending_configured():
+    return bool((os.getenv("MAIL_SMTP_HOST") or os.getenv("MAIL_IMAP_HOST")) and (os.getenv("MAIL_SMTP_USER") or os.getenv("MAIL_IMAP_USER")))
+
+
+def deliver(to: str, subject: str, body: str, reply_to: str = ""):
+    """Send a plain-text email via SMTP. Uses MAIL_SMTP_* env vars, falling back to
+    MAIL_IMAP_* credentials on the same host. Raises smtplib.SMTPException or OSError.
+    Callers check sending_configured() first, and keep newlines out of the headers."""
     host  = os.getenv("MAIL_SMTP_HOST") or os.getenv("MAIL_IMAP_HOST", "")
     port  = int(os.getenv("MAIL_SMTP_PORT", "587"))
     user  = os.getenv("MAIL_SMTP_USER") or os.getenv("MAIL_IMAP_USER", "")
@@ -330,26 +334,31 @@ def send_email(req: SendRequest):
     # Build a full from address: if user has no @, append the host
     from_addr = os.getenv("MAIL_FROM") or (user if "@" in user else f"{user}@{host}")
 
-    if not host or not user:
-        raise HTTPException(400, "Sending is not configured. Set MAIL_SMTP_HOST and MAIL_SMTP_USER in .env.")
-
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = req.subject
+    msg["Subject"] = subject
     msg["From"]    = from_addr
-    msg["To"]      = req.to
-    msg.attach(MIMEText(req.body, "plain", "utf-8"))
+    msg["To"]      = to
+    if reply_to: msg["Reply-To"] = reply_to
+    msg.attach(MIMEText(body, "plain", "utf-8"))
 
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, timeout=15) as smtp:
+            smtp.login(user, passwd)
+            smtp.sendmail(from_addr, [to], msg.as_string())
+    else:
+        with smtplib.SMTP(host, port, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(user, passwd)
+            smtp.sendmail(from_addr, [to], msg.as_string())
+
+
+@router.post("/send")
+def send_email(req: SendRequest):
+    if not sending_configured():
+        raise HTTPException(400, "Sending is not configured. Set MAIL_SMTP_HOST and MAIL_SMTP_USER in .env.")
     try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, timeout=15) as smtp:
-                smtp.login(user, passwd)
-                smtp.sendmail(from_addr, [req.to], msg.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=15) as smtp:
-                smtp.ehlo()
-                smtp.starttls()
-                smtp.login(user, passwd)
-                smtp.sendmail(from_addr, [req.to], msg.as_string())
+        deliver(req.to, req.subject, req.body)
         return {"ok": True}
     except (smtplib.SMTPException, OSError) as e:
         raise HTTPException(502, f"Could not send: {e}")

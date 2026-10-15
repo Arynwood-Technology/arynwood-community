@@ -90,6 +90,61 @@ def initialize():
           topic TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS attempts (key TEXT NOT NULL, at REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS attempts_key ON attempts(key,at);
+        -- Grove-wide roles. Anyone without a row is a member; the host (users.admin) is always
+        -- an owner. Like topics, these are tables of their own, so a Grove rolled back to 0.4.2
+        -- keeps working on the same database.
+        CREATE TABLE IF NOT EXISTS grove_roles (
+          user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          role TEXT NOT NULL CHECK(role IN ('owner','manager')));
+        CREATE TABLE IF NOT EXISTS grove_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        -- Names are kept as they were and nothing cascades into the log, so it outlives the
+        -- spaces, items and accounts it mentions.
+        CREATE TABLE IF NOT EXISTS activity (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, action TEXT NOT NULL,
+          actor_id TEXT, actor_name TEXT NOT NULL DEFAULT '',
+          space_id TEXT, space_name TEXT NOT NULL DEFAULT '',
+          target_id TEXT, target_name TEXT NOT NULL DEFAULT '',
+          details TEXT NOT NULL DEFAULT '{}');
+        CREATE INDEX IF NOT EXISTS activity_space ON activity(space_id,id);
+        CREATE INDEX IF NOT EXISTS activity_actor ON activity(actor_id,id);
+        CREATE INDEX IF NOT EXISTS activity_target ON activity(target_id,id);
+        -- Wishes for the Grove itself, from the lamp on every page. Each is kept here, and emailed
+        -- to GROVE_WISH_EMAIL when the server can send mail ('kept' when it was not).
+        CREATE TABLE IF NOT EXISTS wishes (
+          id TEXT PRIMARY KEY, created TEXT NOT NULL,
+          author_id TEXT REFERENCES users(id) ON DELETE SET NULL, author_name TEXT NOT NULL, author_email TEXT NOT NULL,
+          page TEXT NOT NULL DEFAULT '', space_name TEXT NOT NULL DEFAULT '', body TEXT NOT NULL,
+          delivery TEXT NOT NULL CHECK(delivery IN ('kept','sending','sent','failed')));
+        -- The file bank (files.py). A row is a file or a folder at a path in its space; a file's
+        -- contents are a blob named by its SHA-256. Deleted rows wait in the trash, marked with
+        -- the item that was deleted (trash_root), so a folder comes back with what was in it.
+        CREATE TABLE IF NOT EXISTS files (
+          id TEXT PRIMARY KEY, space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+          folder TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('file','folder')),
+          blob TEXT, size INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1,
+          author_id TEXT REFERENCES users(id) ON DELETE SET NULL, updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+          created TEXT NOT NULL, updated TEXT NOT NULL, deleted TEXT, trash_root TEXT);
+        CREATE UNIQUE INDEX IF NOT EXISTS files_path ON files(space_id,folder,name) WHERE deleted IS NULL;
+        CREATE INDEX IF NOT EXISTS files_trash ON files(space_id,trash_root);
+        -- Earlier versions of a file; the current one is on its files row.
+        CREATE TABLE IF NOT EXISTS file_versions (
+          file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE, version INTEGER NOT NULL,
+          blob TEXT NOT NULL, size INTEGER NOT NULL, author_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          created TEXT NOT NULL, PRIMARY KEY(file_id,version));
+        CREATE TABLE IF NOT EXISTS uploads (
+          id TEXT PRIMARY KEY, space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, folder TEXT NOT NULL, name TEXT NOT NULL,
+          size INTEGER NOT NULL, received INTEGER NOT NULL DEFAULT 0, replaces TEXT, started REAL NOT NULL);
+        -- Blobs no file refers to any more, and since when. They are removed only once no
+        -- backup (14 are kept) can still name them.
+        CREATE TABLE IF NOT EXISTS orphan_blobs (blob TEXT PRIMARY KEY, since REAL NOT NULL);
         PRAGMA user_version = 1;
         ''')
     os.chmod(database_path(), 0o600)
+
+# A person's Grove-wide role, for queries joining users u with grove_roles r.
+GROVE_ROLE = "CASE WHEN u.admin THEN 'owner' ELSE COALESCE(r.role,'member') END"
+
+def grove_setting(c, key, default):
+    row = c.execute('SELECT value FROM grove_settings WHERE key=?', (key,)).fetchone()
+    return row['value'] if row else default
