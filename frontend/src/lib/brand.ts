@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { api } from './community'
-export type Brand = { branded:boolean; name:string; tagline:string; accent:string; site_url:string; site_label:string; shop_url:string; shop_label:string; logo_url:string }
+export type Brand = { branded:boolean; name:string; tagline:string; accent:string; theme?:Record<string,string>; site_url:string; site_label:string; shop_url:string; shop_label:string; logo_url:string }
 export const defaultBrand:Brand={branded:false,name:'Arynwood Grove',tagline:'The Grove, your community – your choices',accent:'#4fd1ab',site_url:'',site_label:'Website',shop_url:'',shop_label:'Shop',logo_url:''}
 export function useBrand(enabled=true){
   const [brand,setBrand]=useState(defaultBrand)
@@ -16,5 +16,6 @@ export function useBrand(enabled=true){
   return brand
 }
 export function brandStyle(brand:Brand):CSSProperties|undefined {
+  if(brand.theme&&Object.keys(brand.theme).length)return brand.theme as CSSProperties
   return brand.accent===defaultBrand.accent?undefined:{'--accent':brand.accent,'--accent-hover':brand.accent,'--accent-text':brand.accent,'--accent2':brand.accent,'--accent-soft':`color-mix(in srgb, ${brand.accent} 14%, transparent)`,'--on-accent':'#0f1314'} as CSSProperties
 }
