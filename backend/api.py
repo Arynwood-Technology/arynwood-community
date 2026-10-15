@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 from backend.routers import mail, irc, p2p
-from backend.community import admin, auth, files, routes, store, webmaster, wishes
+from backend.community import admin, auth, editor, files, routes, store, webmaster, wishes
 from backend import grove, setup, brand
 
 @asynccontextmanager
@@ -42,7 +42,7 @@ async def protections(request, call_next):
             return JSONResponse({'detail':'Request blocked. Reload and try again.'},status_code=403)
     response=await call_next(request)
     response.headers['X-Content-Type-Options']='nosniff'
-    response.headers['X-Frame-Options']='DENY'
+    if 'x-frame-options' not in response.headers: response.headers['X-Frame-Options']='DENY'
     response.headers['Referrer-Policy']='same-origin'
     path=request.url.path
     # Vite fingerprints everything under /assets, so it can be cached indefinitely.
@@ -82,6 +82,7 @@ app.include_router(setup.router,prefix='/api/grove-setup')
 app.include_router(auth.router,prefix='/api/auth')
 app.include_router(routes.router,prefix='/api/community')
 app.include_router(files.router,prefix='/api/community')
+app.include_router(editor.router,prefix='/api/community')
 app.include_router(admin.router,prefix='/api/admin')
 app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(webmaster.router,prefix='/api/webmaster')
