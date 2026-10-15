@@ -1,8 +1,9 @@
+import { BrandLogo, BrandLinks, BrandCredit } from './components/Brand'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, Hash, Radio, MessageSquare, UserRound } from 'lucide-react'
 import { api, type Space, type User } from './lib/community'
-import { Logo } from './components/Logo'
+import { useBrand, brandStyle } from './lib/brand'
 import { PublicInviteLink } from './components/PublicInviteLink'
 import { Welcome } from './pages/Welcome'
 import { Modal, Workspace } from './pages/Workspace'
@@ -18,6 +19,7 @@ import './community.css'
 const sections=['calendar','today','boards','discussion','household','lists','notes','settings','month','irc','messages','mail'] as const
 const nav=[['calendar','Calendar',CalendarDays],['irc','IRC rooms',Hash],['messages','Private messages',Radio],['discussion','Space discussion',MessageSquare]] as const
 export function Community() {
+  const brand=useBrand()
   const location=useLocation(), navigate=useNavigate()
   const consumedInvite=useRef('')
   const [dialog,setDialog]=useState<'create'|'invite'|null>(null),[busy,setBusy]=useState(false),[dialogError,setDialogError]=useState(''),[inviteLink,setInviteLink]=useState(''),[copied,setCopied]=useState(false)
@@ -76,15 +78,16 @@ export function Community() {
   // Peer messages stay connected once opened, so remember the first visit (it mounts P2PChat for good).
   if(section==='messages'&&user?.admin&&!peerVisited)setPeerVisited(true)
   const hostPage=['irc','messages','mail'].includes(section)
-  return <div className="grove-community">
-    {!ready?<div className="workspace"><p>Opening Community…</p></div>:!user?<Welcome onLogin={async(u,usedInvite)=>{
+  return <div className="grove-community" style={brandStyle(brand)}>
+    {!ready?<div className="workspace"><p>Opening Community…</p></div>:!user?<Welcome brand={brand} onLogin={async(u,usedInvite)=>{
       if(usedInvite){consumedInvite.current=new URLSearchParams(location.search).get('invite')??'';navigate('/community/calendar',{replace:true})}
       setUser(u)
     }}/>:<>
-      <header className="workspace community-header"><div className="section-heading"><div><div className="community-brand"><Logo label="Arynwood tree logo"/><span className="eyebrow tagline">The Grove, your community – your choices</span></div><h2>{space?.name??'Community'}</h2>{space?.topic&&<p className="space-topic">{space.topic}</p>}<div className="community-identity"><UserRound size={15}/><strong>{user.name}</strong><span>{user.email}</span><span>· {space?.role==='owner'?'Space owner':'Member'}{user.admin?' · Host':''}</span></div></div><button className="secondary" onClick={()=>void logout()}>Sign out</button></div>
+      <header className="workspace community-header"><div className="section-heading"><div><div className="community-brand"><BrandLogo brand={brand}/><span className="eyebrow tagline">{brand.branded&&<strong>{brand.name}<br/></strong>}{brand.tagline}</span></div><h2>{space?.name??'Community'}</h2>{space?.topic&&<p className="space-topic">{space.topic}</p>}<div className="community-identity"><UserRound size={15}/><strong>{user.name}</strong><span>{user.email}</span><span>· {space?.role==='owner'?'Space owner':'Member'}{user.admin?' · Host':''}</span></div></div><button className="secondary" onClick={()=>void logout()}>Sign out</button></div>
+        {brand.branded&&<><BrandLinks brand={brand}/><BrandCredit/></>}
         <div className="action-row"><label>Space <select value={space?.id??''} onChange={e=>{setSelected(e.target.value);setNotice('')}}>{spaces.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="secondary" onClick={()=>openDialog('create')}>Create new space</button>{space?.role==='owner'&&<><button className="primary" onClick={()=>openDialog('invite')}>Invite members</button><NavLink className="secondary" to="/community/settings">Manage space</NavLink></>}</div>
         {!!user.admin&&publicUrl&&/(\.sslip\.io|\.nip\.io|^[\d.]+|^\[.*\])$/.test(new URL(publicUrl).hostname)&&<p className="notice">This Grove is on a temporary address. <NavLink to="/community/settings">Use your own domain</NavLink></p>}
-        <p className="muted-text">{publicUrl?`Community storage: this Grove's server (${new URL(publicUrl).host}), shared live with your members`:'Community storage: this computer · Separate from community.arynwood.com'}</p>
+        <p className="muted-text">{publicUrl?`Community storage: this Grove's server (${new URL(publicUrl).host}), shared live with your members`:brand.branded?'Community storage: this Grove’s server':'Community storage: this computer · Separate from community.arynwood.com'}</p>
         <nav className="community-nav" aria-label="Community sections">{nav.filter(([s])=>user.admin||!['irc','messages'].includes(s)).map(([s,label,Icon])=><NavLink key={s} to={'/community/'+s} className={()=>section===s||(s==='calendar'&&section==='month')?'primary':'secondary'}><Icon size={15}/>{label}</NavLink>)}{(['today','boards','household','lists','notes','settings'] as const).map(s=><NavLink key={s} to={'/community/'+s} className={()=>section===s?'primary':'secondary'}>{({today:'Overview',boards:'Board',household:'Tasks',lists:'Lists',notes:'Notes',settings:'People & identity'})[s]}</NavLink>)}{!!user.admin&&<NavLink to="/community/mail" className={()=>section==='mail'?'primary':'secondary'}>Mail</NavLink>}</nav>
         {section==='discussion'&&<p className="muted-text" style={{marginTop:14}}>A shared message board for members of this space. For IRC conversations, use IRC rooms. For peer messages and photos, use Private messages.</p>}
         {hostPage&&<p className="muted-text" style={{marginTop:14}}>{section==='irc'?'IRC uses your network nickname and account. Connect explicitly; your Grove sign-in does not authenticate an IRC identity.':section==='messages'?'NKN messages use your peer address. Verify a contact’s address before sharing photos; a contact label is only a name you chose.':'Mail uses the host’s configured mailbox, separate from your Grove account.'} These connections currently belong to the host.</p>}

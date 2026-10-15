@@ -509,3 +509,22 @@ main.full-bleed { overflow: hidden; }
 
 .grove-community .community-brand { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
 .grove-community .community-brand .tagline { text-transform:none; letter-spacing:normal; font-size:14px; margin-bottom:0; }
+
+.grove-community .brand-logo { width:48px; height:48px; object-fit:contain; border-radius:0; background:none; box-shadow:none; }
+.grove-community .brand-logo.welcome-logo { width:132px; height:132px; }
+.grove-community .brand-links { display:flex; flex-wrap:wrap; gap:16px; margin:12px 0; }
+.grove-community .brand-credit { display:block; }
+.grove-community .community-brand { min-width:0; overflow-wrap:anywhere; }
+@media (max-width:860px) {
+  .grove-community .welcome-story, .grove-community .welcome-form { padding-left:16px; padding-right:16px; min-width:0; }
+  .grove-community .welcome-story > .brand-credit { display:block; }
+  .grove-community .community-header .section-heading > div { min-width:0; }
+  .grove-community .community-identity, .grove-community .welcome h1, .grove-community .brand-links { overflow-wrap:anywhere; }
+}
+
+@media (max-width:860px) {
+  .grove-community .community-header .section-heading { flex-wrap:wrap; }
+  .grove-community .community-header h2 { overflow-wrap:anywhere; }
+  .grove-community .community-header select { max-width:100%; }
+  .grove-community .community-header .action-row label { min-width:0; max-width:100%; }
+}
