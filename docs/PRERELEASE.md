@@ -1,6 +1,6 @@
 # Arynwood Grove release notes
 
-Version: `0.5.1`
+Version: `0.5.2`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
 

@@ -26,6 +26,8 @@ sudo arynwood-grove status         # running? version, address, last backup, cer
 sudo arynwood-grove update         # newest release; keeps every account, space and setting
 sudo arynwood-grove rollback       # back to the previous release
 sudo arynwood-grove recovery-code person@example.com   # someone forgot their password
+sudo arynwood-grove offsite setup sftp://…   # encrypted nightly copies off the server
+sudo arynwood-grove create friends --domain friends.example.com --email you@example.com   # another Grove on this server
 sudo arynwood-grove help
 ```
 
@@ -46,6 +48,9 @@ Each person makes their own account on your Grove, from any computer or phone. E
 - **Board, Space discussion, Tasks, Lists, Notes:** shared content with replies, assignments, due dates, private notes and search.
 - **Spaces and people:** the first account is the host. Anyone can start more spaces. A space's owners rename it and give it a topic, invite and remove people, make other members owners, and can delete it for everyone; a space always keeps at least one owner. Members can leave.
 - **Live updates:** a change by anyone reaches every open page in that space at once.
+- **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type. Owners and managers can bring a website in by its address, edit it here and download it as a .zip.
+- **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
+- **Your group's look:** its name, tagline, logo, website and shop links, and a colour theme with readable contrast worked out for you (see Configuration).
 - **Host connections (host only):** Mail over IMAP/SMTP, IRC (irc.arynwood.com, `#general`, by default; change either in the IRC page), and Private messages over NKN.
 
 ## Upgrading from Arynwood Community 0.3
