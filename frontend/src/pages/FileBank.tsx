@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronRight, Download, File as FileIcon, FileText, Folder, FolderPlus, Image as ImageIcon, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { api, stamp, type Space, type User } from '../lib/community'
-import { bytes, contentUrl, freeName, isImage, isText, joined, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
+import { bytes, contentUrl, freeName, isImage, isText, joined, readText, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
 import { useSpaceRefresh } from '../lib/live'
 import { Modal } from './Workspace'
 import './files.css'
+const CodeEditor = lazy(() => import('../components/CodeEditor').then(module => ({ default: module.CodeEditor })))
 
 interface Sending { key: string; name: string; size: number; sent: number; error?: string }
 type Naming = { kind: 'folder' } | { kind: 'rename'; item: FileItem }
@@ -134,19 +135,25 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
 }
 
 function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; item: FileItem; onClose: () => void; onNewVersion: (file: File) => void }) {
+  const [current, setCurrent] = useState(item), [editing, setEditing] = useState(false)
   const [text, setText] = useState<string | null>(null), [versions, setVersions] = useState<Version[]>([])
   useEffect(() => {
     let active = true
     api<Version[]>(`/community/spaces/${space.id}/files/${item.id}/versions`).then(v => { if (active) setVersions(v) }).catch(() => {})
-    if (isText(item.name) && item.size <= 512 * 1024) fetch(contentUrl(space.id, item.id, '?inline=1')).then(r => r.ok ? r.text() : null).then(t => { if (active) setText(t) }).catch(() => {})
+    if (isText(item.name) && item.size <= 2 * 1024 * 1024) readText(space.id, { id: item.id, version: item.version }).then(t => { if (active) setText(t) }).catch(() => {})
     return () => { active = false }
-  }, [space.id, item.id, item.name, item.size])
+  }, [space.id, item.id, item.name, item.size, item.version])
+  if (editing && text !== null) return <Suspense fallback={<Modal title={item.name} onClose={() => setEditing(false)}><p>Opening editor…</p></Modal>}><CodeEditor spaceId={space.id} item={current} text={text} onClose={() => setEditing(false)} onSaved={(saved, contents) => {
+    setCurrent(saved); setText(contents)
+    void api<Version[]>(`/community/spaces/${space.id}/files/${item.id}/versions`).then(setVersions).catch(() => {})
+  }}/></Suspense>
   return <Modal title={item.name} onClose={onClose}>
     {isImage(item.name) && <img className="file-preview" src={contentUrl(space.id, item.id, '?inline=1')} alt={item.name} />}
     {text !== null && <pre className="file-text">{text}</pre>}
     {/\.pdf$/i.test(item.name) && <p><a href={contentUrl(space.id, item.id, '?inline=1')} target="_blank" rel="noopener noreferrer">Open the PDF in a new tab</a></p>}
-    <p className="muted-text">{bytes(item.size)} · added by {item.author || 'someone who has left'} · {stamp(item.created)}</p>
+    <p className="muted-text">{bytes(current.size)} · added by {item.author || 'someone who has left'} · {stamp(item.created)}</p>
     <div className="action-row">
+      {isText(current.name) && current.size <= 2 * 1024 * 1024 && text !== null && <button className="primary" onClick={() => setEditing(true)}>Edit</button>}
       <a className="primary button-link" href={contentUrl(space.id, item.id)} download><Download size={15} /> Download</a>
       <label className="secondary button-link"><Upload size={15} /> Upload a new version<input type="file" hidden onChange={e => { const file = e.target.files?.[0]; if (file) onNewVersion(file) }} /></label>
     </div>

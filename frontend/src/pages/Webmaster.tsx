@@ -56,11 +56,10 @@ export function Webmaster({ spaces, current, onOpen }: { spaces: Space[]; curren
         <h2><span className="step" aria-hidden="true">2</span> Change what you need</h2>
         <ul>
           <li>Open the site in Files, under <strong>Website</strong> and then its address. Every page, stylesheet and image is there, laid out as on your domain.</li>
-          <li>To change something, download it, edit it, and upload it again with the same name. Choose <strong>New version</strong>: the earlier versions are kept, so nothing is lost.</li>
-          <li>Pages, styles and scripts show their contents when you open them, so anyone can check a change.</li>
+          <li>Open a page or stylesheet and choose <strong>Edit</strong>. Preview HTML pages as you work, then save a new version. Earlier versions stay in Files.</li>
+          <li>You can also download a file, edit it elsewhere, and upload it with the same name. Choose <strong>New version</strong>.</li>
           <li>Importing again brings in whatever changed on the live site as new versions, and deletes nothing.</li>
         </ul>
-        <p className="muted-text">An editor for pages and styles, right in the Grove, is coming next.</p>
       </li>
       <li className="panel">
         <h2><span className="step" aria-hidden="true">3</span> Put it back on your domain</h2>
