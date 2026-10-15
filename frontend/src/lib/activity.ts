@@ -57,6 +57,7 @@ export function describeActivity(a: Activity): string {
     }
     case 'grove_role_changed': return `${who} made ${a.target_name} ${groveRoles[String(d.role)] ?? 'a member'} of the Grove`
     case 'file_uploaded': return `${who} uploaded ${quoted(a.target_name)}${here}`
+    case 'file_edited': return `${who} edited ${quoted(a.target_name)}${here} (version ${d.version})`
     case 'file_version_added': return `${who} uploaded version ${d.version} of ${quoted(a.target_name)}${here}`
     case 'file_downloaded': return `${who} downloaded ${quoted(a.target_name)}${d.version ? ` (version ${d.version})` : ''}${here}`
     case 'folder_created': return `${who} made the folder ${quoted(a.target_name)}${here}`

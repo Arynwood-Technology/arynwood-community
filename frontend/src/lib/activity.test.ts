@@ -23,3 +23,8 @@ it('never names a private item, and names people done to', () => {
     .toBe('Sam imported the website https://festival.test/ into “Website/festival.test” in Crew: 9 new, 1 changed')
   expect(describeActivity(row('something_new'))).toBe('Sam: something new')
 })
+
+it('describes an in-Grove file edit and its version', () => {
+  expect(describeActivity(row('file_edited', { target_name: 'Website/index.html', details: { version: 2 } })))
+    .toBe('Sam edited “Website/index.html” in Crew (version 2)')
+})
