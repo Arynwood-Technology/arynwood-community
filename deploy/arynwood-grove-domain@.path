@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for the %i Grove's host asking to move it to a new address
+
+[Path]
+# The Grove service writes this file (Settings → Your Grove's address).
+PathExists=/var/lib/arynwood-groves/%i/requests/domain.json
+
+[Install]
+WantedBy=multi-user.target

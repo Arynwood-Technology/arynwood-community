@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up the %i Grove's database
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/arynwood-grove --grove %i backup

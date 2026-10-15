@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""

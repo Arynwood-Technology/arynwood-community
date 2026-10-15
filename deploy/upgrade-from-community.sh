@@ -2,7 +2,7 @@
 # Upgrade an Arynwood Community 0.3 server to Arynwood Grove, in place, or a Grove that was
 # upgraded this way to a newer release.
 #
-#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz
+#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz
 #
 # Run it as the account that owns the install, not as root. It keeps the install's folder,
 # .env, data, IRC settings, NKN wallet and Python environment, so the existing systemd service

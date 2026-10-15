@@ -1,0 +1,6 @@
+[Unit]
+Description=Move the %i Grove to the address its host asked for
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/arynwood-grove --grove %i apply-domain-request

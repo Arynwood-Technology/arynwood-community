@@ -1,0 +1,28 @@
+[Unit]
+Description=Arynwood Grove %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grove-%i
+Group=grove-%i
+WorkingDirectory=/opt/arynwood-grove/groves/%i
+EnvironmentFile=/etc/arynwood-groves/%i.env
+# One worker: SQLite and live change notices are shared within one process.
+# Nginx on this host is the only trusted proxy, so client addresses and https come from it.
+ExecStart=/opt/arynwood-grove/groves/%i/.venv/bin/python -m uvicorn backend.api:app --host 127.0.0.1 --port ${GROVE_PORT} --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1 --timeout-graceful-shutdown 5 --no-access-log
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/arynwood-groves/%i
+# Groves share this server, so none may take all of its memory.
+MemoryHigh=512M
+MemoryMax=768M
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

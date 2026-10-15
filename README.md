@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.1. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -53,8 +53,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.

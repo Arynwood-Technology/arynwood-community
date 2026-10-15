@@ -1,8 +1,19 @@
 # Arynwood Grove release notes
 
-Version: `0.5.0`
+Version: `0.5.1`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.5.1
+
+Servers
+
+- **Several Groves on one server.** `arynwood-grove create NAME --domain …` adds a Grove with its own service, system user, data, settings and port, limited to 768 MB of memory. All of them share one copy of each release. `arynwood-grove list` shows them all, and `--grove NAME` runs any command for one of them.
+- `arynwood-grove update --all` updates one Grove first (`--canary NAME`), and the rest only once it runs the new release. `backup --all` backs them all up.
+- The management command always comes from the newest release on the server, so rolling one Grove back never takes commands away from the others.
+- A new Grove's installer refuses a port something else already listens on.
+
+A server installed with 0.5.0 or earlier updates as usual (`arynwood-grove update`), and its Grove keeps its paths and has no name.
 
 ## 0.5.0
 

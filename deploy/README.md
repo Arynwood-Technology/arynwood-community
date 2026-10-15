@@ -44,7 +44,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.5.0   # a particular release
+sudo arynwood-grove update --version 0.5.1   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -61,13 +61,40 @@ An update that fails to start is undone automatically: the previous release keep
 
 **Back up off the server too.** Daily copies protect against mistakes, not against losing the server. Copy `/var/lib/arynwood-grove/backups/`, `/var/lib/arynwood-grove/files/` (everyone's uploaded files; the daily copy holds only the database) and `/etc/arynwood-grove/grove.env` somewhere else now and then, and test a restore once.
 
+## Several Groves on one server
+
+One server can run many Groves: one for your friends, one for a festival, one for a club. Each is a separate service with its own system user, data, settings, address and port, so one Grove can't read another's data or use up the server's memory. They share the program: one copy of each release, however many Groves run it.
+
+```bash
+sudo arynwood-grove create roguefest --domain roguefest.example.com --email you@example.com
+sudo arynwood-grove list                               # every Grove: state, version, port, data, address
+sudo arynwood-grove --grove roguefest status           # any command above, for that Grove
+sudo arynwood-grove --grove roguefest setup-link
+sudo arynwood-grove backup --all
+sudo arynwood-grove update --all --canary roguefest    # roguefest first; the rest only if it runs
+```
+
+`create` uses the newest release on the server; on a new server, install the first one with `install.sh --name NAME --domain …`. Without `--grove`, commands act on the Grove installed without a name, if there is one.
+
+| For a Grove named `NAME` | |
+|---|---|
+| `/var/lib/arynwood-groves/NAME` | Its data and backups, readable only by the system user `grove-NAME`. |
+| `/etc/arynwood-groves/NAME.env` | Its settings. The port is the first free one from 8100. |
+| `/opt/arynwood-grove/groves/NAME` | Link to the release it runs. A release is kept while any Grove runs it. |
+| `arynwood-grove@NAME.service` | The service, limited to 768 MB of memory. Also `arynwood-grove-backup@NAME.timer` and `arynwood-grove-domain@NAME.path`. |
+| `/etc/nginx/sites-available/arynwood-grove-NAME` | Its site. |
+
+`update --all` downloads the release once and updates one Grove first: the one named by `--canary`, or the Grove without a name. If that Grove doesn't start on the new release, it goes back to its previous one and the others are left alone. Each Grove can also be updated or rolled back by itself.
+
+Named Groves have `GROVE_HOST_TOOLS=off`: Mail, IRC and Private messages use the server owner's own accounts, so only the Grove without a name offers them.
+
 ## Upgrading a Community 0.3 server
 
 `upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, NKN wallet, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.1.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.

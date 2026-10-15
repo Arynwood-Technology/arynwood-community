@@ -1,31 +1,70 @@
 #!/usr/bin/env bash
-# Manage an Arynwood Grove server. Installed by deploy/install.sh as /usr/local/bin/arynwood-grove.
+# Manage the Arynwood Groves on a server. Installed by deploy/install.sh as /usr/local/bin/arynwood-grove.
+# The server's own Grove needs no name; the others (install.sh --name) are chosen with --grove NAME.
 set -euo pipefail
 PREFIX=/opt/arynwood-grove
-ENV_FILE=/etc/arynwood-grove/grove.env
-SERVICE=arynwood-grove
-CURRENT=$PREFIX/current
+NAME_RE='^[a-z][a-z0-9-]{0,22}[a-z0-9]$'
+
+# The paths and units of one Grove: grove_paths NAME, or grove_paths "" for the server's own.
+grove_paths() {
+  if [[ -n $1 ]]; then
+    NAME=$1 DATA=/var/lib/arynwood-groves/$1 ENV_FILE=/etc/arynwood-groves/$1.env SERVICE=arynwood-grove@$1
+    CURRENT=$PREFIX/groves/$1 RUN_USER=grove-$1 SITE_NAME=arynwood-grove-$1 ME="arynwood-grove --grove $1"
+  else
+    NAME="" DATA=/var/lib/arynwood-grove ENV_FILE=/etc/arynwood-grove/grove.env SERVICE=arynwood-grove
+    CURRENT=$PREFIX/current RUN_USER=grove SITE_NAME=arynwood-grove ME="arynwood-grove"
+  fi
+  SITE=/etc/nginx/sites-available/$SITE_NAME PREVIOUS_SITE=/etc/nginx/sites-available/$SITE_NAME-previous
+}
+# Every Grove on this server, one per line; the server's own is the empty line.
+groves() {
+  [[ -f /etc/arynwood-grove/grove.env ]] && echo ""
+  for file in /etc/arynwood-groves/*.env; do [[ -f $file ]] && basename "$file" .env; done
+  return 0
+}
+NAME=""
+case ${1:-} in
+  --grove|-g) NAME=${2:-}; shift 2 || true ;;
+  --grove=*) NAME=${1#--grove=}; shift ;;
+esac
+if [[ -n $NAME ]] && ! [[ $NAME =~ $NAME_RE && -f /etc/arynwood-groves/$NAME.env ]]; then
+  echo "There is no Grove named \"$NAME\" on this server. See: sudo arynwood-grove list" >&2; exit 1
+fi
+grove_paths "$NAME"
 
 env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n1; }
-need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo arynwood-grove $*" >&2; exit 1; }; }
+need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo $ME $*" >&2; exit 1; }; }
+need_grove() {
+  [[ -f $ENV_FILE ]] && return 0
+  echo "This server has no Grove without a name. Choose one with --grove NAME:" >&2
+  groves | sed 's/^/  /' >&2; exit 1
+}
 wait_healthy() {
   local port; port=$(env_value GROVE_PORT)
   for _ in $(seq 1 30); do curl -fsS -m 2 "http://127.0.0.1:${port:-8018}/api/health" >/dev/null 2>&1 && { echo "The Grove is running."; return 0; }; sleep 1; done
-  echo "The Grove did not answer. See: sudo arynwood-grove logs" >&2; return 1
+  echo "The Grove did not answer. See: sudo $ME logs" >&2; return 1
 }
-admin() { (cd "$CURRENT" && runuser -u grove -- env GROVE_ENV_FILE="$ENV_FILE" .venv/bin/python deploy/grove_admin.py "$@"); }
+admin() { (cd "$CURRENT" && runuser -u "$RUN_USER" -- env GROVE_ENV_FILE="$ENV_FILE" .venv/bin/python deploy/grove_admin.py "$@"); }
+newest_release() { ls -1 "$PREFIX/releases" 2>/dev/null | grep -vE '\.(new|old)$' | sort -V | tail -n1; }
 
 usage() {
   cat <<'USAGE'
-Usage: sudo arynwood-grove <command>
+Usage: sudo arynwood-grove [--grove NAME] <command>
 
+Without --grove, commands act on the server's own Grove; with it, on the Grove of that name.
+
+  list                 Every Grove on this server: state, version, port, data, address
+  create NAME --domain grove.example.com [--email ADDRESS] [--no-https] [--port N]
+                       Add a Grove to this server, using the newest release here
   status               Is it running, which version, where, last backup, certificate
   setup-link           The link that creates the host account (until it exists)
   invite-help          How to invite people
   recovery-code EMAIL  A 15-minute password reset code for someone who forgot theirs
-  backup               Copy the database now (a daily copy is automatic; 14 are kept)
+  backup [--all]       Copy the database now (a daily copy is automatic; 14 are kept)
   restore FILE         Put a backup back (the current data is backed up first)
-  update [--version X] Install the latest release, keeping all data and settings
+  update [--version X | --from FILE] [--all [--canary NAME]]
+                       Install the latest release, keeping all data and settings. With --all,
+                       every Grove: the first (or the canary) alone, and the rest only if it works
   rollback             Go back to the previous release
   logs                 The service's recent log
   restart              Restart the service
@@ -35,9 +74,6 @@ Usage: sudo arynwood-grove <command>
 USAGE
 }
 
-DATA=/var/lib/arynwood-grove
-SITE=/etc/nginx/sites-available/arynwood-grove
-PREVIOUS_SITE=/etc/nginx/sites-available/arynwood-grove-previous
 DOMAIN_RE='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
 EMAIL_RE='^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$'
 
@@ -89,21 +125,43 @@ set_domain() {
         echo "  return 301 $scheme://$domain\$request_uri; }"
       fi
     } >"$PREVIOUS_SITE"
-    ln -sfn "$PREVIOUS_SITE" /etc/nginx/sites-enabled/arynwood-grove-previous
-    nginx -t -q 2>/dev/null && systemctl reload nginx || { rm -f /etc/nginx/sites-enabled/arynwood-grove-previous; systemctl reload nginx; }
+    ln -sfn "$PREVIOUS_SITE" "/etc/nginx/sites-enabled/$SITE_NAME-previous"
+    nginx -t -q 2>/dev/null && systemctl reload nginx || { rm -f "/etc/nginx/sites-enabled/$SITE_NAME-previous"; systemctl reload nginx; }
   fi
   sed -i "s#^GROVE_PUBLIC_URL=.*#GROVE_PUBLIC_URL=$scheme://$domain#" "$ENV_FILE"
-  systemctl restart $SERVICE
-  wait_healthy >/dev/null || { echo "The Grove did not restart. See: sudo arynwood-grove logs" >&2; return 1; }
+  systemctl restart "$SERVICE"
+  wait_healthy >/dev/null || { echo "The Grove did not restart. See: sudo $ME logs" >&2; return 1; }
   echo "The Grove is now at $scheme://$domain"
 }
 
 command=${1:-help}; shift || true
 case $command in
+  list)
+    need_root list
+    printf '%-24s %-10s %-9s %-6s %-6s %s\n' GROVE STATE VERSION PORT DATA ADDRESS
+    while read -r grove; do
+      grove_paths "$grove"
+      printf '%-24s %-10s %-9s %-6s %-6s %s\n' "${grove:-(no name)}" "$(systemctl is-active "$SERVICE" 2>/dev/null || true)" \
+        "$(basename "$(readlink -f "$CURRENT")")" "$(env_value GROVE_PORT)" "$(du -sh "$DATA" 2>/dev/null | cut -f1)" "$(env_value GROVE_PUBLIC_URL)"
+    done < <(groves)
+    ;;
+  create)
+    need_root create
+    name=${1:-}; shift || true
+    [[ $name =~ $NAME_RE ]] || { echo "Usage: sudo arynwood-grove create NAME --domain grove.example.com [--email you@example.com]" >&2; echo "NAME: 2 to 24 lowercase letters, digits and dashes, starting with a letter." >&2; exit 1; }
+    [[ ! -f /etc/arynwood-groves/$name.env ]] || { echo "There is already a Grove named \"$name\". See: sudo arynwood-grove list" >&2; exit 1; }
+    newest=$(newest_release)
+    [[ -n $newest ]] || { echo "No release on this server yet. Install the first Grove with install.sh." >&2; exit 1; }
+    # The newest release here, unless a release file or version is given.
+    release=(--from "$PREFIX/releases/$newest")
+    for arg in "$@"; do [[ $arg == --from || $arg == --version ]] && release=(); done
+    bash "$PREFIX/releases/$newest/deploy/install.sh" --name "$name" "${release[@]}" "$@"
+    ;;
   status)
-    need_root status
+    need_root status; need_grove
     url=$(env_value GROVE_PUBLIC_URL); domain=${url#*://}; domain=${domain%%/*}
-    printf 'Service:   %s\n' "$(systemctl is-active $SERVICE 2>/dev/null || true)"
+    [[ -z $NAME ]] || printf 'Grove:     %s\n' "$NAME"
+    printf 'Service:   %s\n' "$(systemctl is-active "$SERVICE" 2>/dev/null || true)"
     printf 'Version:   %s\n' "$(basename "$(readlink -f "$CURRENT")")"
     printf 'Address:   %s\n' "${url:-not set}"
     db=$(admin path); printf 'Data:      %s (%s)\n' "$db" "$(du -h "$db" 2>/dev/null | cut -f1 || echo none yet)"
@@ -113,7 +171,7 @@ case $command in
     if [[ -f $cert ]]; then printf 'HTTPS:     certificate valid until %s\n' "$(openssl x509 -enddate -noout -in "$cert" | cut -d= -f2)"
     else printf 'HTTPS:     no certificate\n'; fi
     ;;
-  setup-link) need_root setup-link; admin setup-link ;;
+  setup-link) need_root setup-link; need_grove; admin setup-link ;;
   invite-help)
     echo 'Sign in, choose a space, and click "Invite members".'
     echo '  - An invitation link admits one person and expires after seven days. Send it privately.'
@@ -121,30 +179,47 @@ case $command in
     echo '    and turn it off in the same place when you are done.'
     ;;
   recovery-code)
-    need_root recovery-code
-    [[ -n ${1:-} ]] || { echo "Usage: sudo arynwood-grove recovery-code person@example.com" >&2; exit 1; }
+    need_root recovery-code; need_grove
+    [[ -n ${1:-} ]] || { echo "Usage: sudo $ME recovery-code person@example.com" >&2; exit 1; }
     echo "Give this code to the person privately. They enter it under \"Forgot password?\" within 15 minutes:"
     admin recovery-code "$1"
     ;;
-  backup) need_root backup; admin backup ;;
+  backup)
+    need_root backup
+    if [[ ${1:-} == --all ]]; then
+      failed=0
+      while read -r grove; do
+        grove_paths "$grove"
+        printf '%s: ' "${grove:-(no name)}"; admin backup </dev/null || failed=1
+      done < <(groves)
+      exit $failed
+    fi
+    need_grove; admin backup
+    ;;
   restore)
-    need_root restore
-    file=${1:-}; [[ -f $file ]] || { echo "Usage: sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3" >&2; exit 1; }
+    need_root restore; need_grove
+    file=${1:-}; [[ -f $file ]] || { echo "Usage: sudo $ME restore $DATA/backups/grove-….sqlite3" >&2; exit 1; }
     db=$(admin path)
     echo "Saving the current data first: $(admin backup)"
-    systemctl stop $SERVICE
-    install -m 0600 -o grove -g grove "$file" "$db"
+    systemctl stop "$SERVICE"
+    install -m 0600 -o "$RUN_USER" -g "$RUN_USER" "$file" "$db"
     rm -f "$db-wal" "$db-shm"
-    systemctl start $SERVICE
+    systemctl start "$SERVICE"
     echo "Restored $file"
     wait_healthy
     ;;
   update)
     need_root update
-    from="" version=latest
+    from="" version=latest all=0 canary=""
     while [[ $# -gt 0 ]]; do
-      case $1 in --from) from=${2:-}; shift 2 ;; --version) version=${2#v}; shift 2 ;; *) echo "Unknown option: $1" >&2; exit 1 ;; esac
+      case $1 in
+        --from) from=${2:-}; shift 2 ;; --version) version=${2#v}; shift 2 ;;
+        --all) all=1; shift ;; --canary) canary=${2:-}; all=1; shift 2 ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+      esac
     done
+    [[ $all == 1 ]] || need_grove
+    [[ -z $canary || -f /etc/arynwood-groves/$canary.env ]] || { echo "There is no Grove named \"$canary\"." >&2; exit 1; }
     tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
     if [[ -z $from ]]; then
       repo=https://github.com/Arynwood-Technology/arynwood-community/releases
@@ -160,35 +235,50 @@ case $command in
     # Run the new release's own installer, so an update can also fix the updater.
     mkdir "$tmp/new"; tar -xzf "$from" -C "$tmp/new" --strip-components=1 --wildcards '*/deploy/install.sh' \
       || { echo "$from is not a Grove release." >&2; exit 1; }
-    bash "$tmp/new/deploy/install.sh" --update --yes --from "$from"
+    if [[ $all == 0 ]]; then bash "$tmp/new/deploy/install.sh" --update --yes --from "$from" ${NAME:+--name "$NAME"}; exit; fi
+    # One Grove first; the rest only once it runs the new release.
+    if [[ -n $canary ]]; then mapfile -t list < <(echo "$canary"; groves | grep -vx -- "$canary")
+    else mapfile -t list < <(groves); fi
+    updated=() failed=()
+    for grove in "${list[@]}"; do
+      echo "== ${grove:-(no name)}"
+      if bash "$tmp/new/deploy/install.sh" --update --yes --from "$from" ${grove:+--name "$grove"}; then updated+=("${grove:-(no name)}")
+      else
+        failed+=("${grove:-(no name)}")
+        if [[ ${#updated[@]} == 0 && ${#failed[@]} == 1 ]]; then
+          echo "The first Grove did not take the update and is back on its previous release. The others were not touched." >&2; exit 1
+        fi
+      fi
+    done
+    echo "Updated: ${updated[*]:-none}"
+    [[ ${#failed[@]} == 0 ]] || { echo "Not updated (each is back on its previous release): ${failed[*]}" >&2; exit 1; }
     ;;
   rollback)
-    need_root rollback
+    need_root rollback; need_grove
     # The newest release older than the one running.
     now=$(basename "$(readlink -f "$CURRENT")")
     previous=$( (ls -1 "$PREFIX/releases"; echo "$now") | grep -vE '\.(new|old)$' | sort -uV | grep -B1 -x "$now" | grep -vx "$now" || true)
     previous=${previous:+$PREFIX/releases/$previous}
     [[ -n $previous ]] || { echo "There is no earlier release to go back to." >&2; exit 1; }
     echo "Backing up first: $(admin backup)"
-    ln -sfn "$previous" "$PREFIX/current.new" && mv -T "$PREFIX/current.new" "$CURRENT"
-    install -m 0755 "$CURRENT/deploy/arynwood-grove" /usr/local/bin/arynwood-grove
-    systemctl restart $SERVICE
+    ln -sfn "$previous" "$CURRENT.new" && mv -T "$CURRENT.new" "$CURRENT"
+    systemctl restart "$SERVICE"
     echo "Now running $(basename "$previous")."
     wait_healthy
     ;;
-  logs) need_root logs; journalctl -u $SERVICE -n "${1:-100}" --no-pager ;;
-  restart) need_root restart; systemctl restart $SERVICE; wait_healthy ;;
+  logs) need_root logs; need_grove; journalctl -u "$SERVICE" -n "${1:-100}" --no-pager ;;
+  restart) need_root restart; need_grove; systemctl restart "$SERVICE"; wait_healthy ;;
   set-domain)
-    need_root set-domain
+    need_root set-domain; need_grove
     domain=${1:-}; shift || true; email=""
     [[ ${1:-} == --email ]] && email=${2:-}
-    [[ -n $domain ]] || { echo "Usage: sudo arynwood-grove set-domain grove.example.com [--email you@example.com]" >&2; exit 1; }
+    [[ -n $domain ]] || { echo "Usage: sudo $ME set-domain grove.example.com [--email you@example.com]" >&2; exit 1; }
     set_domain "${domain,,}" "$email"
     ;;
   apply-domain-request)
     # Started by arynwood-grove-domain.path when the host asks in Settings. The request was
     # written by the service, so it is read as data and validated again here.
-    need_root apply-domain-request
+    need_root apply-domain-request; need_grove
     request=$DATA/requests/domain.json result=$DATA/requests/domain.result.json
     [[ -f $request ]] || exit 0
     fields=$(python3 -I -c 'import json,sys
@@ -199,7 +289,7 @@ print(str(d.get("domain","")).replace("\n"," ")); print(str(d.get("email","")).r
     if output=$(set_domain "$domain" "$email" 2>&1); then status=done; else status=failed; fi
     python3 -I -c 'import json,sys,time; json.dump({"status":sys.argv[1],"domain":sys.argv[2],"message":sys.argv[3].strip().splitlines()[-1] if sys.argv[3].strip() else "","finished":time.time()},open(sys.argv[4],"w"))' \
       "$status" "$domain" "$output" "$result.tmp"
-    chown grove:grove "$result.tmp"; chmod 0640 "$result.tmp"; mv "$result.tmp" "$result"
+    chown "$RUN_USER:$RUN_USER" "$result.tmp"; chmod 0640 "$result.tmp"; mv "$result.tmp" "$result"
     echo "$output"
     ;;
   help|-h|--help) usage ;;
