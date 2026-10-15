@@ -25,6 +25,7 @@ it('lists a folder, opens folders, and lets people change only what they added',
   show()
   expect(await screen.findByText('4.0 KB of 10 GB used')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Download Poster.png' })).toHaveAttribute('href', '/community-api/community/spaces/crew/files/poster/content')
+  expect(screen.getByRole('link', { name: 'Download Press as a .zip' })).toHaveAttribute('href', '/community-api/community/spaces/crew/files/press/zip')
   expect(screen.queryByRole('button', { name: 'Delete Poster.png' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Delete Notes.txt' })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Press' }))

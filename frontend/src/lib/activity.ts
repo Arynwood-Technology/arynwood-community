@@ -65,6 +65,8 @@ export function describeActivity(a: Activity): string {
     case 'file_deleted': return `${who} moved ${quoted(a.target_name)} to the trash${here}`
     case 'file_restored': return `${who} brought ${quoted(a.target_name)} back from the trash${here}`
     case 'file_purged': return `${who} deleted ${quoted(a.target_name)} for good${here}`
+    case 'folder_downloaded': return `${who} downloaded the folder ${quoted(a.target_name)} as a .zip${here}`
+    case 'site_imported': return d.status === 'failed' ? `${who} tried to import the website ${d.url} into ${space}` : `${who} imported the website ${d.url} into ${quoted(a.target_name)}${here}: ${d.added} new, ${d.changed} changed`
     case 'wish_made': return `${who} made a wish${here}`
     case 'grove_setting_changed': return d.space_creation === 'managers' ? `${who} let only owners and managers start spaces` : `${who} let everyone start spaces`
     default: return `${who}: ${a.action.replaceAll('_', ' ')}`

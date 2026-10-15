@@ -12,11 +12,13 @@ import os
 import re
 import shutil
 import time
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from .auth import user, identifier, now
 from .store import db, database_path, setting
@@ -32,6 +34,7 @@ TRASH_DAYS = 30
 BLOB_GRACE = 15 * 86400  # longer than the 14 daily backups keep a database that may name a blob
 UPLOAD_SECONDS = 24 * 3600
 MIN_FREE = 2 * 1024 * MB
+ZIP_MAX = 4 * 1024 * MB
 BAD = re.compile(r'[/\\\x00-\x1f\x7f]')
 # Opened in the browser rather than downloaded; text is always sent as text/plain.
 SHOWN = {'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'}
@@ -265,6 +268,24 @@ def content(sid: str, fid: str, version: int | None = None, inline: bool = False
     return FileResponse(blob_path(blob), media_type='text/plain; charset=utf-8' if shown and text else kind, headers=headers,
                         filename=f['name'], content_disposition_type='inline' if shown else 'attachment')
 
+@router.get('/spaces/{sid}/files/{fid}/zip')
+def folder_zip(sid: str, fid: str, current=Depends(user)):
+    """A folder and everything in it, as one .zip: how a website leaves the Grove for its host."""
+    with db() as c:
+        membership(c, sid, current['id'])
+        f = live_item(c, sid, fid, 'folder')
+        path = joined(f['folder'], f['name'])
+        where, args = inside(path)
+        rows = [dict(r) for r in c.execute(f"SELECT folder,name,blob,size FROM files WHERE space_id=? AND kind='file' AND deleted IS NULL AND {where}", (sid, *args))]
+        if sum(r['size'] for r in rows) > ZIP_MAX: raise HTTPException(413, 'This folder is too large for one download. Download its folders one at a time.')
+        record(c, 'folder_downloaded', actor=current['id'], space=sid, target=fid, target_name=path, files=len(rows))
+    (storage() / 'tmp').mkdir(mode=0o700, parents=True, exist_ok=True)
+    out = storage() / 'tmp' / f'{identifier()}.zip'
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for r in rows: archive.write(blob_path(r['blob']), joined(f['name'], joined(r['folder'][len(path):].lstrip('/'), r['name'])))
+    return FileResponse(out, media_type='application/zip', filename=f"{f['name']}.zip", headers={'Content-Security-Policy': 'sandbox'},
+                        background=BackgroundTask(out.unlink, missing_ok=True))
+
 @router.get('/spaces/{sid}/files/{fid}/versions')
 def versions(sid: str, fid: str, current=Depends(user)):
     with db() as c:
@@ -372,3 +393,6 @@ def sweep(clock=time.time):
                 c.execute('DELETE FROM orphan_blobs WHERE blob=?', (path.name,))
     for part in (storage() / 'uploads').glob('*'):
         if part.name not in uploading: part.unlink(missing_ok=True)
+    # Zips whose download was cut off.
+    for leftover in (storage() / 'tmp').glob('*'):
+        if leftover.stat().st_mtime < moment - 86400: leftover.unlink(missing_ok=True)

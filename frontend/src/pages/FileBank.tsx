@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronRight, Download, File as FileIcon, FileText, Folder, FolderPlus, Image as ImageIcon, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { api, stamp, type Space, type User } from '../lib/community'
-import { bytes, contentUrl, freeName, isImage, isText, joined, uploadFile, type FileItem, type Listing, type Version } from '../lib/files'
+import { bytes, contentUrl, freeName, isImage, isText, joined, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
 import { useSpaceRefresh } from '../lib/live'
 import { Modal } from './Workspace'
 import './files.css'
@@ -10,9 +10,9 @@ interface Sending { key: string; name: string; size: number; sent: number; error
 type Naming = { kind: 'folder' } | { kind: 'rename'; item: FileItem }
 
 /** A space's shared files: folders, uploads that survive a dropped connection, versions and a trash. */
-export function FileBank({ space, user }: { space: Space; user: User }) {
+export function FileBank({ space, user, startFolder = '' }: { space: Space; user: User; startFolder?: string }) {
   const root = `/community/spaces/${space.id}`
-  const [folder, setFolder] = useState(''), [trash, setTrash] = useState(false)
+  const [folder, setFolder] = useState(startFolder), [trash, setTrash] = useState(false)
   // Kept with the view it was loaded for, so a page never shows one folder's items under another's buttons.
   const view = trash ? '\u0000trash' : folder
   const [loaded, setLoaded] = useState<{ view: string; data: Listing } | null>(null)
@@ -106,7 +106,8 @@ export function FileBank({ space, user }: { space: Space; user: User }) {
         {mine(item) && <button className="secondary" onClick={() => void act(api(`${root}/files/${item.id}/restore`, 'POST'), `${item.name} is back.`)}><RotateCcw size={14} /> Restore</button>}
         {owner && <button className="text-button danger" onClick={() => void act(api(`${root}/trash/${item.id}`, 'DELETE'), `${item.name} is gone for good.`)}>Delete forever</button>}
       </> : <>
-        {item.kind === 'file' && <a className="icon-button" href={contentUrl(space.id, item.id)} download aria-label={`Download ${item.name}`} title="Download"><Download size={16} /></a>}
+        {item.kind === 'file' ? <a className="icon-button" href={contentUrl(space.id, item.id)} download aria-label={`Download ${item.name}`} title="Download"><Download size={16} /></a>
+          : <a className="icon-button" href={zipUrl(space.id, item.id)} download aria-label={`Download ${item.name} as a .zip`} title="Download as a .zip"><Download size={16} /></a>}
         {mine(item) && <button className="icon-button" aria-label={`Rename ${item.name}`} title="Rename" onClick={() => { setNamingError(''); setNaming({ kind: 'rename', item }) }}><Pencil size={16} /></button>}
         {mine(item) && <button className="icon-button" aria-label={`Delete ${item.name}`} title="Move to the trash" onClick={() => setBinning(item)}><Trash2 size={16} /></button>}
       </>}</span>

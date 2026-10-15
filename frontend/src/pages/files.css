@@ -1,6 +1,6 @@
 @scope (.grove-community) {
 .file-bank { position: relative; }
-.file-bank.dropping::after { content: 'Drop to upload here'; position: absolute; inset: 8px; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: var(--radius); background: rgba(15, 19, 20, .82); color: var(--accent-text); font-weight: 700; pointer-events: none; z-index: 5; }
+.file-bank.dropping::after { content: 'Drop to upload here'; position: absolute; inset: 8px; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--accent-text); font-weight: 700; pointer-events: none; z-index: 5; }
 .usage { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 4px; font-size: 13px; color: var(--text-muted); }
 .usage-bar { flex: 1 1 160px; max-width: 280px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .usage-bar span { display: block; height: 100%; background: var(--accent); }

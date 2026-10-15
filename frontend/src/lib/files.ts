@@ -14,6 +14,7 @@ export function bytes(n: number) {
 }
 export const joined = (folder: string, name: string) => folder ? `${folder}/${name}` : name
 export const contentUrl = (spaceId: string, id: string, query = '') => `/community-api/community/spaces/${spaceId}/files/${id}/content${query}`
+export const zipUrl = (spaceId: string, id: string) => `/community-api/community/spaces/${spaceId}/files/${id}/zip`
 const images = /\.(png|jpe?g|gif|webp)$/i, texts = /\.(txt|md|csv|tsv|json|html?|css|m?js|tsx?|jsx|svg|xml|ya?ml|toml|ini|srt|vtt)$/i
 export const isImage = (name: string) => images.test(name)
 export const isText = (name: string) => texts.test(name)

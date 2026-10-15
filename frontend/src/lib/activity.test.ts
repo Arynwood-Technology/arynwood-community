@@ -19,5 +19,7 @@ it('never names a private item, and names people done to', () => {
   expect(describeActivity(row('sign_in_failed', { actor_name: '', target_name: 'Ada', space_name: '' }))).toBe('Someone tried to sign in as Ada with the wrong password')
   expect(describeActivity(row('grove_role_changed', { target_name: 'Ada', space_name: '', details: { role: 'manager' } }))).toBe('Sam made Ada a manager of the Grove')
   expect(describeActivity(row('signed_up', { details: { via: 'public link', invited_by: 'Ada' } }))).toBe('Sam joined the Grove through the public link from Ada to Crew')
+  expect(describeActivity(row('site_imported', { target_name: 'Website/festival.test', details: { url: 'https://festival.test/', status: 'done', added: 9, changed: 1 } })))
+    .toBe('Sam imported the website https://festival.test/ into “Website/festival.test” in Crew: 9 new, 1 changed')
   expect(describeActivity(row('something_new'))).toBe('Sam: something new')
 })

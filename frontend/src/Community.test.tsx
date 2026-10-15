@@ -79,6 +79,7 @@ it('gives the Grove admin page to owners and managers, and the wish lamp to ever
  mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,can_start_spaces:false}:[home])
  show();await screen.findByRole('option',{name:'Home'})
  expect(screen.queryByRole('link',{name:'Grove admin'})).toBeNull()
+ expect(screen.queryByRole('link',{name:'Webmaster tools'})).toBeNull()
  expect(screen.queryByRole('button',{name:'Create new space'})).toBeNull()
  expect(screen.getByRole('button',{name:'Make a wish'})).toBeInTheDocument()
  cleanup()
@@ -86,6 +87,7 @@ it('gives the Grove admin page to owners and managers, and the wish lamp to ever
  cleanup()
  mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,role:'manager'}:[home])
  show();expect(await screen.findByRole('link',{name:'Grove admin'})).toHaveAttribute('href','/community/admin')
+ expect(screen.getByRole('link',{name:'Webmaster tools'})).toHaveAttribute('href','/community/website')
 })
 
 it('uses the Grove identity and external links in the signed-in header',async()=>{

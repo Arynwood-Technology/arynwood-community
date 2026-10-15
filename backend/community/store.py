@@ -138,6 +138,14 @@ def initialize():
         -- Blobs no file refers to any more, and since when. They are removed only once no
         -- backup (14 are kept) can still name them.
         CREATE TABLE IF NOT EXISTS orphan_blobs (blob TEXT PRIMARY KEY, since REAL NOT NULL);
+        -- Website imports (webmaster.py): one row per run, with what it brought in and what it left.
+        CREATE TABLE IF NOT EXISTS site_imports (
+          id TEXT PRIMARY KEY, space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+          user_id TEXT REFERENCES users(id) ON DELETE SET NULL, url TEXT NOT NULL, folder TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('running','done','failed')),
+          added INTEGER NOT NULL DEFAULT 0, changed INTEGER NOT NULL DEFAULT 0, unchanged INTEGER NOT NULL DEFAULT 0,
+          skipped INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '{}',
+          message TEXT NOT NULL DEFAULT '', started TEXT NOT NULL, finished TEXT);
         PRAGMA user_version = 1;
         ''')
     os.chmod(database_path(), 0o600)
