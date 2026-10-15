@@ -44,7 +44,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.4.2   # a particular release
+sudo arynwood-grove update --version 0.5.0   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -59,15 +59,15 @@ An update that fails to start is undone automatically: the previous release keep
 
 **Password recovery is host-only.** There is no reset email. When someone forgets their password, run `recovery-code` with their email and give them the code privately; they enter it under "Forgot password?".
 
-**Back up off the server too.** Daily copies protect against mistakes, not against losing the server. Copy `/var/lib/arynwood-grove/backups/` and `/etc/arynwood-grove/grove.env` somewhere else now and then, and test a restore once.
+**Back up off the server too.** Daily copies protect against mistakes, not against losing the server. Copy `/var/lib/arynwood-grove/backups/`, `/var/lib/arynwood-grove/files/` (everyone's uploaded files; the daily copy holds only the database) and `/etc/arynwood-grove/grove.env` somewhere else now and then, and test a restore once.
 
 ## Upgrading a Community 0.3 server
 
 `upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, NKN wallet, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.2.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.2.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.
@@ -84,5 +84,6 @@ The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.
 
 - **One process.** Keep `--workers 1`: change notices are shared in memory, and SQLite has one writer. Pages fall back to polling if their live connection drops.
 - **Behind Cloudflare or another proxy,** nginx sees the proxy's address, not the visitor's, so sign-in and public-link limits apply per proxy address. Configure nginx's `real_ip` module with the proxy's address ranges so they apply per visitor.
-- **The host account reaches Mail, IRC and Private messages from the public address.** Those use the server's own mail account and identities. Use a strong, unique host password.
+- **The host account reaches Mail, IRC and Private messages from the public address.** Those use the server's own mail account and identities. Use a strong, unique host password. On a Grove you run for someone else, set `GROVE_HOST_TOOLS=off`.
+- **Uploads go through nginx in pieces of up to 8 MB.** The installer's site allows 10 MB a request. A site made by hand, or by Community 0.3, needs `client_max_body_size 10m;` for full-speed uploads and for saving pages over 1 MB in the editor.
 - **Private messages need Node.js** and `npm --prefix nkn ci` in the release folder; the installer does not set them up.

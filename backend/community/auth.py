@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from starlette.requests import HTTPConnection
 from pydantic import BaseModel, Field, field_validator
-from .store import db, public_origin, setting, grove_setting, GROVE_ROLE
+from .store import db, public_origin, setting, grove_setting, host_tools, GROVE_ROLE
 from .activity import record, name_of
 from . import live
 import os
@@ -59,7 +59,7 @@ def may_start_spaces(c, role):
 def profile(c, uid):
     """The signed-in person as the members' page sees them."""
     row = dict(c.execute(f'SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id WHERE u.id=?', (uid,)).fetchone())
-    return {**row, 'can_start_spaces': may_start_spaces(c, row['role'])}
+    return {**row, 'can_start_spaces': may_start_spaces(c, row['role']), 'host_tools': bool(row['admin']) and host_tools()}
 
 def session(request, response, uid):
     token = secrets.token_urlsafe(32)

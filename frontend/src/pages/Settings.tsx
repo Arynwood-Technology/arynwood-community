@@ -94,14 +94,14 @@ export function Settings({ space, user, onLogout, onLeft, onChanged }: { space: 
       <PasswordPanel onDone={flash} />
       {user.admin ? <section className="panel">
         <h2>Connections</h2>
-        <p>Mail, IRC and Message run on this computer and are visible only to the host.</p>
+        <p>{user.host_tools ? 'Mail, IRC and Message run on this computer and are visible only to the host.' : 'Mail, IRC and Message are switched off on this Grove. Mail sending is used only to email wishes.'}</p>
         <ul className="status-list">
-          <li><Mail size={16} /><span>Mail reading</span><b className={connections?.mail ? 'ok' : ''}>{connections === null ? '...' : connections.mail ? 'Ready' : 'Not set up'}</b></li>
+          {user.host_tools && <li><Mail size={16} /><span>Mail reading</span><b className={connections?.mail ? 'ok' : ''}>{connections === null ? '...' : connections.mail ? 'Ready' : 'Not set up'}</b></li>}
           <li><Mail size={16} /><span>Mail sending</span><b className={connections?.smtp ? 'ok' : ''}>{connections === null ? '...' : connections.smtp ? 'Ready' : 'Not set up'}</b></li>
-          <li><Hash size={16} /><span>IRC</span><b className="ok">Connect from IRC rooms</b></li>
-          <li><Radio size={16} /><span>Message</span><b className="ok">Open Private messages</b></li>
+          {user.host_tools && <><li><Hash size={16} /><span>IRC</span><b className="ok">Connect from IRC rooms</b></li>
+          <li><Radio size={16} /><span>Message</span><b className="ok">Open Private messages</b></li></>}
         </ul>
-        {connections && !connections.mail && <p className="muted-text">Add mail settings to <code>.env</code> and restart to read mail over IMAP. Without them, local Thunderbird mailboxes are used when available.</p>}
+        {user.host_tools && connections && !connections.mail && <p className="muted-text">Add mail settings to <code>.env</code> and restart to read mail over IMAP. Without them, local Thunderbird mailboxes are used when available.</p>}
         {connections && <p className="muted-text">Version {connections.version}</p>}
       </section> : null}
     </div>

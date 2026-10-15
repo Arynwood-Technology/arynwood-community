@@ -1,8 +1,32 @@
 # Arynwood Grove release notes
 
-Version: `0.4.2`
+Version: `0.5.0`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.5.0
+
+Running a Grove for a group
+
+- **Grove roles.** The host is always an owner. Owners make people owners, managers or members; everyone else comes in as a member. Managers use everything in Grove admin except appointing people.
+- **Grove admin**: everyone in the Grove, every space (including ones members start), disk use, and the activity log. The log records who did what and when, including sign-ins; private items are counted, never shown. Owners can stop members starting spaces.
+- **Branding**: a Grove's name, tagline, logo, website and shop links, and a full colour theme from three colours, with readable contrast worked out automatically (`GROVE_BRAND_*`).
+- **The wish lamp**, small in the bottom right: anyone can wish for a change. Owners and managers see wishes in Grove admin, and they are emailed to `GROVE_WISH_EMAIL` when the server can send mail.
+- `GROVE_HOST_TOOLS=off` hides Mail, IRC and Private messages, which use the host's own accounts, on a Grove run for someone else.
+
+Files
+
+- **Files** in every space: folders, uploads of up to 2 GB that resume after a dropped connection, earlier versions kept, and a 30-day trash. Room for each space is set by `GROVE_SPACE_STORAGE_MB`.
+- **An editor for text files**, with HTML, CSS, JavaScript, JSON and Markdown highlighting. Saving makes a new version and never overwrites someone else's newer save. HTML pages preview as you type, with their styles and images and with scripts off.
+- **Webmaster tools** (owners and managers): bring a website in from its address, edit it in Files, and download it as a .zip for whoever publishes it. Imports read only the same site, follow robots.txt, and never reach private addresses.
+
+Servers
+
+- The installer's nginx site accepts upload pieces of up to 10 MB. Sites made by an older installer or by hand still work, with smaller pieces; see deploy/README.md.
+- New settings: `GROVE_HOST_TOOLS`, `GROVE_WISH_EMAIL`, `GROVE_SPACE_STORAGE_MB`, `GROVE_FILE_MAX_MB`.
+- Back up `files/` in the data folder off the server too: the daily copy holds the database only.
+
+Roles, the activity log, files, wishes and imports are tables of their own, so a Grove rolled back to 0.4.2 keeps working on the same database.
 
 ## 0.4.2
 

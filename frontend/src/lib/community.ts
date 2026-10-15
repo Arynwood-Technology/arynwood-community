@@ -1,6 +1,6 @@
 // A Grove-wide role, apart from each space's owners and members. The host is always an owner.
 export type GroveRole = 'owner' | 'manager' | 'member'
-export interface User { id: string; name: string; email: string; admin: number; role: GroveRole; can_start_spaces: boolean }
+export interface User { id: string; name: string; email: string; admin: number; role: GroveRole; can_start_spaces: boolean; host_tools?: boolean }
 export interface Space { id: string; name: string; topic?: string; role: 'owner' | 'member' }
 export interface Member { id: string; name: string; role: 'owner' | 'member' }
 export type Kind = 'board' | 'note' | 'task' | 'event' | 'chat' | 'list' | 'item' | 'comment'

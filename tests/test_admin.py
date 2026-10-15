@@ -166,6 +166,17 @@ class AdminTests(unittest.TestCase):
             c.execute('INSERT INTO users VALUES (?,?,?,?,?,?)', ('old', 'Made by 0.4.2', 'old@example.test', 'x', 0, 'now'))
             c.execute('INSERT INTO spaces VALUES (?,?,?)', ('old', 'Made by 0.4.2', 'now'))
 
+    def test_host_tools_can_be_switched_off_for_a_client_grove(self):
+        host, member, sid = self.host_and_member()
+        self.assertEqual([host.get('/api/auth/me').json()['host_tools'], member.get('/api/auth/me').json()['host_tools']], [True, False])
+        self.assertEqual(member.get('/api/mail/accounts').status_code, 403)
+        with test_hub.patch.dict(test_hub.os.environ, {'GROVE_HOST_TOOLS': 'off'}):
+            self.assertFalse(host.get('/api/auth/me').json()['host_tools'])
+            # Gone rather than forbidden, for the host as much as anyone.
+            for path in ('/api/mail/accounts', '/api/irc/client-config', '/api/p2p/status'):
+                self.assertEqual(host.get(path).status_code, 404, path)
+                self.assertEqual(TestClient(app).get(path).status_code, 404, path)
+
 
 if __name__ == '__main__':
     unittest.main()

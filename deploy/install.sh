@@ -182,6 +182,10 @@ GROVE_SETUP_CODE=$code
 # Optional host mailbox for the Mail page:
 # MAIL_IMAP_HOST=  MAIL_IMAP_PORT=993  MAIL_IMAP_USER=  MAIL_IMAP_PASS=
 # MAIL_SMTP_HOST=  MAIL_SMTP_PORT=587  MAIL_SMTP_USER=  MAIL_SMTP_PASS=  MAIL_FROM=
+# Running it for someone else? Hide the host's Mail, IRC and Private messages, and email wishes to you:
+# GROVE_HOST_TOOLS=off  GROVE_WISH_EMAIL=
+# Room for each space's files, and the largest single file, in MB:
+# GROVE_SPACE_STORAGE_MB=10240  GROVE_FILE_MAX_MB=2048
 ENV
   umask 022
   chown root:grove "$ENV_FILE"; chmod 0640 "$ENV_FILE"

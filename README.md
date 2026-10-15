@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.4.2. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -53,8 +53,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.2.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.4.2.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.0.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.
@@ -86,7 +86,10 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `GROVE_BRAND_SITE_URL`, `GROVE_BRAND_SITE_LABEL` | Website link and label (default: Website). HTTPS; HTTP allowed only on localhost or loopback. |
 | `GROVE_BRAND_SHOP_URL`, `GROVE_BRAND_SHOP_LABEL` | Shop link and label (default: Shop), with the same URL rules. |
 | `GROVE_BRAND_LOGO` | File inside the data directory: PNG, JPEG or WebP, at most 512 KB. Invalid files are ignored; branded Groves never show the Arynwood tree. |
-| `GROVE_DATA_DIR` | Where the database lives. Defaults to `data/`. |
+| `GROVE_HOST_TOOLS` | `off` hides Mail, IRC and Private messages, which use the host’s own accounts, on a Grove run for someone else. Default `on`. |
+| `GROVE_WISH_EMAIL` | Where wishes from the lamp are emailed, using the `MAIL_SMTP_*` settings. Without it, wishes are kept for owners and managers in Grove admin. |
+| `GROVE_SPACE_STORAGE_MB`, `GROVE_FILE_MAX_MB` | Room for each space’s files (default 10240) and the largest single file (default 2048). Uploads also stop while the disk has under 2 GB free. |
+| `GROVE_DATA_DIR` | Where the database and files live. Defaults to `data/`. |
 | `GROVE_SETUP_CODE` | Set by the installer: required to create the host account. |
 | `GROVE_ORIGIN`, `GROVE_HOSTS` | Extra page origins and host names to accept, comma-separated. |
 | `MAIL_IMAP_*`, `MAIL_SMTP_*`, `MAIL_FROM` | The host's mailbox for Mail. |

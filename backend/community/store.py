@@ -6,13 +6,17 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.4.2'
+VERSION = '0.5.0'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
     value = os.getenv('GROVE_' + name)
     if value is None: value = os.getenv('COMMUNITY_' + name)
     return default if value is None else value
+
+def host_tools():
+    """Mail, IRC and Private messages use the host's own accounts; a Grove run for someone else turns them off."""
+    return setting('HOST_TOOLS', 'on').strip().lower() not in ('off', '0', 'no', 'false')
 
 def database_path():
     directory = Path(setting('DATA_DIR') or ROOT / 'data')
