@@ -80,7 +80,9 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `GROVE_PUBLIC_URL` | The address members open, e.g. `https://grove.example.com`. Invite links use it; it is trusted as page origin and host name; cookies are `Secure` over HTTPS. |
 | `GROVE_BIND`, `GROVE_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
 | `GROVE_BRAND_NAME`, `GROVE_BRAND_TAGLINE` | Optional identity. A name enables the branded welcome page. |
-| `GROVE_BRAND_ACCENT` | `#rrggbb`, at least 4.5:1 contrast on dark surfaces; invalid values use the default teal. |
+| `GROVE_BRAND_SURFACE` | Optional dark base, `#rrggbb` with relative luminance at most 0.1. Enables a full theme; invalid or absent values keep today’s palette and accent validation. |
+| `GROVE_BRAND_TEXT` | Optional light text, `#rrggbb` with relative luminance at least 0.5. Defaults to Grove’s light text; adjusted for readable contrast when a surface is set. |
+| `GROVE_BRAND_ACCENT` | `#rrggbb`. With a surface, derives button and link variants by stepping HSL lightness to reach 4.5:1; borders reach 3:1. Without a surface, keeps the existing contrast check and teal fallback. |
 | `GROVE_BRAND_SITE_URL`, `GROVE_BRAND_SITE_LABEL` | Website link and label (default: Website). HTTPS; HTTP allowed only on localhost or loopback. |
 | `GROVE_BRAND_SHOP_URL`, `GROVE_BRAND_SHOP_LABEL` | Shop link and label (default: Shop), with the same URL rules. |
 | `GROVE_BRAND_LOGO` | File inside the data directory: PNG, JPEG or WebP, at most 512 KB. Invalid files are ignored; branded Groves never show the Arynwood tree. |
@@ -91,6 +93,16 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `NKN_IDENTIFIER`, `SOCKS5_PROXY` | Prefix for the Private messages address; optional SOCKS5 proxy for IRC. |
 
 Keep the service on `127.0.0.1` behind an HTTPS reverse proxy. Do not expose it over plain HTTP.
+
+For example, RogueFest’s navy, paper and pink palette:
+
+```dotenv
+GROVE_BRAND_SURFACE="#091C32"
+GROVE_BRAND_TEXT="#F4EEE8"
+GROVE_BRAND_ACCENT="#E2326F"
+```
+
+Full themes preserve hue and saturation, stepping lightness by 0.1% in either direction until the rounded colour passes. Button labels use white or the base surface, whichever contrasts better. Links pass on all three surfaces; muted text passes on the raised surface. `GET /api/brand` returns the derived CSS variables in `theme`; without a valid surface it returns an empty theme, preserving the original appearance.
 
 ## Your data
 
