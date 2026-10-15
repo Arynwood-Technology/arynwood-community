@@ -117,3 +117,11 @@ it('omits the invitation policy from host creation and ordinary signup',async()=
  expect(screen.getByLabelText('Your name')).toBeInTheDocument()
  expect(screen.queryByText(policy)).toBeNull()
 })
+
+it('applies a full server theme to the welcome page',async()=>{
+ const theme={'--bg':'#091c32','--surface':'#0c2441','--text':'#f4eee8','--accent':'#e02767','--accent-text':'#e96794','--on-accent':'#ffffff'}
+ vi.mocked(api).mockImplementation(async(path)=>path==='/brand'?{...defaultBrand,branded:true,name:'RogueFest',theme}:{setup:false})
+ render(<MemoryRouter><Welcome onLogin={vi.fn()}/></MemoryRouter>)
+ await screen.findByRole('heading',{name:'RogueFest'})
+ expect(document.querySelector('.welcome')).toHaveStyle(theme)
+})
