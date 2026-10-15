@@ -2,6 +2,8 @@
 # Manage the Arynwood Groves on a server. Installed by deploy/install.sh as /usr/local/bin/arynwood-grove.
 # The server's own Grove needs no name; the others (install.sh --name) are chosen with --grove NAME.
 set -euo pipefail
+# Files it writes for nginx must stay readable under a strict umask; private ones set their own mode.
+umask 022
 PREFIX=/opt/arynwood-grove
 NAME_RE='^[a-z][a-z0-9-]{0,22}[a-z0-9]$'
 

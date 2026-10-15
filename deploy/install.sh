@@ -8,6 +8,8 @@
 # With --name, it adds another Grove to the same server (or updates that one): each has its own
 # service, system user, data, settings and port, and all of them share the releases.
 set -euo pipefail
+# Root's umask may be 077 on a hardened server; the service user must still read the release.
+umask 022
 
 REPO="Arynwood-Technology/arynwood-community"
 PREFIX=/opt/arynwood-grove
@@ -195,7 +197,7 @@ python3 -m venv "$staging/.venv"
 rm -rf "$target.new/config" "$target.new/data"
 ln -s /var/lib/arynwood-grove/config "$target.new/config"
 mkdir -p "$target.new/nkn"; ln -sfn /var/lib/arynwood-grove/nkn-wallet.json "$target.new/nkn/wallet.json"
-chown -R root:root "$target.new"; chmod -R go-w "$target.new"
+chown -R root:root "$target.new"; chmod -R u+rwX,go=rX "$target.new"
 if [[ $target == "$previous" ]]; then rm -rf "$target.old"; mv "$target" "$target.old"; previous="$target.old"; fi
 rm -rf "$target"; mv "$staging" "$target"; staging=""
 fi

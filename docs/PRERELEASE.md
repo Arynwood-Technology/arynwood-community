@@ -12,6 +12,7 @@ Servers
 - `arynwood-grove update --all` updates one Grove first (`--canary NAME`), and the rest only once it runs the new release. `backup --all` backs them all up.
 - The management command always comes from the newest release on the server, so rolling one Grove back never takes commands away from the others.
 - A new Grove's installer refuses a port something else already listens on.
+- The installer and `arynwood-grove` work under a strict umask, such as 077 on a hardened server. Before, the release folder came out unreadable to the service, which then never started.
 
 A server installed with 0.5.0 or earlier updates as usual (`arynwood-grove update`), and its Grove keeps its paths and has no name.
 
