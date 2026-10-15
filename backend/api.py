@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 from backend.routers import mail, irc, p2p
 from backend.community import admin, auth, files, routes, store, wishes
-from backend import grove, setup
+from backend import grove, setup, brand
 
 @asynccontextmanager
 async def lifespan(app):
@@ -87,6 +87,7 @@ app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(auth.administrator)])
 app.include_router(irc.router,prefix='/api/irc',dependencies=[Depends(auth.administrator)])
 app.include_router(p2p.router,prefix='/api/p2p',dependencies=[Depends(auth.administrator)])
+app.include_router(brand.router,prefix='/api/brand')
 
 @app.get('/api/source')
 def source_offer():

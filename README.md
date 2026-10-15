@@ -79,6 +79,11 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 |---|---|
 | `GROVE_PUBLIC_URL` | The address members open, e.g. `https://grove.example.com`. Invite links use it; it is trusted as page origin and host name; cookies are `Secure` over HTTPS. |
 | `GROVE_BIND`, `GROVE_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
+| `GROVE_BRAND_NAME`, `GROVE_BRAND_TAGLINE` | Optional identity. A name enables the branded welcome page. |
+| `GROVE_BRAND_ACCENT` | `#rrggbb`, at least 4.5:1 contrast on dark surfaces; invalid values use the default teal. |
+| `GROVE_BRAND_SITE_URL`, `GROVE_BRAND_SITE_LABEL` | Website link and label (default: Website). HTTPS; HTTP allowed only on localhost or loopback. |
+| `GROVE_BRAND_SHOP_URL`, `GROVE_BRAND_SHOP_LABEL` | Shop link and label (default: Shop), with the same URL rules. |
+| `GROVE_BRAND_LOGO` | File inside the data directory: PNG, JPEG or WebP, at most 512 KB. Invalid files are ignored; branded Groves never show the Arynwood tree. |
 | `GROVE_DATA_DIR` | Where the database lives. Defaults to `data/`. |
 | `GROVE_SETUP_CODE` | Set by the installer: required to create the host account. |
 | `GROVE_ORIGIN`, `GROVE_HOSTS` | Extra page origins and host names to accept, comma-separated. |

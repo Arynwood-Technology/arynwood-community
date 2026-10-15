@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Community } from './Community'
+import { defaultBrand } from './lib/brand'
 import { api } from './lib/community'
 vi.mock('./lib/community',()=>({api:vi.fn()}))
 vi.mock('./pages/DayPlanner',()=>({DayPlanner:()=> <div>Daily planner</div>}))
@@ -85,4 +86,17 @@ it('gives the Grove admin page to owners and managers, and the wish lamp to ever
  cleanup()
  mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,role:'manager'}:[home])
  show();expect(await screen.findByRole('link',{name:'Grove admin'})).toHaveAttribute('href','/community/admin')
+})
+
+it('uses the Grove identity and external links in the signed-in header',async()=>{
+ const brand={...defaultBrand,branded:true,name:'Festival Friends',tagline:'Films and friends',site_url:'https://festival.example',shop_url:'https://shop.example',logo_url:'/api/brand/logo'}
+ mocked.mockImplementation(async(path)=>path==='/brand'?brand:path==='/auth/me'?user:path==='/community/spaces'?[home]:{setup:false})
+ show()
+ expect(await screen.findByText('Films and friends')).toBeInTheDocument()
+ expect(screen.getByText('Festival Friends')).toBeInTheDocument()
+ expect(screen.getByRole('img',{name:'Festival Friends'})).toHaveAttribute('src','/api/brand/logo')
+ expect(screen.getByRole('link',{name:'Website'})).toHaveAttribute('href','https://festival.example')
+ expect(screen.getByRole('link',{name:'Shop'})).toHaveAttribute('href','https://shop.example')
+ expect(screen.queryByText(/community\.arynwood\.com/)).toBeNull()
+ expect(document.title).toBe('Festival Friends')
 })
