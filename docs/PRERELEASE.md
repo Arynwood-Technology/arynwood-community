@@ -1,8 +1,21 @@
 # Arynwood Grove release notes
 
-Version: `0.5.5`
+Version: `0.6.0`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.6.0
+
+Websites
+
+- **A website at the Grove's address.** Each Grove can show a static website at its own address, such as `https://roguefest.arynwood.com/`, with the members' page at `/community`. **Webmaster tools** brings a site in from its address, as a .zip, or as a one-page starter made from the Grove's branding; it's edited in Files and previewed whole, links, scripts and 404 page included. **Publish** puts it live straight away; the last ten versions are kept to put back, and it can be taken down. Pages are served with clean addresses, as on Cloudflare Pages, and their scripts run walled off from members' sign-ins.
+- **Webmasters.** Owners look after the website, and can make anyone a webmaster in Grove admin to look after it with them. Only they change a space's Website folder and publish. Everyone in the Grove can open **Website preview**. Managers are no longer webmasters unless an owner makes them one.
+- Editor previews now resolve a site's own addresses (`/styles.css`), and preview links last an hour.
+
+Look & feel
+
+- **Owners choose the Grove's look** from the members' page: name and words, light or dark colours with readable contrast worked out, the login page's colour and picture, type, corners and logo. **Start from your website** suggests it all from the Grove's website. The host's `GROVE_BRAND_*` settings are the starting look, and **Back to the host's look** returns to them.
+- A branded Grove's Overview banner shows its own logo rather than the Arynwood tree.
 
 ## 0.5.5
 
@@ -69,7 +82,7 @@ Files
 
 - **Files** in every space: folders, uploads of up to 2 GB that resume after a dropped connection, earlier versions kept, and a 30-day trash. Room for each space is set by `GROVE_SPACE_STORAGE_MB`.
 - **An editor for text files**, with HTML, CSS, JavaScript, JSON and Markdown highlighting. Saving makes a new version and never overwrites someone else's newer save. HTML pages preview as you type, with their styles and images and with scripts off.
-- **Webmaster tools** (owners and managers): bring a website in from its address, edit it in Files, and download it as a .zip for whoever publishes it. Imports read only the same site, follow robots.txt, and never reach private addresses.
+- **Webmaster tools** (owners and the webmasters they choose): bring a website in from its address, from a .zip, or as a one-page starter; edit it in Files; preview the whole site; and publish it at the Grove's address, with earlier versions to put back. Everyone in the Grove can preview it. Imports read only the same site, follow robots.txt, and never reach private addresses.
 
 Servers
 

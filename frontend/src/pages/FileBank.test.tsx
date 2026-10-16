@@ -74,3 +74,19 @@ it('makes folders, and bins and restores what someone added', async () => {
   // Only a space owner deletes for good.
   expect(screen.queryByRole('button', { name: 'Delete forever' })).toBeNull()
 })
+
+it('keeps the Website folder for the Grove’s owners and webmasters to change', async () => {
+  mocked.mockImplementation(async path => path.includes('folder=Website') ? { folder: 'Website', items: [entry('page', 'index.html', { folder: 'Website', author_id: 'sam' })], used: 1, limit: 10, file_limit: 1 }
+    : { folder: '', items: [entry('site', 'Website', { kind: 'folder', size: 0, author_id: 'sam' })], used: 1, limit: 10, file_limit: 1 })
+  // Not even a space owner, nor whoever added a page, changes it without being a webmaster.
+  render(<FileBank space={{ ...crew, role: 'owner' }} user={sam} startFolder="Website" />)
+  expect(await screen.findByText(/These are the Grove’s website files/)).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Upload/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /New folder/ })).toBeNull()
+  expect(screen.queryByLabelText('Rename index.html')).toBeNull()
+  cleanup()
+  render(<FileBank space={crew} user={{ ...sam, webmaster: true }} startFolder="Website" />)
+  expect(await screen.findByLabelText('Rename index.html')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Upload/ })).toBeInTheDocument()
+  expect(screen.queryByText(/These are the Grove’s website files/)).toBeNull()
+})

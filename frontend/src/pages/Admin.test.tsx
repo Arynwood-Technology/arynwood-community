@@ -72,3 +72,12 @@ it('filters the log by person or space, and pages back through it', async () => 
   expect(mocked).toHaveBeenCalledWith('/admin/activity?space=crew&before=2')
   expect(screen.queryByRole('button', { name: 'Show older' })).toBeNull()
 })
+
+it('lets an owner choose webmasters; owners look after the website anyway', async () => {
+  show()
+  const sam = await screen.findByLabelText('Webmaster: Sam')
+  expect(screen.queryByLabelText('Webmaster: Rowan')).toBeNull()
+  fireEvent.click(sam)
+  await screen.findByText('Sam is now a webmaster: they change and publish the website.')
+  expect(mocked).toHaveBeenCalledWith('/admin/people/sam/webmaster', 'PUT', { webmaster: true })
+})

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from starlette.requests import HTTPConnection
 from pydantic import BaseModel, Field, field_validator
-from .store import db, public_origin, setting, grove_setting, host_tools, log_name, public_chat, GROVE_ROLE
+from .store import db, public_origin, setting, grove_setting, host_tools, log_name, public_chat, GROVE_ROLE, WEBMASTER
 from .activity import record, name_of
 from . import live
 import os
@@ -34,7 +34,7 @@ def session_token(connection: HTTPConnection):
 def user(connection: HTTPConnection):
     token = session_token(connection)
     with db() as c:
-        row = c.execute(f'''SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role FROM users u JOIN sessions s ON s.user_id=u.id
+        row = c.execute(f'''SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role,{WEBMASTER} AS webmaster FROM users u JOIN sessions s ON s.user_id=u.id
                             LEFT JOIN grove_roles r ON r.user_id=u.id WHERE s.token=? AND s.expires>?''', (digest(token), time.time())).fetchone()
     if not row: raise HTTPException(401, 'Sign in to continue.')
     return dict(row)
@@ -53,12 +53,20 @@ def grove_owner(current=Depends(user)):
     if current['role'] != 'owner': raise HTTPException(403, 'Only the Grove’s owners can do this.')
     return current
 
+# The website: owners, and the webmasters they choose, change and publish it; everyone previews it.
+def looks_after_website(person): return person['role'] == 'owner' or bool(person['webmaster'])
+
+def webmaster(current=Depends(user)):
+    if not looks_after_website(current): raise HTTPException(403, 'Only this Grove’s owners and webmasters can do this.')
+    return current
+
 def may_start_spaces(c, role):
     return role != 'member' or grove_setting(c, 'space_creation', 'everyone') == 'everyone'
 
 def profile(c, uid):
     """The signed-in person as the members' page sees them."""
-    row = dict(c.execute(f'SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id WHERE u.id=?', (uid,)).fetchone())
+    row = dict(c.execute(f'SELECT u.id,u.name,u.email,u.admin,{GROVE_ROLE} AS role,{WEBMASTER} AS webmaster FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id WHERE u.id=?', (uid,)).fetchone())
+    row['webmaster'] = looks_after_website(row)
     chat = public_chat()
     return {**row, 'can_start_spaces': may_start_spaces(c, row['role']), 'host_tools': bool(row['admin']) and host_tools(),
             'public_chat': chat and {'channel': chat['channel'], 'nick': chat['nick'], 'server': chat['server']}, 'log_name': log_name()}

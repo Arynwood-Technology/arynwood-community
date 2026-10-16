@@ -2,7 +2,8 @@
 export type GroveRole = 'owner' | 'manager' | 'member'
 /** Public chat: the Grove's IRC room, open to every member. `nick` is a pattern whose # marks become random digits. */
 export interface PublicChat { channel: string; nick: string; server: string }
-export interface User { id: string; name: string; email: string; admin: number; role: GroveRole; can_start_spaces: boolean; host_tools?: boolean; public_chat?: PublicChat | null; log_name?: string }
+/** `webmaster`: an owner, or someone an owner chose to look after the website. */
+export interface User { id: string; name: string; email: string; admin: number; role: GroveRole; can_start_spaces: boolean; host_tools?: boolean; public_chat?: PublicChat | null; log_name?: string; webmaster?: boolean }
 export interface Space { id: string; name: string; topic?: string; role: 'owner' | 'member' }
 export interface Member { id: string; name: string; role: 'owner' | 'member' }
 export type Kind = 'board' | 'note' | 'task' | 'event' | 'chat' | 'list' | 'item' | 'comment'

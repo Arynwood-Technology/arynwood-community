@@ -16,7 +16,7 @@ After staging:
 4. Download `Files → Festival Operations → Finance → budget.csv`, add real estimates, approvals and actuals in a spreadsheet program (LibreOffice Calc, Excel or Google Sheets), save it as CSV and upload it with the same name as a new version. Link invoices and receipts by reference.
 5. Upload assets into the appropriate working/approved folders. Track image rights, credits, alt text and approval in `Publicity/assets.csv`.
 6. Use Notes for working briefs and decisions, Board for approved updates, and Files for editable documents.
-7. Owners/managers can use Webmaster tools to import an existing public site into Files. Edits and temporary previews are followed by the team's existing hosting release process. They do not automatically publish to the festival website.
+7. The Grove's owners and webmasters can use Webmaster tools to bring the festival site into the space's Website folder, edit and preview it, and publish it at the Grove's address. Nothing goes live until one of them publishes; a site hosted elsewhere still follows that host's release process, using a downloaded .zip.
 
 Every member of a space can read its shared files and trackers. A folder called Finance or Jury has no extra access control. Create separate spaces with appropriate membership for confidential financial records, personal information, contracts or deliberation. Grove owners/managers have the administrative visibility described by the app.
 

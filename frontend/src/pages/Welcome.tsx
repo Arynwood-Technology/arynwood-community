@@ -37,7 +37,7 @@ export function Welcome({ onLogin, brand: suppliedBrand }: { brand?: Brand; onLo
     catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
   return <div className="welcome" style={brandStyle(brand)}>
-    <section className="welcome-story"><div className="brand"><span>{brand.branded?brand.name:<>arynwood <b>Grove</b></>}</span></div>
+    <section className={'welcome-story'+(brand.picture_url?' with-picture':'')}><div className="brand"><span>{brand.branded?brand.name:<>arynwood <b>Grove</b></>}</span></div>
       <div><BrandLogo brand={brand} welcome/><span className="eyebrow">{brand.branded?brand.tagline:"A place for your people"}</span><h1>{brand.branded?brand.name:"Life, together."}</h1>{!brand.branded&&<p>Stay in touch. Make plans. Keep things in order.</p>}{brand.branded&&<BrandLinks brand={brand}/>}
         <div className="welcome-features"><span><MessageCircle /> Conversations</span><span><CalendarDays /> Shared plans</span><span><CheckSquare /> Everyday life</span></div></div>
       {brand.branded?<BrandCredit/>:<small>Your space. Your data.</small>}

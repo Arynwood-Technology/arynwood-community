@@ -1,20 +1,27 @@
-"""Webmaster tools: bring a website into the file bank from its own address, to change it there.
+"""Webmaster tools: bring a website into the file bank, to change it there and publish it.
 
-The Grove reads the site the way a visitor's browser would: the start page, the pages it links
+A website comes from its own address, from a .zip, or as a one-page starter made from the Grove's
+branding. Only the Grove's owners and webmasters bring sites in.
+
+From an address, the Grove reads the site the way a visitor's browser would: the start page, the pages it links
 to on the same address, and the styles, scripts, images and fonts they use there, as the site's
 robots.txt allows. Links to other sites are listed, never followed. It connects only to public
 internet addresses, and only to the one it checked, so an import cannot reach this server or its
 network. Files land in the chosen space's file bank under Website/<host>; importing again adds new
 versions of whatever changed and deletes nothing."""
 import hashlib
+import html
 import http.client
 import ipaddress
 import json
 import re
 import socket
 import ssl
+import stat
 import logging
 import time
+import zipfile
+import zlib
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
@@ -22,8 +29,8 @@ from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
-from .auth import grove_manager, identifier, now
-from .store import db, VERSION
+from .auth import webmaster, identifier, now
+from .store import db, public_origin, VERSION
 from .activity import record
 from .routes import membership
 from . import files, live
@@ -258,7 +265,7 @@ def job(row):
     return {**dict(row), 'notes': json.loads(row['notes'] or '{}')}
 
 @router.post('/imports', status_code=202)
-def start_import(body: ImportBody, tasks: BackgroundTasks, current=Depends(grove_manager)):
+def start_import(body: ImportBody, tasks: BackgroundTasks, current=Depends(webmaster)):
     url = start_url(body.url)
     _, host, port = origin(url)
     try: public_address(host, port)
@@ -277,7 +284,136 @@ def start_import(body: ImportBody, tasks: BackgroundTasks, current=Depends(grove
     return saved
 
 @router.get('/imports')
-def imports(current=Depends(grove_manager)):
+def imports(current=Depends(webmaster)):
     with db() as c:
         return [job(r) for r in c.execute('''SELECT i.*,COALESCE(s.name,'') AS space_name FROM site_imports i
                                               LEFT JOIN spaces s ON s.id=i.space_id ORDER BY i.started DESC LIMIT 10''')]
+
+# A site sent as a .zip ------------------------------------------------------------------------------
+ZIP_FILES = 2000
+JUNK = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
+
+class UnpackBody(BaseModel):
+    space_id: str = Field(min_length=1, max_length=64)
+    file_id: str = Field(min_length=1, max_length=64)
+
+@router.post('/unpack', status_code=201)
+def unpack(body: UnpackBody, current=Depends(webmaster)):
+    """A .zip in Files, such as a site that isn't online yet, unpacked into Website/<its name>.
+    Unpacking again adds new versions of whatever changed and deletes nothing, as importing does."""
+    sid, uid = body.space_id, current['id']
+    with db() as c:
+        membership(c, sid, uid)
+        f = files.live_item(c, sid, body.file_id, 'file')
+    stem = f['name'][:-len('.zip')] if f['name'].lower().endswith('.zip') else f['name']
+    folder = files.joined('Website', files.clean_name(stem))
+    counts, skipped, total, message = {'added': 0, 'changed': 0, 'unchanged': 0, 'skipped': 0}, [], 0, ''
+    def skip(name, reason):
+        counts['skipped'] += 1
+        if len(skipped) < 50: skipped.append([name, reason])
+    try: archive = zipfile.ZipFile(files.blob_path(f['blob']))
+    except (zipfile.BadZipFile, OSError): raise HTTPException(422, 'That file isn’t a .zip the Grove can open.')
+    with archive:
+        entries = [(i, i.filename.replace('\\', '/').lstrip('/')) for i in archive.infolist() if not i.is_dir()]
+        entries = [(i, name) for i, name in entries if not name.startswith('__MACOSX/') and name.rsplit('/', 1)[-1] not in JUNK]
+        # A zip of a folder: what was in the folder goes at the top of the website's folder.
+        inner = len({name.split('/', 1)[0] for _, name in entries}) == 1 and all('/' in name for _, name in entries)
+        try:
+            if len(entries) > ZIP_FILES: raise Refused(f'The .zip holds more than {ZIP_FILES} files.')
+            for info, name in entries:
+                path = name.split('/', 1)[1] if inner else name
+                if info.flag_bits & 1: skip(path, 'it is password-protected'); continue
+                if stat.S_ISLNK(info.external_attr >> 16): skip(path, 'it is a link, not a file'); continue
+                try: path = files.clean_folder(files.joined(folder, path))[len(folder) + 1:]
+                except HTTPException: skip(path, 'its name cannot be kept as a file'); continue
+                limit = min(MAX_FILE, MAX_TOTAL - total)
+                try:
+                    with archive.open(info) as source: data = source.read(limit + 1)
+                except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError): skip(path, 'it is damaged, or packed in a way the Grove can’t read'); continue
+                if len(data) > limit: skip(path, 'it is too large'); continue
+                counts[store_file(sid, uid, folder, path, data)] += 1
+                total += len(data)
+        except Refused as reason:
+            message = str(reason)
+    with db() as c:
+        front = c.execute("SELECT 1 FROM files WHERE space_id=? AND folder=? AND name='index.html' AND kind='file' AND deleted IS NULL", (sid, folder)).fetchone()
+        record(c, 'site_unpacked', actor=uid, space=sid, target=f['id'], target_name=folder, zip=f['name'], **counts)
+    live.publish(sid)
+    return {'space_id': sid, 'folder': folder, **counts, 'bytes': total, 'skipped_files': skipped, 'message': message, 'has_index': bool(front)}
+
+# A one-page starter -------------------------------------------------------------------------------
+# Colours for a Grove without branding: the members' page's own.
+PLAIN = {'--bg': '#0f1314', '--surface': '#171c1d', '--text': '#f4f8f6', '--text-muted': '#b8c7c1', '--accent': '#4fd1ab',
+         '--on-accent': '#0f1314', '--accent-text': '#4fd1ab', '--border': '#354343'}
+LOGO_NAMES = {'image/png': 'logo.png', 'image/jpeg': 'logo.jpg', 'image/webp': 'logo.webp'}
+
+def starter_page(brand, logo):
+    """The Grove's front page: its name, tagline, a way to the members' page, and its website if it has one."""
+    tokens = {**PLAIN, **{k: v for k, v in brand['theme'].items() if k in PLAIN}}
+    e = lambda value: html.escape(value, quote=True)
+    name, tagline = e(brand['name']), e(brand['tagline'])
+    elsewhere = f'<a class="button secondary" href="{e(brand["site_url"])}">{e(brand["site_label"])}</a>' if brand['site_url'] else ''
+    return f'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{name}</title>
+<meta name="description" content="{tagline}">
+<!-- {name}'s front page, made from the Grove's name, tagline and colours. Change anything here,
+     preview it in Webmaster tools, and publish it when it's ready. -->
+<style>
+  :root {{ color-scheme: dark; --bg: {tokens['--bg']}; --surface: {tokens['--surface']}; --text: {tokens['--text']}; --muted: {tokens['--text-muted']};
+          --accent: {tokens['--accent']}; --on-accent: {tokens['--on-accent']}; --link: {tokens['--accent-text']}; --border: {tokens['--border']}; }}
+  * {{ box-sizing: border-box; }}
+  body {{ margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text);
+         font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }}
+  main {{ flex: 1; display: grid; place-items: center; padding: 48px 16px; }}
+  .card {{ width: 100%; max-width: 640px; text-align: center; }}
+  .logo {{ max-width: 160px; max-height: 160px; width: auto; height: auto; margin: 0 auto 24px; display: block; }}
+  h1 {{ font-size: clamp(2rem, 7vw, 3.25rem); line-height: 1.1; margin: 0 0 12px; overflow-wrap: anywhere; }}
+  .tagline {{ color: var(--muted); font-size: 1.2rem; margin: 0 0 32px; }}
+  .actions {{ display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 0; }}
+  .button {{ display: inline-block; padding: 12px 22px; border-radius: 999px; font-weight: 700; text-decoration: none; }}
+  .primary {{ background: var(--accent); color: var(--on-accent); }}
+  .secondary {{ border: 1px solid var(--border); color: var(--text); background: var(--surface); }}
+  .button:focus-visible, footer a:focus-visible {{ outline: 3px solid var(--link); outline-offset: 3px; }}
+  footer {{ padding: 20px 16px; text-align: center; color: var(--muted); font-size: .9rem; }}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    {f'<img class="logo" src="{logo}" alt="">' if logo else ''}
+    <h1>{name}</h1>
+    <p class="tagline">{tagline}</p>
+    <p class="actions"><a class="button primary" href="/community">Members: sign in</a>{elsewhere}</p>
+  </div>
+</main>
+<footer>{name} · Made with Arynwood Grove</footer>
+</body>
+</html>
+'''
+
+class StarterBody(BaseModel):
+    space_id: str = Field(min_length=1, max_length=64)
+
+@router.post('/starter', status_code=201)
+def starter(body: StarterBody, current=Depends(webmaster)):
+    """A one-page website for a Grove that has none yet, in Website/<the Grove's address>."""
+    from backend.brand import read_brand
+    brand = read_brand()
+    folder = files.joined('Website', files.clean_name(urlsplit(public_origin()).hostname or 'home'))
+    with db() as c:
+        membership(c, body.space_id, current['id'])
+        if c.execute("SELECT 1 FROM files WHERE space_id=? AND folder=? AND name='index.html' AND deleted IS NULL", (body.space_id, folder)).fetchone():
+            raise HTTPException(409, f'{folder} already has a front page. Open it in Files to change it.')
+    logo = brand['_logo'] and LOGO_NAMES[brand['_logo'][1]]
+    try:
+        if logo: store_file(body.space_id, current['id'], folder, logo, brand['_logo'][0])
+        store_file(body.space_id, current['id'], folder, 'index.html', starter_page(brand, logo).encode())
+    except Refused as reason:
+        raise HTTPException(409, str(reason))
+    with db() as c: record(c, 'site_started', actor=current['id'], space=body.space_id, target_name=folder)
+    live.publish(body.space_id)
+    return {'space_id': body.space_id, 'folder': folder}

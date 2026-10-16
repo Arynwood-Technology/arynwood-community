@@ -119,7 +119,7 @@ class WebmasterTests(unittest.TestCase):
         css = next(i for i in host.get(f'/api/community/spaces/{sid}/files', params={'folder': 'Website/festival.test'}).json()['items'] if i['name'] == 'more.css')
         self.assertEqual(css['version'], 2)
 
-    def test_only_owners_and_managers_import_and_only_into_their_spaces(self):
+    def test_only_owners_and_webmasters_import_and_only_into_their_spaces(self):
         host, member, sid = self.host_and_member()
         base = self.serve()
         self.assertEqual(member.post('/api/webmaster/imports', headers=H, json={'url': base, 'space_id': sid}).status_code, 403)

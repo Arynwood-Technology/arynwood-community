@@ -13,6 +13,8 @@ export function bytes(n: number) {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${unit}`
 }
 export const joined = (folder: string, name: string) => folder ? `${folder}/${name}` : name
+/** Whether a path is in a space's Website folder, which only the Grove's owners and webmasters change. */
+export const inWebsite = (path: string) => path === 'Website' || path.startsWith('Website/')
 export const contentUrl = (spaceId: string, id: string, query = '') => `/community-api/community/spaces/${spaceId}/files/${id}/content${query}`
 export const zipUrl = (spaceId: string, id: string) => `/community-api/community/spaces/${spaceId}/files/${id}/zip`
 const images = /\.(png|jpe?g|gif|webp)$/i, texts = /\.(txt|md|csv|tsv|json|html?|css|m?js|tsx?|jsx|svg|xml|ya?ml|toml|ini|srt|vtt)$/i
@@ -54,6 +56,24 @@ export async function uploadFile(spaceId: string, file: File, options: { folder?
 
 export const saveText = (spaceId: string, id: string, text: string, version: number) => api<FileItem>(`/community/spaces/${spaceId}/files/${id}/text`, 'PUT', { text, version })
 export const previewFolder = (spaceId: string, folder: string) => api<{ url: string }>(`/community/spaces/${spaceId}/previews`, 'POST', { folder })
+/** The top folder of the website a folder belongs to: Website/<site>, or the folder itself. */
+export const siteRoot = (folder: string) => /^Website\/[^/]+/.exec(folder)?.[0] ?? folder
+
+// A site's own addresses, such as /styles.css, start at its top folder. In a preview they point
+// under the preview's address; /community and /api stay the Grove's. The server does the same.
+const ROOTED = String.raw`(?=/(?!/|(?:community|api)(?![^/?#"'\s)>])))`
+const TAG = /<[a-zA-Z](?:[^>"']|"[^"]*"|'[^']*')*>/g
+const STYLE = /(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi
+const ATTRIBUTE = new RegExp(String.raw`(\s(?:href|src|poster|action|formaction|data|background)\s*=\s*["']?)` + ROOTED, 'gi')
+const SRCSET = /(\s(?:srcset|imagesrcset)\s*=\s*(["']))([\s\S]*?)(\2)/gi
+const CANDIDATE = new RegExp(String.raw`((?:^|,)\s*)` + ROOTED, 'g')
+const CSS = new RegExp(String.raw`((?:url\(\s*|@import\s+)["']?)` + ROOTED, 'gi')
+export function rebased(html: string, base: string) {
+  const css = (value: string) => value.replace(CSS, (_, start: string) => start + base)
+  const tag = (value: string) => css(value.replace(ATTRIBUTE, (_, start: string) => start + base)
+    .replace(SRCSET, (_, start: string, _quote: string, list: string, end: string) => start + list.replace(CANDIDATE, (_match: string, lead: string) => lead + base) + end))
+  return html.replace(TAG, tag).replace(STYLE, (_, open: string, body: string, close: string) => open + css(body) + close)
+}
 export async function readText(spaceId: string, item: Pick<FileItem, 'id' | 'version'>) {
   const response = await fetch(contentUrl(spaceId, item.id, `?inline=1&version=${item.version}`))
   if (!response.ok) throw new Error('The file could not be opened. Try again.')

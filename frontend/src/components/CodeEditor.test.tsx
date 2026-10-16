@@ -93,3 +93,12 @@ it.each([['index.html',100,true],['notes.txt',2*1024*1024,true],['large.txt',2*1
   expect(await screen.findByRole('textbox',{name:'File contents'})).toBeInTheDocument()
  }else expect(screen.queryByRole('button',{name:'Edit'})).toBeNull()
 })
+
+it('previews a page in a subfolder against its site’s top folder',async()=>{
+ render(<CodeEditor spaceId="crew" item={{...item,folder:'Website/site.test/docs'}} text={'<link rel="stylesheet" href="/styles.css"><a href="intro.html">Intro</a>'} onClose={vi.fn()} onSaved={vi.fn()}/>)
+ fireEvent.click(screen.getByRole('button',{name:'Preview'}))
+ const frame=await screen.findByTitle('Preview of index.html')
+ expect(frame).toHaveAttribute('srcdoc',expect.stringContaining('<base href="http://localhost:3000/api/community/preview/fixture/docs/">'))
+ expect(frame).toHaveAttribute('srcdoc',expect.stringContaining('href="http://localhost:3000/api/community/preview/fixture/styles.css"'))
+ expect(mocked).toHaveBeenCalledWith('/community/spaces/crew/previews','POST',{folder:'Website/site.test'})
+})

@@ -5,6 +5,8 @@
 .admin-filters .admin-field { flex: 1 1 200px; }
 .role-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
 .admin-people .role-select { flex-shrink: 0; }
+.admin-people .member-list li { flex-wrap: wrap; }
+.webmaster-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); white-space: nowrap; }
 .activity-list, .wish-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .activity-list li { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .activity-list time { color: var(--text-muted); white-space: nowrap; }

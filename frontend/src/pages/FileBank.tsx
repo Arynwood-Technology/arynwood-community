@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronRight, Download, File as FileIcon, FileText, Folder, FolderPlus, Image as ImageIcon, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { api, stamp, type Space, type User } from '../lib/community'
-import { bytes, contentUrl, freeName, isImage, isText, joined, readText, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
+import { bytes, contentUrl, freeName, inWebsite, isImage, isText, joined, readText, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
 import { useSpaceRefresh } from '../lib/live'
 import { Modal } from './Workspace'
 import './files.css'
@@ -28,7 +28,9 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
   const [open, setOpen] = useState<FileItem | null>(null), [binning, setBinning] = useState<FileItem | null>(null)
   const [clashes, setClashes] = useState<File[]>([]), [dragging, setDragging] = useState(false)
   const picker = useRef<HTMLInputElement>(null), load = useRef(async () => {})
-  const owner = space.role === 'owner', mine = (item: FileItem) => owner || item.author_id === user.id
+  // A space's Website folder holds the Grove's website: only its owners and webmasters change it.
+  const owner = space.role === 'owner', locked = (path: string) => !user.webmaster && inWebsite(path)
+  const mine = (item: FileItem) => inWebsite(joined(item.folder, item.name)) ? !!user.webmaster : owner || item.author_id === user.id
   const flash = (text: string) => { setMessage(text); setError('') }
   const fail = (e: unknown) => { setError((e as Error).message); setMessage('') }
 
@@ -88,20 +90,21 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
   const items = listing?.items ?? []
   const used = listing ? Math.min(100, listing.used / listing.limit * 100) : 0
   return <div className={'workspace file-bank' + (dragging ? ' dropping' : '')}
-    onDragOver={e => { if (!trash && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
+    onDragOver={e => { if (!trash && !locked(folder) && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
     onDragLeave={e => { if (e.currentTarget === e.target) setDragging(false) }}
-    onDrop={e => { e.preventDefault(); setDragging(false); if (!trash) choose(e.dataTransfer.files) }}>
+    onDrop={e => { e.preventDefault(); setDragging(false); if (!trash && !locked(folder)) choose(e.dataTransfer.files) }}>
     <div className="page-heading"><div><span className="eyebrow">{space.name}</span><h1>{trash ? 'Trash' : 'Files'}</h1>
       <p>{trash ? 'Deleted things wait here for 30 days, then go for good.' : 'Documents, artwork and anything else this space keeps together.'}</p></div>
       <div className="action-row">{trash ? <button className="secondary" onClick={() => setTrash(false)}><ArrowLeft size={15} /> Back to files</button> : <>
-        <button className="primary" onClick={() => picker.current?.click()}><Upload size={15} /> Upload</button>
-        <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'folder' }) }}><FolderPlus size={15} /> New folder</button>
+        {!locked(folder) && <><button className="primary" onClick={() => picker.current?.click()}><Upload size={15} /> Upload</button>
+        <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'folder' }) }}><FolderPlus size={15} /> New folder</button></>}
         {DOCUMENT_TOOLS && <><button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'spreadsheet' }) }}>New spreadsheet</button>
         <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'document' }) }}>New document</button></>}
         <button className="secondary" onClick={() => setTrash(true)}><Trash2 size={15} /> Trash</button></>}</div></div>
     <input ref={picker} type="file" multiple hidden aria-label="Choose files to upload" onChange={e => { if (e.target.files) choose(e.target.files); e.target.value = '' }} />
     {error && <p className="error" role="alert">{error}{folder && <button className="text-button" onClick={() => setFolder('')}>Back to all files</button>}</p>}
     {message && <p className="notice" role="status">{message}</p>}
+    {!trash && locked(folder) && <p className="notice">These are the Grove’s website files. Only its owners and webmasters change them; anyone can preview the site from <strong>Website</strong> in the menu.</p>}
     {listing && <div className="usage"><span>{bytes(listing.used)} of {bytes(listing.limit)} used</span><span className="usage-bar" aria-hidden="true"><span style={{ width: `${used}%` }} /></span></div>}
     {!trash && <nav className="crumbs" aria-label="Folders">
       <button className="text-button" onClick={() => setFolder('')} aria-current={folder ? undefined : 'page'}>Files</button>
@@ -118,7 +121,7 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
         <small>{item.kind === 'file' ? `${bytes(item.size)} · ` : ''}{trash ? `${item.folder ? `from ${item.folder} · ` : ''}deleted ${stamp(item.deleted ?? item.updated)}` : `${item.updated_by || item.author} · ${stamp(item.updated)}`}{item.version > 1 ? ` · version ${item.version}` : ''}</small></span>
       <span className="file-actions">{trash ? <>
         {mine(item) && <button className="secondary" onClick={() => void act(api(`${root}/files/${item.id}/restore`, 'POST'), `${item.name} is back.`)}><RotateCcw size={14} /> Restore</button>}
-        {owner && <button className="text-button danger" onClick={() => void act(api(`${root}/trash/${item.id}`, 'DELETE'), `${item.name} is gone for good.`)}>Delete forever</button>}
+        {owner && !locked(joined(item.folder, item.name)) && <button className="text-button danger" onClick={() => void act(api(`${root}/trash/${item.id}`, 'DELETE'), `${item.name} is gone for good.`)}>Delete forever</button>}
       </> : <>
         {item.kind === 'file' ? <a className="icon-button" href={contentUrl(space.id, item.id)} download aria-label={`Download ${item.name}`} title="Download"><Download size={16} /></a>
           : <a className="icon-button" href={zipUrl(space.id, item.id)} download aria-label={`Download ${item.name} as a .zip`} title="Download as a .zip"><Download size={16} /></a>}
@@ -143,11 +146,11 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
       <div className="action-row">{existing?.kind === 'file' && <button className="primary" onClick={() => settle('version')}>New version</button>}
         <button className="secondary" onClick={() => settle('both')}>Keep both</button><button className="secondary" onClick={() => settle('skip')}>Skip</button></div>
     </Modal>}
-    {open && <FilePreview space={space} item={open} onClose={() => setOpen(null)} onNewVersion={file => { const item = open; setOpen(null); void send(file, { replaces: item.id }) }} />}
+    {open && <FilePreview space={space} item={open} locked={locked(open.folder)} onClose={() => setOpen(null)} onNewVersion={file => { const item = open; setOpen(null); void send(file, { replaces: item.id }) }} />}
   </div>
 }
 
-function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; item: FileItem; onClose: () => void; onNewVersion: (file: File) => void }) {
+function FilePreview({ space, item, locked, onClose, onNewVersion }: { space: Space; item: FileItem; locked: boolean; onClose: () => void; onNewVersion: (file: File) => void }) {
   const [current, setCurrent] = useState(item), [editing, setEditing] = useState(false), [sheet, setSheet] = useState(false)
   const [text, setText] = useState<string | null>(null), [versions, setVersions] = useState<Version[]>([])
   useEffect(() => {
@@ -168,9 +171,9 @@ function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; ite
     <p className="muted-text">{bytes(current.size)} · added by {item.author || 'someone who has left'} · {stamp(item.created)}</p>
     <div className="action-row">
       {DOCUMENT_TOOLS && /\.csv$/i.test(current.name) && text !== null && <button className="primary" onClick={() => setSheet(true)}>Open spreadsheet</button>}
-      {isText(current.name) && current.size <= 2 * 1024 * 1024 && text !== null && <button className="primary" onClick={() => setEditing(true)}>Edit</button>}
+      {!locked && isText(current.name) && current.size <= 2 * 1024 * 1024 && text !== null && <button className="primary" onClick={() => setEditing(true)}>Edit</button>}
       <a className="primary button-link" href={contentUrl(space.id, item.id)} download><Download size={15} /> Download</a>
-      <label className="secondary button-link"><Upload size={15} /> Upload a new version<input type="file" hidden onChange={e => { const file = e.target.files?.[0]; if (file) onNewVersion(file) }} /></label>
+      {!locked && <label className="secondary button-link"><Upload size={15} /> Upload a new version<input type="file" hidden onChange={e => { const file = e.target.files?.[0]; if (file) onNewVersion(file) }} /></label>}
     </div>
     {versions.length > 1 && <section className="versions"><h3>Versions</h3><ul>{versions.map(v => <li key={v.version}>
       <span>Version {v.version} · {bytes(v.size)} · {v.author || 'someone who has left'} · {stamp(v.created)}</span>

@@ -28,3 +28,17 @@ it('describes an in-Grove file edit and its version', () => {
   expect(describeActivity(row('file_edited', { target_name: 'Website/index.html', details: { version: 2 } })))
     .toBe('Sam edited “Website/index.html” in Crew (version 2)')
 })
+
+it('describes the website being brought in, published, put back and taken down', () => {
+  expect(describeActivity(row('site_unpacked', { target_name: 'Website/roguefest-site', details: { zip: 'roguefest-site.zip', added: 75, changed: 0 } })))
+    .toBe('Sam unpacked “roguefest-site.zip” into “Website/roguefest-site” in Crew: 75 new, 0 changed')
+  expect(describeActivity(row('site_published', { target_name: 'Website/roguefest-site', details: { files: 75 } }))).toBe('Sam published the website from “Website/roguefest-site” in Crew (75 files)')
+  expect(describeActivity(row('site_taken_down', { space_name: '' }))).toBe('Sam took the website down')
+  expect(describeActivity(row('webmaster_changed', { target_name: 'Ada', space_name: '', details: { webmaster: true } }))).toBe('Sam made Ada a webmaster')
+  expect(describeActivity(row('webmaster_changed', { target_name: 'Ada', space_name: '', details: { webmaster: false } }))).toBe('Sam stopped Ada being a webmaster')
+})
+
+it('describes changes to the Grove’s look', () => {
+  expect(describeActivity(row('look_changed', { space_name: '' }))).toBe('Sam changed how the Grove looks')
+  expect(describeActivity(row('look_picture_changed', { space_name: '', details: { picture: 'picture', removed: true } }))).toBe('Sam removed the Grove’s login page picture')
+})

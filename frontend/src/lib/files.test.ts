@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { bytes, freeName, uploadFile } from './files'
+import { bytes, freeName, rebased, siteRoot, uploadFile } from './files'
 import { api } from './community'
 vi.mock('./community', () => ({ api: vi.fn() }))
 const mocked = vi.mocked(api)
@@ -51,4 +51,13 @@ it('names sizes and free copies plainly', () => {
   expect([bytes(512), bytes(1536), bytes(15 * 1024 * 1024), bytes(3.2 * 1024 ** 3)]).toEqual(['512 B', '1.5 KB', '15 MB', '3.2 GB'])
   expect(freeName('Poster.png', new Set(['Poster.png', 'Poster (2).png']))).toBe('Poster (3).png')
   expect(freeName('README', new Set(['README']))).toBe('README (2)')
+})
+
+it('keeps a site’s own addresses inside its preview, and leaves the Grove’s alone', () => {
+  const page = `<link href="/styles.css?v=2"><a href='/faq'>FAQ</a><a href="/community">Members</a><a href="//cdn.example/x.js">x</a><a href="faq">here</a><a title="a > b" href="/after">after</a>
+<img src=/img/a.webp srcset="/img/a-480.webp 480w, /img/a-800.webp 800w" style="background:url(/img/bg.svg)"><style>body{background:url('/img/burst.svg')}</style>`
+  expect(rebased(page, '/P')).toBe(`<link href="/P/styles.css?v=2"><a href='/P/faq'>FAQ</a><a href="/community">Members</a><a href="//cdn.example/x.js">x</a><a href="faq">here</a><a title="a > b" href="/P/after">after</a>
+<img src=/P/img/a.webp srcset="/P/img/a-480.webp 480w, /P/img/a-800.webp 800w" style="background:url(/P/img/bg.svg)"><style>body{background:url('/P/img/burst.svg')}</style>`)
+  expect(siteRoot('Website/roguefest-site/docs')).toBe('Website/roguefest-site')
+  expect(siteRoot('Press/kit')).toBe('Press/kit')
 })

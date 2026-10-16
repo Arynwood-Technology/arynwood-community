@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.5. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.6.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -53,9 +53,10 @@ Each person makes their own account on your Grove, from any computer or phone. E
 - **Public chat:** when the Grove names an IRC room (`GROVE_CHAT_CHANNEL`), every member can join it from the Grove with a nickname of their own. Conversation goes here; Updates is for news.
 - **Spaces and people:** the first account is the host. Anyone can start more spaces. A space's owners rename it and give it a topic, invite and remove people, make other members owners, and can delete it for everyone; a space always keeps at least one owner. Members can leave.
 - **Live updates:** a change by anyone reaches every open page in that space at once.
-- **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type. Owners and managers can bring a website in by its address, edit it here and download it as a .zip.
+- **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type.
+- **Website:** each Grove can show a static website at its own address, with the members' page at `/community`. Owners, and the webmasters they choose, bring a site in by its address, as a .zip or as a one-page starter; edit it in Files; preview the whole site; and publish it, put an earlier version back or take it down. Everyone in the Grove can preview it.
 - **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
-- **Your group's look:** its name, tagline, logo, website and shop links, and a colour theme with readable contrast worked out for you (see Configuration).
+- **Your group's look:** owners choose it in **Look & feel**: name, tagline, website and shop links; background, text and accent colours, light or dark, with readable contrast worked out for them; the login page's colour and picture; heading and body type; corners; and the logo. **Start from your website** suggests all of it from the Grove's website. The host's settings (see Configuration) are the starting point.
 - **Workspace setup:** space owners stage a film festival or a client project: department checklists, operating notes, documents, asset folders and trackers, which are CSV files for any spreadsheet program. See the [producer workspace guide](docs/PRODUCER-WORKSPACE.md).
 - **Host connections (host only):** Mail over IMAP/SMTP, a full IRC client in Public chat (any server; irc.arynwood.com and `#general` by default), and Private messages over NKN.
 
@@ -64,8 +65,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.5.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.5.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.0.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.
@@ -90,7 +91,7 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 |---|---|
 | `GROVE_PUBLIC_URL` | The address members open, e.g. `https://grove.example.com`. Invite links use it; it is trusted as page origin and host name; cookies are `Secure` over HTTPS. |
 | `GROVE_BIND`, `GROVE_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
-| `GROVE_BRAND_NAME`, `GROVE_BRAND_TAGLINE` | Optional identity. A name enables the branded welcome page. |
+| `GROVE_BRAND_NAME`, `GROVE_BRAND_TAGLINE` | Optional identity. A name enables the branded welcome page. All `GROVE_BRAND_*` settings are the Grove's starting look: its owners can change every part of it in **Look & feel**, and go back to these settings. |
 | `GROVE_BRAND_SURFACE` | Optional dark base, `#rrggbb` with relative luminance at most 0.1. Enables a full theme; invalid or absent values keep today’s palette and accent validation. |
 | `GROVE_BRAND_TEXT` | Optional light text, `#rrggbb` with relative luminance at least 0.5. Defaults to Grove’s light text; adjusted for readable contrast when a surface is set. |
 | `GROVE_BRAND_ACCENT` | `#rrggbb`. With a surface, derives button and link variants by stepping HSL lightness to reach 4.5:1; borders reach 3:1. Without a surface, keeps the existing contrast check and teal fallback. |
@@ -121,6 +122,8 @@ GROVE_BRAND_ACCENT="#E2326F"
 ```
 
 Full themes preserve hue and saturation, stepping lightness by 0.1% in either direction until the rounded colour passes. Button labels use white or the base surface, whichever contrasts better. Links pass on all three surfaces; muted text passes on the raised surface. `GET /api/brand` returns the derived CSS variables in `theme`; without a valid surface it returns an empty theme, preserving the original appearance.
+
+In **Look & feel**, owners may also choose a light background: the same rules then give dark text, and a background in the mid-tones, where neither light nor dark text reads well, moves to the nearest one that works. What owners save is kept in the database (`grove_settings`), and uploaded logos and login pictures in the data directory's `brand/` folder; both are in backups.
 
 ## Your data
 

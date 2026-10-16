@@ -85,20 +85,20 @@ class FileTests(unittest.TestCase):
     def test_folders_hold_files_and_move_with_them(self):
         host, member, sid = self.host_and_member()
         root = f'/api/community/spaces/{sid}'
-        site = member.post(root + '/folders', headers=H, json={'name': 'Website'}).json()
-        member.post(root + '/folders', headers=H, json={'folder': 'Website', 'name': 'assets'})
-        self.assertEqual(member.post(root + '/folders', headers=H, json={'name': 'Website'}).status_code, 409)
-        logo = self.upload(member, sid, 'logo.png', b'\x89PNG fake', folder='Website/assets').json()
-        self.assertEqual([i['name'] for i in self.listing(member, sid, folder='Website')['items']], ['assets'])
+        site = member.post(root + '/folders', headers=H, json={'name': 'Press'}).json()
+        member.post(root + '/folders', headers=H, json={'folder': 'Press', 'name': 'assets'})
+        self.assertEqual(member.post(root + '/folders', headers=H, json={'name': 'Press'}).status_code, 409)
+        logo = self.upload(member, sid, 'logo.png', b'\x89PNG fake', folder='Press/assets').json()
+        self.assertEqual([i['name'] for i in self.listing(member, sid, folder='Press')['items']], ['assets'])
         renamed = member.put(f"{root}/files/{site['id']}", headers=H, json={'folder': '', 'name': 'Site'})
         self.assertEqual(renamed.status_code, 200, renamed.text)
         self.assertEqual([i['id'] for i in self.listing(member, sid, folder='Site/assets')['items']], [logo['id']])
-        self.assertEqual(member.get(f'{root}/files', params={'folder': 'Website'}).status_code, 404)
+        self.assertEqual(member.get(f'{root}/files', params={'folder': 'Press'}).status_code, 404)
         self.assertEqual(member.put(f"{root}/files/{site['id']}", headers=H, json={'folder': 'Site/assets', 'name': 'Site'}).status_code, 422)
         moved = member.put(f"{root}/files/{logo['id']}", headers=H, json={'folder': 'Site', 'name': 'logo.png'})
         self.assertEqual(moved.json()['folder'], 'Site')
         log = [(a['action'], a['target_name'], a['details'].get('from')) for a in host.get('/api/admin/activity').json()['items'][:2]]
-        self.assertEqual(log, [('file_moved', 'Site/logo.png', 'Site/assets/logo.png'), ('file_renamed', 'Site', 'Website')])
+        self.assertEqual(log, [('file_moved', 'Site/logo.png', 'Site/assets/logo.png'), ('file_renamed', 'Site', 'Press')])
 
     def test_new_versions_keep_the_old_ones(self):
         host, member, sid = self.host_and_member()

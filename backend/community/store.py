@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.5.5'
+VERSION = '0.6.0'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
@@ -172,6 +172,17 @@ def initialize():
           added INTEGER NOT NULL DEFAULT 0, changed INTEGER NOT NULL DEFAULT 0, unchanged INTEGER NOT NULL DEFAULT 0,
           skipped INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '{}',
           message TEXT NOT NULL DEFAULT '', started TEXT NOT NULL, finished TEXT);
+        -- The Grove's website (website.py). A release is a folder as it was when published: the
+        -- path and blob of each file. It outlives the space it came from.
+        CREATE TABLE IF NOT EXISTS site_releases (
+          id TEXT PRIMARY KEY, space_id TEXT NOT NULL, folder TEXT NOT NULL,
+          files INTEGER NOT NULL, bytes INTEGER NOT NULL,
+          user_id TEXT REFERENCES users(id) ON DELETE SET NULL, created TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS site_release_files (
+          release_id TEXT NOT NULL REFERENCES site_releases(id) ON DELETE CASCADE, path TEXT NOT NULL,
+          blob TEXT NOT NULL, size INTEGER NOT NULL, PRIMARY KEY(release_id,path));
+        -- People an owner trusts with the website: they change Website folders and publish.
+        CREATE TABLE IF NOT EXISTS webmasters (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS workspace_setups (
           space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
           kit TEXT NOT NULL, client TEXT NOT NULL, opening_date TEXT NOT NULL DEFAULT '',
@@ -183,6 +194,8 @@ def initialize():
 
 # A person's Grove-wide role, for queries joining users u with grove_roles r.
 GROVE_ROLE = "CASE WHEN u.admin THEN 'owner' ELSE COALESCE(r.role,'member') END"
+# Whether an owner made them a webmaster (owners look after the website anyway).
+WEBMASTER = 'EXISTS(SELECT 1 FROM webmasters w WHERE w.user_id=u.id)'
 
 def grove_setting(c, key, default):
     row = c.execute('SELECT value FROM grove_settings WHERE key=?', (key,)).fetchone()

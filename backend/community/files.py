@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
-from .auth import user, identifier, now
+from .auth import user, identifier, now, looks_after_website
 from .store import db, database_path, setting
 from .activity import record
 from .routes import membership
@@ -83,6 +83,16 @@ def live_item(c, sid, fid, kind=None):
     if not row or (kind and row['kind'] != kind): raise HTTPException(404, 'File not found.')
     return row
 
+WEBSITE = 'Website'
+def website(*paths): return any(p == WEBSITE or p.startswith(WEBSITE + '/') for p in paths)
+
+def may_change_website(current, *paths):
+    """A space's Website folder holds the Grove's website: everyone in the space sees it, and only the
+    Grove's owners and webmasters change it. True when the paths are in it and this person may."""
+    if not website(*paths): return False
+    if not looks_after_website(current): raise HTTPException(403, 'Only this Grove’s owners and webmasters change website files.')
+    return True
+
 def may_change(c, role, uid, item):
     """Its author or a space owner; a folder's author only if everything in it is theirs too."""
     if role == 'owner': return
@@ -128,6 +138,7 @@ def new_folder(sid: str, body: FolderBody, current=Depends(user)):
         membership(c, sid, current['id'])
         folder, name = clean_folder(body.folder), clean_name(body.name)
         clean_folder(joined(folder, name))
+        may_change_website(current, joined(folder, name))
         if not folder_exists(c, sid, folder): raise HTTPException(404, 'Folder not found.')
         taken(c, sid, folder, name)
         fid, stamp = identifier(), now()
@@ -158,6 +169,7 @@ def start_upload(sid: str, body: UploadBody, current=Depends(user)):
             folder, name = clean_folder(body.folder), clean_name(body.name)
             if not folder_exists(c, sid, folder): raise HTTPException(404, 'Folder not found.')
             taken(c, sid, folder, name)
+        may_change_website(current, joined(folder, name))
         if body.size > file_limit(): raise HTTPException(413, f'Files can be up to {file_limit() // MB:,} MB here.')
         room = space_limit() - used(c, sid)
         if body.size > room: raise HTTPException(413, f'This space has room for {max(room, 0) / MB:,.1f} MB more. Delete something, or ask the host for more room.')
@@ -223,6 +235,7 @@ def finish_upload(sid: str, uid: str, current=Depends(user)):
             c.execute('BEGIN IMMEDIATE')
             row = upload_row(c, sid, uid, current['id'])
             c.execute('DELETE FROM uploads WHERE id=?', (uid,))
+            may_change_website(current, joined(row['folder'], row['name']))
             c.execute('DELETE FROM orphan_blobs WHERE blob=?', (blob,))
             stamp = now()
             if row['replaces']:
@@ -246,7 +259,9 @@ def finish_upload(sid: str, uid: str, current=Depends(user)):
     live.publish(sid)
     return saved
 
-def media_type(name): return mimetypes.guess_type(name)[0] or 'application/octet-stream'
+# Website files Python may not know without the system's mime.types.
+TYPES = {'.webp': 'image/webp', '.avif': 'image/avif', '.woff': 'font/woff', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.mjs': 'text/javascript'}
+def media_type(name): return TYPES.get(PurePosixPath(name.lower()).suffix) or mimetypes.guess_type(name)[0] or 'application/octet-stream'
 def is_text(name): return PurePosixPath(name.lower()).suffix in TEXT
 
 @router.get('/spaces/{sid}/files/{fid}/content')
@@ -306,9 +321,11 @@ def move(sid: str, fid: str, body: MoveBody, current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         role = membership(c, sid, current['id'])
         f = live_item(c, sid, fid)
-        may_change(c, role, current['id'], f)
         folder, name = clean_folder(body.folder), clean_name(body.name)
         old, new = joined(f['folder'], f['name']), clean_folder(joined(folder, name))
+        # Webmasters look after everything already in Website; bringing something in is still its author's call.
+        may_change_website(current, old, new)
+        if not website(old): may_change(c, role, current['id'], f)
         if new != old:
             if not folder_exists(c, sid, folder): raise HTTPException(404, 'Folder not found.')
             if f['kind'] == 'folder' and (folder == old or folder.startswith(old + '/')): raise HTTPException(422, 'A folder cannot go inside itself.')
@@ -330,7 +347,7 @@ def trash(sid: str, fid: str, current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         role = membership(c, sid, current['id'])
         f = live_item(c, sid, fid)
-        may_change(c, role, current['id'], f)
+        if not may_change_website(current, joined(f['folder'], f['name'])): may_change(c, role, current['id'], f)
         stamp = now()
         c.execute('UPDATE files SET deleted=?,trash_root=? WHERE id=?', (stamp, fid, fid))
         if f['kind'] == 'folder':
@@ -351,7 +368,8 @@ def restore(sid: str, fid: str, current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         role = membership(c, sid, current['id'])
         f = trashed(c, sid, fid)
-        if role != 'owner' and f['author_id'] != current['id']: raise HTTPException(403, 'Only whoever added this, or a space owner, can restore it.')
+        if not may_change_website(current, joined(f['folder'], f['name'])) and role != 'owner' and f['author_id'] != current['id']:
+            raise HTTPException(403, 'Only whoever added this, or a space owner, can restore it.')
         if not folder_exists(c, sid, f['folder']): raise HTTPException(409, 'Its folder is gone. Restore that folder first.')
         if c.execute('SELECT 1 FROM files WHERE space_id=? AND folder=? AND name=? AND deleted IS NULL', (sid, f['folder'], f['name'])).fetchone():
             raise HTTPException(409, f"Something named {f['name']} is there now. Rename it, then restore this.")
@@ -368,6 +386,7 @@ def purge(sid: str, fid: str, current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         membership(c, sid, current['id'], owner=True)
         f = trashed(c, sid, fid)
+        may_change_website(current, joined(f['folder'], f['name']))
         c.execute('DELETE FROM files WHERE space_id=? AND trash_root=?', (sid, fid))
         record(c, 'file_purged', actor=current['id'], space=sid, target=fid, target_name=joined(f['folder'], f['name']), kind=f['kind'])
     live.publish(sid)
@@ -382,9 +401,11 @@ def sweep(clock=time.time):
         c.execute('DELETE FROM files WHERE deleted IS NOT NULL AND deleted<?', (cutoff,))
         c.execute('DELETE FROM uploads WHERE started<?', (moment - UPLOAD_SECONDS,))
         uploading = {r['id'] for r in c.execute('SELECT id FROM uploads')}
-        named = {r[0] for r in c.execute('SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions')}
+        # A published website's releases (website.py) keep their pages after the files change.
+        kept = 'SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions UNION SELECT blob FROM site_release_files'
+        named = {r[0] for r in c.execute(kept)}
         orphans = {r['blob']: r['since'] for r in c.execute('SELECT * FROM orphan_blobs')}
-        c.execute('DELETE FROM orphan_blobs WHERE blob IN (SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions)')
+        c.execute(f'DELETE FROM orphan_blobs WHERE blob IN ({kept})')
         for path in sorted((storage() / 'blobs').glob('*/*')):
             if path.name in named: continue
             if path.name not in orphans: c.execute('INSERT INTO orphan_blobs VALUES (?,?)', (path.name, moment))

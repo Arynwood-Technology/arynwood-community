@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.5.5**. A server running an older release may
+This manual describes version **0.6.0**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -46,7 +46,8 @@ inside one Grove; they are not separate Groves.
 | Files | Upload, organize, download and edit the space's files. |
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
-| Webmaster tools | Owners and managers bring website files into a space for editing and handoff. |
+| Look & feel | Owners make the Grove look like their organisation: name and tagline, colours (light or dark), the login page's colour and picture, type, corners and logo, or all of it suggested from the Grove's website. |
+| Webmaster tools | Owners and webmasters bring the Grove's website in, change it in Files, preview it and publish it at the Grove's address. Everyone else sees **Website preview**: what's live, and previews of what's coming. |
 | Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and CSV trackers. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
 
 Changes normally appear on other members' pages within about a second. If the
@@ -74,7 +75,7 @@ There are three different kinds of authority. They should not be confused.
 | Scope | Authority |
 |---|---|
 | Server operator | Controls Linux, installation, domains, releases, configuration and backups. Root can technically read server files and databases; application privacy is not a barrier to root. |
-| Grove-wide roles | The host is always an owner. Owners assign owner, manager or member roles and change Grove settings. Owners and managers can open Grove admin. |
+| Grove-wide roles | The host is always an owner. Owners assign owner, manager or member roles and change Grove settings. Owners and managers can open Grove admin. Owners look after the Grove's website, and can make anyone a webmaster to look after it with them. |
 | Space roles | A space owner manages that space, its invitations and membership. Space membership controls ordinary access to its content. This role is separate from the Grove-wide role. |
 
 Grove admin provides visibility across the Grove; it is not an infrastructure
@@ -134,47 +135,120 @@ save your unsaved work elsewhere, reload and reconcile it before trying again.
 The server rejects a stale save rather than overwriting it.
 
 HTML previews load styles, images and fonts from the page's own folder and the
-folders inside it. Files reached with `../`, in a parent folder, do not load in
-the preview yet. Previews are sandboxed: scripts do not run, nothing outside the
-Grove loads and server code does not run. A preview link lasts 15 minutes (the
+folders inside it. A page in a website (`Website/<site>`, see below) sees the
+whole site, including addresses that start with `/`, such as `/styles.css`.
+The editor's preview is sandboxed: scripts do not run, nothing outside the
+Grove loads and server code does not run. A preview link lasts an hour (the
 editor renews it while it is open) and stops working when the service restarts.
 Reopen the preview to get a fresh one. Treat these links as private while valid.
 
-### Bring in a website
+### The Grove's website
 
-Owners and managers can open **Webmaster tools**, enter a website address and
-choose the space that will hold its files. Use a space containing the people
-who should have access to that website's source.
+Each Grove can show a website at its own address, such as
+`https://roguefest.arynwood.com/`. The members' page stays at `/community`. The
+website is plain HTML, CSS, scripts and images, kept in Files and published
+from there. This replaces a website builder's admin for a static site: edit,
+preview, publish.
 
-The importer reads public pages and the styles, scripts, images and fonts they
-use on the same address, following links and respecting robots.txt. It records
-skipped items and errors. It cannot recover server-side code, checkout systems,
-signed-in pages or unlinked pages. Assets on other sites stay where they are
-and are listed in the import result. It never connects to private network
-addresses. This is a working copy of a public site, not a complete backup of
-its hosting platform.
+**Who does what.** Owners look after the website. In Grove admin, an owner can
+tick **Webmaster** for anyone else, such as a designer, to look after it with
+them. Only owners and webmasters change a space's **Website** folder, bring
+sites in and publish. Everyone else in the space sees those files read-only,
+and everyone in the Grove can open **Website preview** to see what's live and
+preview what's coming. Managers are not webmasters unless an owner makes them
+one.
 
-Imported files appear under **Website**, then the site's address. Edit there,
-preview HTML, and download the folder as a ZIP for whoever publishes the site.
-Importing again creates versions of changed files and does not delete files.
-Review local edits before reimporting: the live website may differ from your
-working copy.
+**Bring the site in.** Open **Webmaster tools** and choose the space that
+will hold its files: a space for the people who work on the website is best.
+There are three ways in:
 
-**Editing files does not publish a website.** The current handoff is a ZIP.
-Publishing from the Grove is described in Webmaster tools as the next step; it
-is not available yet. A shop link in Grove branding points to a separate
-website; it does not install or synchronize a shop.
+- *From its address.* The importer reads public pages and the styles, scripts,
+  images and fonts they use on the same address, following links and
+  respecting robots.txt. It records skipped items and errors. It cannot recover
+  server-side code, checkout systems, signed-in pages or unlinked pages. Assets
+  on other sites stay where they are and are listed in the import result. It
+  never connects to private network addresses. This is a working copy of a
+  public site, not a complete backup of its hosting platform.
+- *From a .zip*, for a site that isn't online yet or one a designer sent. Zip
+  the folder that holds `index.html`. The .zip is kept in `Website` and
+  unpacked into `Website/<the zip's name>`; links, password-protected entries
+  and names that can't be files are left out and listed.
+- *Start with one page*: a front page made from the Grove's name, tagline,
+  colours and logo, with a way in for members, in `Website/<the Grove's address>`.
+
+Importing or unpacking again creates versions of changed files and deletes
+nothing. Review local edits before reimporting: the live website may differ
+from your working copy.
+
+**Change it** in Files, with the editor or by uploading new versions. Nothing
+changes on the live site until someone publishes.
+
+**Preview** shows the whole site as visitors will see it: its links, clean
+addresses such as `/about` for `about.html`, its 404 page, and its scripts.
+Scripts run in a sandbox, with no access to members' sign-ins, and nothing
+outside the Grove loads, so an embedded video shows as blocked.
+
+**Publish.** A website is a folder in `Website` with an `index.html` at its
+top. **Publish** puts it at the Grove's address straight away. A publish keeps
+the files as they were, so later edits wait for the next publish. The last ten
+versions are kept: **Earlier versions** puts one back at once, and **Take it
+down** sends visitors to the members' page again. Every publish, put-back and
+take-down is in the activity log.
+
+The published site is served like Cloudflare Pages serves one: `/about`
+serves `about.html`, `/about.html` moves to `/about`, and an unknown address
+gets `404.html`. Cloudflare's `_headers` and `_redirects` files are not
+served. The Grove keeps `/community`, `/api` and its own page files, such as
+`/assets/`, `/fonts/` and `/favicon.svg`; a site's file at one of those
+addresses is not shown, and publishing says which. Published pages run their
+scripts apart from the Grove: they cannot read members' cookies or act with
+their sign-in, and browser storage is not available to them.
+
+**Your own domain.** To show the site at your own domain, the host moves the
+Grove there (**People & identity → Your Grove's address**, or
+`arynwood-grove set-domain`). The website and the members' page move together.
+To publish somewhere else instead, use **Download as a .zip** on the site's
+folder and send it to whoever runs that host.
+
+A shop link in Grove branding points to a separate website; it does not install
+or synchronize a shop.
+
+### Your Grove's look
+
+Owners open **Look & feel** to make the Grove look like their organisation. A
+preview of the login page and the members' pages follows every change; nothing
+changes for anyone else until **Save**.
+
+- **Name and words**: the name, tagline, and the website and shop links.
+- **Colours**: background, text, accent (buttons, links, highlights) and the
+  login page's side with the name and logo. Light or dark both work. The Grove
+  adjusts a colour only as far as it must for text, buttons and borders to stay
+  readable, and says when it has: "Shown as #… so it stays readable". Text,
+  accent and login page can be left **Automatic**.
+- **Type and shape**: heading and body typefaces from fonts every device has
+  (clean, rounded, classic, or a bold display face for headings), round, soft
+  or square corners, and the logo as it is or in a circle.
+- **Pictures**: the logo (up to 512 KB) and a login page picture (up to 2 MB),
+  PNG, JPEG or WebP. They change straight away.
+- **Start from your website** reads a website in a space's Website folder and
+  suggests its colours, type, logo and share picture, to review before saving.
+
+**Back to the host's look** forgets everything chosen here, pictures included,
+and the Grove looks as its host set it up (the `GROVE_BRAND_*` settings).
+Changes are in the activity log.
 
 ```mermaid
 flowchart LR
-  Public[Public website] -->|Import public pages and assets| Files[Grove space: Files]
-  Upload[Local upload] --> Files
+  Public[Existing website] -->|Import public pages and assets| Files[Space: Website folder]
+  Zip[Site as a .zip] -->|Unpack| Files
+  Starter[One-page starter] --> Files
   Files --> Edit[Text editor]
   Edit -->|Save a new version| Files
-  Edit --> Preview[Sandboxed HTML preview]
-  Files --> Zip[Download folder ZIP]
-  Zip --> Publisher[Whoever publishes the website]
-  Publisher -->|Separate publishing step| Public
+  Files --> Preview[Whole-site preview: every member]
+  Files -->|Publish: owners and webmasters| Release[Release: the files as they were]
+  Release --> Live[The Grove's address: /]
+  Release -->|Put back or take down| Live
+  Files --> Download[Download folder .zip for another host]
 ```
 
 ## How the software fits together
@@ -208,10 +282,12 @@ flowchart TB
 | `backend/community/auth.py`, `routes.py` | Accounts, sessions, access rules, spaces and shared entries. |
 | `backend/community/files.py`, `editor.py` | File metadata and contents, uploads in pieces, versions, text editing and previews. |
 | `backend/community/admin.py`, `activity.py`, `wishes.py` | Grove administration, activity records and wishes. |
-| `backend/community/webmaster.py` | Website import jobs and their results. |
+| `backend/community/webmaster.py` | Bringing a website in: imports from its address, .zip uploads and the one-page starter. |
+| `backend/community/website.py` | Publishing the website: releases, putting one back, previews for everyone, and serving the live site at the Grove's address. |
 | `backend/community/workspace_setup.py`, `workspace_kits.py` | Workspace setup: the kits' content and staging them in one transaction. |
 | `backend/routers/irc.py`, `chat.py` | The host's IRC relay, and members' Public chat on the configured room. |
-| `backend/brand.py` | `read_brand()` validates branding and derives accessible CSS theme tokens. |
+| `backend/brand.py` | `read_brand()` merges the host's branding with what owners saved in Look & feel, validates it and derives accessible CSS theme tokens, light or dark. |
+| `backend/community/site_look.py` | Reads a website in Files for Look & feel's suggestions: colours, type, logo and share picture. |
 | `frontend/src/Community.tsx` | Signed-in page, space selection and section routing. |
 | `frontend/src/pages/` | Welcome, calendar, files, settings, admin and other views. |
 | `frontend/src/lib/` | Browser API helpers and shared types. |

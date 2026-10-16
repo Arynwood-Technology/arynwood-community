@@ -69,6 +69,15 @@ export function describeActivity(a: Activity): string {
     case 'file_purged': return `${who} deleted ${quoted(a.target_name)} for good${here}`
     case 'folder_downloaded': return `${who} downloaded the folder ${quoted(a.target_name)} as a .zip${here}`
     case 'site_imported': return d.status === 'failed' ? `${who} tried to import the website ${d.url} into ${space}` : `${who} imported the website ${d.url} into ${quoted(a.target_name)}${here}: ${d.added} new, ${d.changed} changed`
+    case 'site_unpacked': return `${who} unpacked ${quoted(d.zip)} into ${quoted(a.target_name)}${here}: ${d.added} new, ${d.changed} changed`
+    case 'site_started': return `${who} started a one-page website in ${quoted(a.target_name)}${here}`
+    case 'site_published': return `${who} published the website from ${quoted(a.target_name)}${here} (${count(d.files, 'file')})`
+    case 'site_put_back': return `${who} put back the website published from ${quoted(a.target_name)} on ${new Date(String(d.published)).toLocaleDateString()}`
+    case 'site_taken_down': return `${who} took the website down`
+    case 'webmaster_changed': return d.webmaster ? `${who} made ${a.target_name} a webmaster` : `${who} stopped ${a.target_name} being a webmaster`
+    case 'look_changed': return `${who} changed how the Grove looks`
+    case 'look_reset': return `${who} put the Grove’s look back as its host set it up`
+    case 'look_picture_changed': return `${who} ${d.removed ? 'removed' : 'changed'} the Grove’s ${d.picture === 'logo' ? 'logo' : 'login page picture'}`
     case 'wish_made': return `${who} made a wish${here}`
     case 'grove_setting_changed': return d.space_creation === 'managers' ? `${who} let only owners and managers start spaces` : `${who} let everyone start spaces`
     default: return `${who}: ${a.action.replaceAll('_', ' ')}`

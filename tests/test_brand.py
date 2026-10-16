@@ -26,7 +26,7 @@ class BrandTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'branded': False, 'name': 'Arynwood Grove',
             'tagline': 'The Grove, your community – your choices', 'accent': '#4fd1ab', 'theme': {},
-            'site_url': '', 'site_label': 'Website', 'shop_url': '', 'shop_label': 'Shop', 'logo_url': ''})
+            'site_url': '', 'site_label': 'Website', 'shop_url': '', 'shop_label': 'Shop', 'logo_url': '', 'picture_url': ''})
         self.assertEqual(response.headers['cache-control'], 'no-store')
         self.assertEqual(self.client.get('/api/brand/logo').status_code, 404)
 

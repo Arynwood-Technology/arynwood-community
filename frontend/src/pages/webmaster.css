@@ -12,6 +12,20 @@
 .import-result button { align-self: flex-start; }
 .import-result code, .webmaster-steps code { overflow-wrap: anywhere; }
 .webmaster details { font-size: 14px; }
+.webmaster > .panel { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.webmaster h2 svg { vertical-align: -3px; }
+.live-site p { margin: 0; overflow-wrap: anywhere; }
+.keep-in { display: flex; flex-direction: column; gap: 6px; max-width: 360px; font-size: 13px; font-weight: 600; }
+.bring-in { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; }
+.webmaster-steps .bring-in > * { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bring-in p { margin: 0; font-size: 14px; color: var(--text-muted); }
+.bring-in .action-row { margin-top: auto; }
+.bring-in input[type="file"] { width: 100%; min-width: 0; box-sizing: border-box; }
+.site-list, .release-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.site-list li, .release-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.site-list li:last-child, .release-list li:last-child { border-bottom: none; }
+.site-list .who { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.site-list small, .release-list span { color: var(--text-muted); font-size: 13px; overflow-wrap: anywhere; }
 .webmaster summary { cursor: pointer; color: var(--accent-text); }
 .spinning { animation: spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }

@@ -4,13 +4,14 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import shutil
 import tempfile
 import time
 from pathlib import PurePosixPath
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from . import files, live
 from .auth import user, now
@@ -21,8 +22,11 @@ from .activity import record
 router = APIRouter()
 TEXT_MAX = 2 * files.MB
 SECRET = secrets.token_bytes(32)
-PREVIEW_SECONDS = 15 * 60
-PREVIEW_CSP = "sandbox; default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; frame-ancestors 'self'"
+PREVIEW_SECONDS = 60 * 60
+# The site's scripts run, as a page from nowhere: no cookies, no Grove APIs, nothing from other sites.
+PREVIEW_CSP = ("sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'self' 'unsafe-inline'; "
+               "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; form-action 'none'; frame-ancestors 'self'")
+PREVIEW_HEADERS = {'Content-Security-Policy': PREVIEW_CSP, 'X-Frame-Options': 'SAMEORIGIN', 'Access-Control-Allow-Origin': '*'}
 STALE = 'Someone saved a newer version. Copy your changes, reload, and try again.'
 
 class TextBody(BaseModel):
@@ -35,6 +39,7 @@ def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         membership(c, sid, current['id'])
         f = files.live_item(c, sid, fid, 'file')
+        files.may_change_website(current, files.joined(f['folder'], f['name']))
         if not files.is_text(f['name']): raise HTTPException(415, 'Only text files can be edited.')
         if f['size'] > TEXT_MAX: raise HTTPException(413, 'The editor opens files up to 2 MB.')
         if f['version'] != body.version: raise HTTPException(409, STALE)
@@ -78,8 +83,12 @@ def preview_token(sid: str, body: PreviewBody, current=Depends(user)):
         membership(c, sid, current['id'])
         folder = files.clean_folder(body.folder)
         if not files.folder_exists(c, sid, folder): raise HTTPException(404, 'Folder not found.')
+    return {'url': preview_url(sid, folder)}
+
+def preview_url(sid, folder):
+    """An address showing a folder and everything in it, for an hour, to whoever has it."""
     payload = base64.urlsafe_b64encode(json.dumps([sid, folder, int(time.time()) + PREVIEW_SECONDS], separators=(',', ':')).encode()).decode().rstrip('=')
-    return {'url': f'/api/community/preview/{payload}.{sign(payload)}/'}
+    return f'/api/community/preview/{payload}.{sign(payload)}/'
 
 def unpack(token):
     try:
@@ -92,6 +101,30 @@ def unpack(token):
     except (ValueError, TypeError, UnicodeError):
         raise HTTPException(404, 'Preview expired or unavailable. Open it again.')
 
+# A site's own addresses, such as /styles.css, start at its top folder: the preview's folder. In a
+# preview they point under the preview's address. /community and /api stay the Grove's.
+ROOTED = r'''(?=/(?!/|(?:community|api)(?![^/?#"'\s)>])))'''
+TAG = re.compile(r'''<[a-zA-Z](?:[^>"']|"[^"]*"|'[^']*')*>''')
+STYLE = re.compile(r'(<style\b[^>]*>)(.*?)(</style\s*>)', re.I | re.S)
+ATTRIBUTE = re.compile(r'''(\s(?:href|src|poster|action|formaction|data|background)\s*=\s*["']?)''' + ROOTED, re.I)
+SRCSET = re.compile(r'''(\s(?:srcset|imagesrcset)\s*=\s*(["']))(.*?)(\2)''', re.I | re.S)
+CANDIDATE = re.compile(r'((?:^|,)\s*)' + ROOTED)
+CSS = re.compile(r'''((?:url\(\s*|@import\s+)["']?)''' + ROOTED, re.I)
+
+def rebased(text, kind, base):
+    """A page or stylesheet with its site-rooted addresses moved under `base`. Scripts are left as they are."""
+    css = lambda value: CSS.sub(lambda m: m[1] + base, value)
+    if kind == 'css': return css(text)
+    def tag(m):
+        value = ATTRIBUTE.sub(lambda a: a[1] + base, m[0])
+        value = SRCSET.sub(lambda s: s[1] + CANDIDATE.sub(lambda c: c[1] + base, s[3]) + s[4], value)
+        return css(value)
+    return STYLE.sub(lambda s: s[1] + css(s[2]) + s[3], TAG.sub(tag, text))
+
+def preview_row(c, sid, full):
+    parent, _, name = full.rpartition('/')
+    return c.execute("SELECT name,blob FROM files WHERE space_id=? AND folder=? AND name=? AND kind='file' AND deleted IS NULL", (sid, parent, name)).fetchone()
+
 @router.get('/preview/{token}/{path:path}')
 def preview_file(token: str, path: str):
     sid, folder = unpack(token)
@@ -100,12 +133,20 @@ def preview_file(token: str, path: str):
         raise HTTPException(404, 'File not found.')
     relative = '/'.join(parts)
     full = files.joined(folder, relative) if relative else folder
+    status = 200
     with db() as c:
         if files.folder_exists(c, sid, full): full = files.joined(full, 'index.html')
-        elif path.endswith('/'): raise HTTPException(404, 'File not found.')
+        elif path.endswith('/'): full = ''
         elif not PurePosixPath(full).suffix: full += '.html'
-        parent, _, name = full.rpartition('/')
-        f = c.execute("SELECT name,blob FROM files WHERE space_id=? AND folder=? AND name=? AND kind='file' AND deleted IS NULL", (sid, parent, name)).fetchone()
-        if not f: raise HTTPException(404, 'File not found.')
-    return FileResponse(files.blob_path(f['blob']), media_type=files.media_type(f['name']),
-                        headers={'Content-Security-Policy': PREVIEW_CSP, 'X-Frame-Options': 'SAMEORIGIN', 'Access-Control-Allow-Origin': '*'})
+        f = full and preview_row(c, sid, full)
+        if not f:
+            # As on the live site: the site's own 404 page, when it has one.
+            f, status = preview_row(c, sid, files.joined(folder, '404.html')), 404
+            if not f: raise HTTPException(404, 'File not found.')
+    kind = PurePosixPath(f['name'].lower()).suffix
+    if kind in ('.html', '.htm', '.css'):
+        base = f'/api/community/preview/{token}'
+        text = files.blob_path(f['blob']).read_bytes().decode('utf-8', 'surrogateescape')
+        return Response(rebased(text, kind[1:], base).encode('utf-8', 'surrogateescape'), status_code=status,
+                        media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)
+    return FileResponse(files.blob_path(f['blob']), status_code=status, media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)

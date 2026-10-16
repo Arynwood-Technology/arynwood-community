@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from urllib.parse import urlsplit
@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 from backend.routers import chat, mail, irc, p2p
-from backend.community import admin, auth, editor, files, routes, store, webmaster, wishes, workspace_setup
+from backend.community import admin, auth, editor, files, routes, store, webmaster, website, wishes, workspace_setup
 from backend import grove, setup, brand
 
 @asynccontextmanager
@@ -47,7 +47,8 @@ async def protections(request, call_next):
     path=request.url.path
     # Vite fingerprints everything under /assets, so it can be cached indefinitely.
     # Live notices must pass through proxies (Cloudflare, nginx) unaltered and unbuffered.
-    response.headers['Cache-Control']=('no-store, no-transform' if path.endswith('/events') else 'no-store') if path.startswith('/api') else 'public, max-age=31536000, immutable' if path.startswith('/assets/') else 'no-cache'
+    # A published website's pages say for themselves.
+    if path.startswith('/api') or 'cache-control' not in response.headers: response.headers['Cache-Control']=('no-store, no-transform' if path.endswith('/events') else 'no-store') if path.startswith('/api') else 'public, max-age=31536000, immutable' if path.startswith('/assets/') else 'no-cache'
     # A file from the file bank brings its own, stricter policy.
     if 'content-security-policy' not in response.headers: response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     return response
@@ -87,6 +88,7 @@ app.include_router(editor.router,prefix='/api/community')
 app.include_router(admin.router,prefix='/api/admin')
 app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(webmaster.router,prefix='/api/webmaster')
+app.include_router(website.router,prefix='/api/webmaster')
 def host_tools():
     if not store.host_tools(): raise HTTPException(404,'Not found')
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(host_tools),Depends(auth.administrator)])
@@ -113,11 +115,17 @@ def web_dir():
     return Path(os.getenv('GROVE_WEB_DIR')) if os.getenv('GROVE_WEB_DIR') else MEMBER_PAGE
 
 @app.api_route('/{path:path}',methods=['GET','HEAD'],include_in_schema=False)
-def frontend(path:str):
+def frontend(path:str,request:Request):
     if path=='api' or path.startswith('api/'): raise HTTPException(404)
     dist=web_dir()
     target=(dist/path).resolve()
-    if target.is_relative_to(dist.resolve()) and target.is_file(): return FileResponse(target)
-    if (path in LEGACY_ROUTES or path=='community' or path.startswith('community/')) and (dist/'index.html').exists():
+    if path!='index.html' and target.is_relative_to(dist.resolve()) and target.is_file(): return FileResponse(target)
+    members=path=='community' or path.startswith('community/')
+    # The Grove's published website, if it has one, answers everything else, / included.
+    page=None if members else website.page(path,request)
+    if page: return page
+    if (path in LEGACY_ROUTES or members or path=='index.html') and (dist/'index.html').exists():
         return FileResponse(dist/'index.html')
+    missing=website.missing(request)
+    if missing: return missing
     raise HTTPException(404)

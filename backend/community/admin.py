@@ -1,11 +1,12 @@
-"""Running the Grove: its people and their Grove-wide roles, who may start spaces, and the
-activity log. Owners and managers see all of it; only owners change roles and settings."""
+"""Running the Grove: its people, their Grove-wide roles and who looks after the website, who
+may start spaces, and the activity log. Owners and managers see all of it; only owners change
+roles and settings."""
 import json
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from .auth import grove_manager, grove_owner
-from .store import db, grove_setting, GROVE_ROLE
+from .store import db, grove_setting, GROVE_ROLE, WEBMASTER
 from .activity import record
 from .files import used
 
@@ -14,13 +15,16 @@ router = APIRouter()
 class RoleBody(BaseModel):
     role: Literal['owner','manager','member']
 
+class WebmasterBody(BaseModel):
+    webmaster: bool
+
 class SettingsBody(BaseModel):
     space_creation: Literal['everyone','managers']
 
 @router.get('/people')
 def people(current=Depends(grove_manager)):
     with db() as c:
-        return [dict(r) for r in c.execute(f'''SELECT u.id,u.name,u.email,u.admin AS host,u.created,{GROVE_ROLE} AS role,
+        return [dict(r) for r in c.execute(f'''SELECT u.id,u.name,u.email,u.admin AS host,u.created,{GROVE_ROLE} AS role,{WEBMASTER} AS webmaster,
             (SELECT COUNT(*) FROM members m WHERE m.user_id=u.id) AS spaces,
             (SELECT a.at FROM activity a WHERE a.actor_id=u.id ORDER BY a.id DESC LIMIT 1) AS last_active
             FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id ORDER BY u.name COLLATE NOCASE''')]
@@ -38,6 +42,19 @@ def set_role(uid:str,body:RoleBody,current=Depends(grove_owner)):
             else: c.execute('INSERT OR REPLACE INTO grove_roles VALUES (?,?)',(uid,body.role))
             record(c,'grove_role_changed',actor=current['id'],target=uid,role=body.role)
     return {'id':uid,'role':body.role}
+
+@router.put('/people/{uid}/webmaster')
+def set_webmaster(uid:str,body:WebmasterBody,current=Depends(grove_owner)):
+    """Webmasters change the Website folders and publish the Grove's website, as owners do."""
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        if not c.execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone(): raise HTTPException(404,'Person not found.')
+        was=c.execute('SELECT 1 FROM webmasters WHERE user_id=?',(uid,)).fetchone() is not None
+        if was!=body.webmaster:
+            if body.webmaster: c.execute('INSERT INTO webmasters VALUES (?)',(uid,))
+            else: c.execute('DELETE FROM webmasters WHERE user_id=?',(uid,))
+            record(c,'webmaster_changed',actor=current['id'],target=uid,webmaster=body.webmaster)
+    return {'id':uid,'webmaster':body.webmaster}
 
 @router.get('/settings')
 def settings(current=Depends(grove_manager)):

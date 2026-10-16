@@ -6,7 +6,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { openSearchPanel } from '@codemirror/search'
 import { tags } from '@lezer/highlight'
 import { api } from '../lib/community'
-import { previewFolder, readText, saveText, type FileItem, type Version } from '../lib/files'
+import { previewFolder, readText, rebased, saveText, siteRoot, type FileItem, type Version } from '../lib/files'
 import { Modal } from '../pages/Workspace'
 import './code-editor.css'
 
@@ -35,11 +35,13 @@ const theme = EditorView.theme({
   '.cm-panels, .cm-tooltip': { backgroundColor: 'var(--surface2)', color: 'var(--text)', borderColor: 'var(--border)' },
 }, { dark: true })
 
-function documentFor(draft: string, url: string) {
-  const base = new URL(url, window.location.origin).href
-  const policy = `default-src 'none'; style-src ${base} 'unsafe-inline'; img-src ${base} data:; font-src ${base}; media-src ${base}; base-uri ${base}; form-action 'none'`
+/** `url` previews the site's top folder; the page sits `inside` it. */
+function documentFor(draft: string, url: string, inside: string) {
+  const root = new URL(url, window.location.origin).href
+  const base = root + (inside ? inside.split('/').map(encodeURIComponent).join('/') + '/' : '')
+  const policy = `default-src 'none'; style-src ${root} 'unsafe-inline'; img-src ${root} data:; font-src ${root}; media-src ${root}; base-uri ${root}; form-action 'none'`
   // Policy and base come first: draft markup cannot replace them or fetch Grove APIs.
-  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><base href="${base}"></head><body>${draft}</body></html>`
+  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><base href="${base}"></head><body>${rebased(draft, root.replace(/\/$/, ''))}</body></html>`
 }
 
 export function CodeEditor({ spaceId, item, text, onClose, onSaved }: { spaceId: string; item: FileItem; text: string; onClose: () => void; onSaved: (item: FileItem, text: string) => void }) {
@@ -85,16 +87,16 @@ export function CodeEditor({ spaceId, item, text, onClose, onSaved }: { spaceId:
   useEffect(() => {
     if (!preview || !page) return
     let active = true
-    const renew = () => { void previewFolder(spaceId, item.folder).then(value => { if (active) { setUrl(value.url); setPreviewError('') } }).catch(e => { if (active) setPreviewError(e.message) }) }
+    const renew = () => { void previewFolder(spaceId, siteRoot(item.folder)).then(value => { if (active) { setUrl(value.url); setPreviewError('') } }).catch(e => { if (active) setPreviewError(e.message) }) }
     renew()
     const timer = setInterval(renew, 14 * 60 * 1000)
     return () => { active = false; clearInterval(timer) }
   }, [preview, page, spaceId, item.folder])
   useEffect(() => {
     if (!preview || !url) return
-    const timer = setTimeout(() => setSrcdoc(documentFor(draft, url)), 300)
+    const timer = setTimeout(() => setSrcdoc(documentFor(draft, url, item.folder.slice(siteRoot(item.folder).length + 1))), 300)
     return () => clearTimeout(timer)
-  }, [draft, url, preview])
+  }, [draft, url, preview, item.folder])
   async function reload() {
     if (saving.current || (dirty && !window.confirm('Discard your unsaved changes and reload?'))) return
     saving.current = true; setBusy(true); setError(''); setMessage('')

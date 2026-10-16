@@ -7,7 +7,7 @@ import { GenieLamp } from '../components/WishLamp'
 import { Modal } from './Workspace'
 import './admin.css'
 
-interface Person { id: string; name: string; email: string; host: number; created: string; role: GroveRole; spaces: number; last_active: string | null }
+interface Person { id: string; name: string; email: string; host: number; created: string; role: GroveRole; webmaster: number; spaces: number; last_active: string | null }
 interface GroveSpace { id: string; name: string; created: string; used: number }
 interface Wish { id: string; created: string; author_name: string; author_email: string; page: string; space_name: string; body: string; delivery: 'kept' | 'sending' | 'sent' | 'failed' }
 interface Page { items: Activity[]; next: number | null }
@@ -65,6 +65,14 @@ export function Admin({ user, onChanged }: { user: User; onChanged: () => void }
       setReload(n => n + 1)
     } catch (e) { setSteppingDown(null); fail(e) }
   }
+  async function changeWebmaster(person: Person, webmaster: boolean) {
+    try {
+      await api(`/admin/people/${person.id}/webmaster`, 'PUT', { webmaster })
+      setPeople(list => list.map(p => p.id === person.id ? { ...p, webmaster: webmaster ? 1 : 0 } : p))
+      flash(webmaster ? `${person.name} is now a webmaster: they change and publish the website.` : `${person.name} no longer looks after the website.`)
+      setReload(n => n + 1)
+    } catch (e) { fail(e) }
+  }
   async function saveCreation(value: SpaceCreation) {
     try { await api('/admin/settings', 'PUT', { space_creation: value }); setCreation(value); flash(value === 'managers' ? 'Only owners and managers can start spaces now.' : 'Everyone can start spaces now.'); setReload(n => n + 1) }
     catch (e) { fail(e) }
@@ -88,9 +96,12 @@ export function Admin({ user, onChanged }: { user: User; onChanged: () => void }
             onChange={e => { const role = e.target.value as GroveRole; if (p.id === user.id) setSteppingDown(role); else void changeRole(p, role) }}>
             {(['owner', 'manager', 'member'] as const).map(r => <option key={r} value={r}>{roleNames[r]}</option>)}</select>
             : <span className="push role-label">{p.host ? 'Host · Owner' : roleNames[p.role]}</span>}
+          {p.role !== 'owner' && (owner ? <label className="webmaster-check"><input type="checkbox" aria-label={`Webmaster: ${p.name}`} checked={!!p.webmaster} onChange={e => void changeWebmaster(p, e.target.checked)} /> Webmaster</label>
+            : p.webmaster ? <span className="role-label">Webmaster</span> : null)}
           <button className="icon-button" aria-label={`Activity of ${p.name}`} title="Show their activity" onClick={() => show({ person: p.id, space: '' })}><History size={16} /></button>
         </li>)}</ul>
         <p className="muted-text">Everyone joins as a member. Managers see everything on this page; owners also choose who is an owner or manager. The host, who set up this server, is always an owner.</p>
+        <p className="muted-text">Owners look after the website. A webmaster, whom an owner chooses, does too: they change the Website folders in Files and publish the site. Everyone can preview it.</p>
       </section>
       <section className="panel">
         <h2>Spaces</h2>
