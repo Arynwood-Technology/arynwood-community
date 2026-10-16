@@ -5,10 +5,11 @@ import { bytes, contentUrl, freeName, isImage, isText, joined, readText, uploadF
 import { useSpaceRefresh } from '../lib/live'
 import { Modal } from './Workspace'
 import './files.css'
+const SpreadsheetEditor = lazy(() => import('../components/SpreadsheetEditor').then(module => ({ default: module.SpreadsheetEditor })))
 const CodeEditor = lazy(() => import('../components/CodeEditor').then(module => ({ default: module.CodeEditor })))
 
 interface Sending { key: string; name: string; size: number; sent: number; error?: string }
-type Naming = { kind: 'folder' } | { kind: 'rename'; item: FileItem }
+type Naming = { kind: 'folder' | 'spreadsheet' | 'document' } | { kind: 'rename'; item: FileItem }
 
 /** A space's shared files: folders, uploads that survive a dropped connection, versions and a trash. */
 export function FileBank({ space, user, startFolder = '' }: { space: Space; user: User; startFolder?: string }) {
@@ -65,7 +66,14 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
     if (!naming || !value) return
     try {
       if (naming.kind === 'folder') await api(`${root}/folders`, 'POST', { folder, name: value })
-      else await api(`${root}/files/${naming.item.id}`, 'PUT', { folder: naming.item.folder, name: value })
+      else if (naming.kind === 'spreadsheet' || naming.kind === 'document') {
+        const extension = naming.kind === 'spreadsheet' ? '.csv' : '.md'
+        const name = value.toLowerCase().endsWith(extension) ? value : value + extension
+        const data = naming.kind === 'spreadsheet' ? 'Column 1,Column 2\r\n,\r\n' : '# ' + value.replace(/\.md$/i, '') + '\n\n'
+        const saved = await uploadFile(space.id, new File([data], name, { type: 'text/plain' }), { folder })
+        setOpen(saved)
+      }
+      else if (naming.kind === 'rename') await api(`${root}/files/${naming.item.id}`, 'PUT', { folder: naming.item.folder, name: value })
       setNaming(null); void load.current()
     } catch (e) { setNamingError((e as Error).message) }
   }
@@ -85,6 +93,8 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
       <div className="action-row">{trash ? <button className="secondary" onClick={() => setTrash(false)}><ArrowLeft size={15} /> Back to files</button> : <>
         <button className="primary" onClick={() => picker.current?.click()}><Upload size={15} /> Upload</button>
         <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'folder' }) }}><FolderPlus size={15} /> New folder</button>
+        <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'spreadsheet' }) }}>New spreadsheet</button>
+        <button className="secondary" onClick={() => { setNamingError(''); setNaming({ kind: 'document' }) }}>New document</button>
         <button className="secondary" onClick={() => setTrash(true)}><Trash2 size={15} /> Trash</button></>}</div></div>
     <input ref={picker} type="file" multiple hidden aria-label="Choose files to upload" onChange={e => { if (e.target.files) choose(e.target.files); e.target.value = '' }} />
     {error && <p className="error" role="alert">{error}{folder && <button className="text-button" onClick={() => setFolder('')}>Back to all files</button>}</p>}
@@ -114,11 +124,11 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
       </>}</span>
     </li>)}</ul>
     {listing && !items.length && <p className="muted-text empty-files">{trash ? 'The trash is empty.' : 'Nothing here yet. Upload files, or drop them on this page.'}</p>}
-    {naming && <Modal title={naming.kind === 'folder' ? 'New folder' : `Rename ${naming.item.name}`} onClose={() => setNaming(null)}>
+    {naming && <Modal title={naming.kind === 'rename' ? `Rename ${naming.item.name}` : `New ${naming.kind}`} onClose={() => setNaming(null)}>
       <form onSubmit={saveName}>
         <label>Name<input name="name" required maxLength={200} autoFocus defaultValue={naming.kind === 'rename' ? naming.item.name : ''} /></label>
         {namingError && <p className="error" role="alert">{namingError}</p>}
-        <div className="action-row"><button className="primary">{naming.kind === 'folder' ? 'Make folder' : 'Rename'}</button><button type="button" className="secondary" onClick={() => setNaming(null)}>Cancel</button></div>
+        <div className="action-row"><button className="primary">{naming.kind === 'rename' ? 'Rename' : naming.kind === 'folder' ? 'Make folder' : `Create ${naming.kind}`}</button><button type="button" className="secondary" onClick={() => setNaming(null)}>Cancel</button></div>
       </form>
     </Modal>}
     {binning && <Modal title={`Delete ${binning.name}?`} onClose={() => setBinning(null)}>
@@ -135,7 +145,7 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
 }
 
 function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; item: FileItem; onClose: () => void; onNewVersion: (file: File) => void }) {
-  const [current, setCurrent] = useState(item), [editing, setEditing] = useState(false)
+  const [current, setCurrent] = useState(item), [editing, setEditing] = useState(false), [sheet, setSheet] = useState(false)
   const [text, setText] = useState<string | null>(null), [versions, setVersions] = useState<Version[]>([])
   useEffect(() => {
     let active = true
@@ -143,6 +153,7 @@ function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; ite
     if (isText(item.name) && item.size <= 2 * 1024 * 1024) readText(space.id, { id: item.id, version: item.version }).then(t => { if (active) setText(t) }).catch(() => {})
     return () => { active = false }
   }, [space.id, item.id, item.name, item.size, item.version])
+  if (sheet && text !== null) return <Suspense fallback={<Modal title={item.name} onClose={() => setSheet(false)}><p>Opening spreadsheet…</p></Modal>}><SpreadsheetEditor spaceId={space.id} item={current} text={text} onClose={() => setSheet(false)} onSaved={(saved, contents) => { setCurrent(saved); setText(contents); void api<Version[]>(`/community/spaces/${space.id}/files/${item.id}/versions`).then(setVersions).catch(() => {}) }}/></Suspense>
   if (editing && text !== null) return <Suspense fallback={<Modal title={item.name} onClose={() => setEditing(false)}><p>Opening editor…</p></Modal>}><CodeEditor spaceId={space.id} item={current} text={text} onClose={() => setEditing(false)} onSaved={(saved, contents) => {
     setCurrent(saved); setText(contents)
     void api<Version[]>(`/community/spaces/${space.id}/files/${item.id}/versions`).then(setVersions).catch(() => {})
@@ -153,6 +164,7 @@ function FilePreview({ space, item, onClose, onNewVersion }: { space: Space; ite
     {/\.pdf$/i.test(item.name) && <p><a href={contentUrl(space.id, item.id, '?inline=1')} target="_blank" rel="noopener noreferrer">Open the PDF in a new tab</a></p>}
     <p className="muted-text">{bytes(current.size)} · added by {item.author || 'someone who has left'} · {stamp(item.created)}</p>
     <div className="action-row">
+      {/\.csv$/i.test(current.name) && text !== null && <button className="primary" onClick={() => setSheet(true)}>Open spreadsheet</button>}
       {isText(current.name) && current.size <= 2 * 1024 * 1024 && text !== null && <button className="primary" onClick={() => setEditing(true)}>Edit</button>}
       <a className="primary button-link" href={contentUrl(space.id, item.id)} download><Download size={15} /> Download</a>
       <label className="secondary button-link"><Upload size={15} /> Upload a new version<input type="file" hidden onChange={e => { const file = e.target.files?.[0]; if (file) onNewVersion(file) }} /></label>

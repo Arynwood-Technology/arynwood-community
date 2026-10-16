@@ -9,8 +9,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
-from backend.routers import mail, irc, p2p
-from backend.community import admin, auth, editor, files, routes, store, webmaster, wishes
+from backend.routers import chat, mail, irc, p2p
+from backend.community import admin, auth, editor, files, routes, store, webmaster, wishes, workspace_setup
 from backend import grove, setup, brand
 
 @asynccontextmanager
@@ -82,6 +82,7 @@ app.include_router(setup.router,prefix='/api/grove-setup')
 app.include_router(auth.router,prefix='/api/auth')
 app.include_router(routes.router,prefix='/api/community')
 app.include_router(files.router,prefix='/api/community')
+app.include_router(workspace_setup.router,prefix='/api/community')
 app.include_router(editor.router,prefix='/api/community')
 app.include_router(admin.router,prefix='/api/admin')
 app.include_router(wishes.router,prefix='/api/wishes')
@@ -91,6 +92,7 @@ def host_tools():
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(host_tools),Depends(auth.administrator)])
 app.include_router(irc.router,prefix='/api/irc',dependencies=[Depends(host_tools),Depends(auth.administrator)])
 app.include_router(p2p.router,prefix='/api/p2p',dependencies=[Depends(host_tools),Depends(auth.administrator)])
+app.include_router(chat.router,prefix='/api/chat')
 app.include_router(brand.router,prefix='/api/brand')
 
 @app.get('/api/source')

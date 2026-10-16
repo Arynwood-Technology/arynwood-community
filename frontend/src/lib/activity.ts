@@ -25,6 +25,7 @@ export function describeActivity(a: Activity): string {
     case 'password_changed': return `${who} changed their password`
     case 'password_reset': return `${who} reset their password with a recovery code`
     case 'recovery_code_issued': return `The server issued a password recovery code for ${a.target_name}`
+    case 'workspace_staged': return `${who} staged the ${d.kit} workspace for ${d.client}${here}: ${d.entries} items, ${d.files} files and ${d.folders} folders`
     case 'space_created': return `${who} started the space ${space}`
     case 'space_updated': {
       const renamed = d.renamed_from !== undefined ? `renamed ${d.renamed_from} to ${space}` : ''

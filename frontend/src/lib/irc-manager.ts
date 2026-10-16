@@ -466,7 +466,7 @@ export function ircProcess(input: string) {
       break
 
     case 'quit':
-      ircSend(`QUIT :${rest || 'Arynwood Hub'}`)
+      ircSend(`QUIT :${rest || 'Left Arynwood Grove'}`)
       setTimeout(ircDisconnect, 500)
       break
 
@@ -485,8 +485,17 @@ export function ircProcess(input: string) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/** A member's Public chat nickname: the one they chose before, else the Grove's pattern with each # a random digit. */
+export function publicNick(pattern: string) {
+  try { const saved = localStorage.getItem('grove_chat_nick'); if (saved) return saved } catch { /* private window */ }
+  return pattern.replace(/#/g, () => String(Math.floor(Math.random() * 10)))
+}
+export function rememberNick(nick: string) { try { localStorage.setItem('grove_chat_nick', nick) } catch { /* private window */ } }
+
 export function ircConnect(config: {
   host: string; port: number; nick: string; channels: string[]; realname?: string; socks5_proxy?: string; nick_password?: string
+  /** Public chat: the server picks the server and room, so only the nickname is sent. */
+  publicChat?: boolean
 }) {
   if (ws) { ws.onclose = null; ws.close() }
   selfNick = config.nick
@@ -499,9 +508,9 @@ export function ircConnect(config: {
     ircActiveChannel: config.channels[0] ?? 'server',
   })
 
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/community-api/irc/ws`)
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/community-api/${config.publicChat ? 'chat' : 'irc'}/ws`)
 
-  ws.onopen = () => ws!.send(JSON.stringify({
+  ws.onopen = () => ws!.send(JSON.stringify(config.publicChat ? { nick: config.nick } : {
     host: config.host, port: config.port, nick: config.nick,
     channels: config.channels, realname: config.realname ?? 'Arynwood Grove',
     ...(config.socks5_proxy ? { socks5_proxy: config.socks5_proxy } : {}),

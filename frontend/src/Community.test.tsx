@@ -102,3 +102,18 @@ it('uses the Grove identity and external links in the signed-in header',async()=
  expect(screen.queryByText(/community\.arynwood\.com/)).toBeNull()
  expect(document.title).toBe('Festival Friends')
 })
+it('opens Public chat to members only when the Grove has a room, and names the log after the Grove',async()=>{
+ Element.prototype.scrollIntoView=vi.fn()  // jsdom has none; the log scrolls to its newest update
+ mocked.mockImplementation(async(path)=>path==='/auth/me'?user:[home])
+ show();await screen.findByRole('option',{name:'Home'})
+ expect(screen.queryByRole('link',{name:'Public chat'})).toBeNull()
+ expect(screen.getByRole('link',{name:'Updates'})).toHaveAttribute('href','/community/discussion')
+ cleanup()
+ const festival={...user,public_chat:{channel:'#RogueFest',nick:'RogueGuest###',server:'irc.arynwood.com'},log_name:"Event journal"}
+ mocked.mockImplementation(async(path)=>path==='/auth/me'?festival:[home])
+ show('/community/discussion');await screen.findByRole('option',{name:'Home'})
+ expect(screen.getByRole('link',{name:'Public chat'})).toHaveAttribute('href','/community/irc')
+ expect(screen.getByRole('link',{name:"Event journal"})).toHaveAttribute('href','/community/discussion')
+ expect(screen.getByText(/Event journal is where news and updates for everyone in this space go\. For conversation, use Public chat\./)).toBeInTheDocument()
+ expect(screen.queryByRole('link',{name:'Private messages'})).toBeNull()
+})

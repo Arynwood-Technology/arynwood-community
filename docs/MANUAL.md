@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.5.2**. A server running an older release may
+This manual describes version **0.5.3**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -38,7 +38,8 @@ inside one Grove; they are not separate Groves.
 | Calendar | Plan the day and add or review events. **Month overview** shows the wider view. |
 | Overview | See upcoming plans, open tasks and recent activity in the selected space. |
 | Board | Share posts and replies. |
-| Space discussion | Talk with other people in the space. |
+| Updates | Post news and updates for everyone in the space. A Grove can give it its own name, such as Event journal. |
+| Public chat | Talk with other people in the Grove's IRC room, when the Grove has one (see below). |
 | Tasks | Track assignments and due dates. |
 | Lists | Keep shared lists. |
 | Notes | Keep shared notes or choose private visibility for your own notes. |
@@ -46,12 +47,21 @@ inside one Grove; they are not separate Groves.
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
 | Webmaster tools | Owners and managers bring website files into a space for editing and handoff. |
+| Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and spreadsheets. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
 
 Changes normally appear on other members' pages within about a second. If the
 live connection drops, the page polls for changes until it reconnects. The wish
 lamp sends a suggestion to the Grove's owners and managers, who see it in Grove
 admin. It is also emailed to `GROVE_WISH_EMAIL` when that is set and the server
 can send mail.
+
+**Public chat** is an IRC room the Grove names (`GROVE_CHAT_CHANNEL`). Every
+member gets a starting nickname, made from the Grove's pattern, and can change it
+before connecting; the page remembers it in that browser. The room is on a public
+IRC network: anyone on that network can join it, so treat it as public, unlike the
+space's Updates. A Grove's sign-in does not register or protect an IRC nickname.
+On a Grove without a room, Public chat is the host's own IRC client, under host
+tools.
 
 To recover a forgotten password, ask the server operator for a recovery code.
 Enter it under **Forgot password?** Codes last 15 minutes; there is no automatic
@@ -70,9 +80,11 @@ There are three different kinds of authority. They should not be confused.
 Grove admin provides visibility across the Grove; it is not an infrastructure
 control panel. Managers see everything in Grove admin but cannot change roles
 or settings. Whether members can start spaces is a Grove setting: everyone, or
-owners and managers only. Mail, IRC and Private messages, when enabled, are
-restricted to the host; being a manager or another owner does not grant those
-connections.
+owners and managers only. Mail, the host's IRC client and Private messages, when
+enabled, are restricted to the host; being a manager or another owner does not
+grant those connections. Members' Public chat can reach only the Grove's
+configured IRC server and room, and never uses the host's IRC settings or
+passwords.
 
 The invitation page explains the administrative visibility:
 
@@ -107,6 +119,16 @@ Anyone in the space can add a new version of a file, by uploading or in the
 editor. Only a file's author or a space owner can move, rename, delete or
 restore it. A folder containing other people's files needs a space owner to
 change it.
+
+### Spreadsheets and documents
+
+**New spreadsheet** and **New document** in Files make a CSV table or a Markdown
+document. A CSV file opens with **Open spreadsheet**: edit headings and cells, add
+rows and columns, and save a new version. Formulas stay text; nothing is
+calculated except budget totals. A table with `Type`, `Currency`, `Planned` and
+`Actual` columns shows income, expenses and net for each currency. The table
+editor handles up to 1,000 rows, 40 columns and 20,000 cells; larger files open
+in the text editor or download.
 
 ### Edit text and preview HTML
 
@@ -191,6 +213,8 @@ flowchart TB
 | `backend/community/files.py`, `editor.py` | File metadata and contents, uploads in pieces, versions, text editing and previews. |
 | `backend/community/admin.py`, `activity.py`, `wishes.py` | Grove administration, activity records and wishes. |
 | `backend/community/webmaster.py` | Website import jobs and their results. |
+| `backend/community/workspace_setup.py`, `workspace_kits.py` | Workspace setup: the kits' content and staging them in one transaction. |
+| `backend/routers/irc.py`, `chat.py` | The host's IRC relay, and members' Public chat on the configured room. |
 | `backend/brand.py` | `read_brand()` validates branding and derives accessible CSS theme tokens. |
 | `frontend/src/Community.tsx` | Signed-in page, space selection and section routing. |
 | `frontend/src/pages/` | Welcome, calendar, files, settings, admin and other views. |
@@ -382,6 +406,8 @@ a full recovery. Keep the off-server copies' password safe, off the server.
 | Cannot move or delete a file | Only its author or a space owner can. |
 | Cannot open Grove admin | Check the Grove-wide owner or manager role, not just space ownership. |
 | Cannot sign in on another Grove | Accounts and sessions belong to each Grove separately. |
+| Public chat does not appear | The Grove needs `GROVE_CHAT_CHANNEL`; without it, only the host sees Public chat, and only with host tools on. |
+| Public chat refuses to connect | The nickname (letters, numbers, `-` and `_`, starting with a letter, up to 30), two open windows already, or the IRC server's limit on connections from one address. |
 
 Code is AGPL-3.0; the running service offers its source at `/api/source`.
 Arynwood's tree artwork has separate rights (see the README). A Grove's own

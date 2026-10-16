@@ -1,8 +1,28 @@
 # Arynwood Grove release notes
 
-Version: `0.5.2`
+Version: `0.5.3`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.5.3
+
+Members
+
+- **Public chat.** A Grove that names an IRC room (`GROVE_CHAT_CHANNEL`, e.g. `#RogueFest`) opens it to every member from the Grove. Each member starts with a nickname from `GROVE_CHAT_NICK` (every `#` a random digit, e.g. `RogueGuest###`) and can change it. The browser chooses only the nickname: the server, port and room come from the Grove's settings (`GROVE_CHAT_SERVER`, default `irc.arynwood.com:6697`), no IRC password is sent, and each member may hold two connections at once. Without a room, Public chat is the host's own IRC client, as before.
+- "IRC rooms" is now **Public chat**, and "Space discussion" is now each space's **Updates**: a log of news, which a Grove can rename with `GROVE_LOG_NAME` (RogueFest's is the Event journal). Conversation belongs in Public chat.
+- An unbranded Grove's welcome badge says "Arynwood Grove" rather than "Grove 0.4".
+
+Producers
+
+- **Workspace setup**, for space owners: stage an independent film festival or a client project in a space, with department checklists, operating notes, setup tasks, a decisions board, folders, documents and empty CSV trackers. An optional opening date adds proposed milestones. A kit is staged once per space, all at once or not at all. See docs/PRODUCER-WORKSPACE.md.
+- **Spreadsheets**: CSV files open as editable tables, saved as new versions, with income, expense and net totals per currency for budget tables. Files has **New spreadsheet** and **New document**.
+- `scripts/export_workspace.py` writes a kit as a .zip for review, without a Grove.
+
+Docs
+
+- docs/MANUAL.md: a manual for members, owners and server operators.
+
+Workspace setup keeps its receipts in a table of its own, so a Grove rolled back to 0.5.2 keeps working on the same database.
 
 ## 0.5.2
 

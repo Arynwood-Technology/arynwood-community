@@ -71,12 +71,13 @@ async def save_client_config(cfg: dict):
     return {"ok": True}
 
 
+TLS_PORTS = (6697, 6660, 7000, 7070)
+
+
 @router.websocket("/ws")
 async def irc_ws(ws: WebSocket):
-    """WebSocket relay: bridges a personal IRC session between the browser UI and the IRC server."""
+    """WebSocket relay: bridges the host's personal IRC session between the browser UI and the IRC server."""
     await ws.accept()
-    irc_writer = None
-    irc_reader = None
 
     async def send(data: dict):
         """Send JSON to the browser WebSocket, silently swallowing send errors."""
@@ -106,8 +107,30 @@ async def irc_ws(ws: WebSocket):
                 if _client_cfg.get("nick") == nick:
                     nick_password = _client_cfg.get("nick_password", "")
 
-        use_ssl = port in (6697, 6660, 7000, 7070) or config.get("ssl", False)
+        use_ssl = port in TLS_PORTS or config.get("ssl", False)
         socks5  = config.get("socks5_proxy", os.getenv("SOCKS5_PROXY", ""))
+    except WebSocketDisconnect:
+        return
+    except Exception as e:
+        await send({"type": "error", "message": str(e)})
+        return
+    await relay(ws, host, port, use_ssl, socks5, nick, nick_password, channels, realname)
+
+
+async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password, channels, realname):
+    """Connects to the IRC server and pumps lines both ways until either side leaves.
+    The WebSocket is already accepted; nothing here comes from the browser except the commands it relays."""
+    irc_writer = None
+    irc_reader = None
+
+    async def send(data: dict):
+        """Send JSON to the browser WebSocket, silently swallowing send errors."""
+        try:
+            await ws.send_json(data)
+        except Exception:
+            pass
+
+    try:
         if socks5:
             await send({"type": "status", "message": f"Connecting to {host}:{port} via proxy {socks5}…"})
         else:
@@ -266,7 +289,7 @@ async def irc_ws(ws: WebSocket):
     finally:
         if irc_writer and not irc_writer.is_closing():
             try:
-                irc_writer.write(b"QUIT :Arynwood Hub disconnected\r\n")
+                irc_writer.write(b"QUIT :Left Arynwood Grove\r\n")
                 await irc_writer.drain()
                 irc_writer.close()
                 await irc_writer.wait_closed()

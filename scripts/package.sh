@@ -9,7 +9,7 @@ version=$(sed -n "s/^VERSION = '\(.*\)'/\1/p" backend/community/store.py)
 [[ $(node -p "require('./frontend/package.json').version") == "$version" ]] || { echo "frontend/package.json version differs from $version" >&2; exit 1; }
 
 # Only tracked files are packed, so a new file git does not know about would silently be missing.
-untracked=$(git ls-files --others --exclude-standard -- backend deploy docs frontend nkn tests)
+untracked=$(git ls-files --others --exclude-standard -- backend deploy docs frontend nkn tests scripts)
 [[ -z $untracked ]] || { printf 'Not tracked by git, so it would be left out of the release:\n%s\n' "$untracked" >&2; exit 1; }
 
 npm --prefix frontend ci --no-audit --no-fund >/dev/null
@@ -19,7 +19,7 @@ name=arynwood-grove-$version
 stage=$(mktemp -d); trap 'rm -rf "$stage"' EXIT
 mkdir "$stage/$name"
 # Tracked files only (no .env, data, wallets or node_modules), plus the built page.
-git ls-files -z -- backend deploy docs frontend nkn tests LICENSE README.md requirements.txt requirements-dev.txt .env.example setup.sh start.sh \
+git ls-files -z -- backend deploy docs frontend nkn tests scripts LICENSE README.md requirements.txt requirements-dev.txt .env.example setup.sh start.sh \
   | tar --null -T - -cf - | tar -xf - -C "$stage/$name"
 cp -r frontend/dist "$stage/$name/frontend/dist"
 echo "$version" >"$stage/$name/VERSION"

@@ -1,12 +1,13 @@
 """Persistent community data. All records belong to an explicit space."""
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.5.2'
+VERSION = '0.5.3'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
@@ -17,6 +18,27 @@ def setting(name, default=''):
 def host_tools():
     """Mail, IRC and Private messages use the host's own accounts; a Grove run for someone else turns them off."""
     return setting('HOST_TOOLS', 'on').strip().lower() not in ('off', '0', 'no', 'false')
+
+def log_name():
+    """What this Grove calls each space's log of news and updates (GROVE_LOG_NAME, e.g. Event journal)."""
+    return ' '.join(setting('LOG_NAME').split())[:40] or 'Updates'
+
+CHAT_ROOM = re.compile(r'[#&][^\s,:\x00-\x1f\x7f]{1,49}')
+# An IRC nickname; in GROVE_CHAT_NICK each # becomes a random digit, so members start with distinct names.
+CHAT_NICK = re.compile(r'[A-Za-z\[\]\\`_^{|}][A-Za-z0-9\[\]\\`_^{|}#-]{0,29}')
+CHAT_SERVER = re.compile(r'([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*)(?::(\d{1,5}))?')
+
+def public_chat():
+    """Public chat, open to every member: an IRC room (GROVE_CHAT_CHANNEL) on GROVE_CHAT_SERVER, joined with a
+    nickname made from GROVE_CHAT_NICK. None when no room is set."""
+    room = setting('CHAT_CHANNEL').strip()
+    if not CHAT_ROOM.fullmatch(room): return None
+    nick = setting('CHAT_NICK').strip()
+    server = CHAT_SERVER.fullmatch(setting('CHAT_SERVER', 'irc.arynwood.com:6697').strip())
+    port = int(server[2] or 6697) if server else 6697
+    if not server or not 0 < port < 65536: server, port = None, 6697
+    return {'channel': room, 'nick': nick if CHAT_NICK.fullmatch(nick) else 'Guest###',
+            'server': server[1] if server else 'irc.arynwood.com', 'port': port}
 
 def database_path():
     directory = Path(setting('DATA_DIR') or ROOT / 'data')
@@ -150,6 +172,11 @@ def initialize():
           added INTEGER NOT NULL DEFAULT 0, changed INTEGER NOT NULL DEFAULT 0, unchanged INTEGER NOT NULL DEFAULT 0,
           skipped INTEGER NOT NULL DEFAULT 0, bytes INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '{}',
           message TEXT NOT NULL DEFAULT '', started TEXT NOT NULL, finished TEXT);
+        CREATE TABLE IF NOT EXISTS workspace_setups (
+          space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+          kit TEXT NOT NULL, client TEXT NOT NULL, opening_date TEXT NOT NULL DEFAULT '',
+          created TEXT NOT NULL, created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+          PRIMARY KEY(space_id,kit));
         PRAGMA user_version = 1;
         ''')
     os.chmod(database_path(), 0o600)
