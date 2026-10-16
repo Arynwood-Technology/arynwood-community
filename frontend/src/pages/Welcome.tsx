@@ -42,7 +42,7 @@ export function Welcome({ onLogin, brand: suppliedBrand }: { brand?: Brand; onLo
         <div className="welcome-features"><span><MessageCircle /> Conversations</span><span><CalendarDays /> Shared plans</span><span><CheckSquare /> Everyday life</span></div></div>
       {brand.branded?<BrandCredit/>:<small>Your space. Your data.</small>}
     </section>
-    <section className="welcome-form"><span className="badge">{brand.branded?brand.name:"Grove 0.4"}</span><h2>{setup && !invite && !creating ? 'Welcome to a new Grove' : setup ? 'Create your Grove' : joining ? 'Join this Grove' : 'Welcome back'}</h2>
+    <section className="welcome-form"><span className="badge">{brand.branded?brand.name:"Arynwood Grove"}</span><h2>{setup && !invite && !creating ? 'Welcome to a new Grove' : setup ? 'Create your Grove' : joining ? 'Join this Grove' : 'Welcome back'}</h2>
       <p className="muted-text">{brand.branded ? 'A place to stay in touch with your people.' : server ? `This Grove keeps accounts and spaces on its server, ${server}.` : 'This preview stores Community accounts and spaces on this computer. It is separate from community.arynwood.com.'}</p>
       {setup && !invite && !creating ? <div className="setup-choices">
         <section><h3>Join a Grove</h3><p className="muted-text">Someone invited you? Paste the invitation link they sent.</p><JoinByLink /></section>

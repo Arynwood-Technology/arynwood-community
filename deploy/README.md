@@ -1,5 +1,7 @@
 # Running a Grove on a server
 
+For member workflows, architecture, build diagrams and deployment layouts, see the [Grove manual](../docs/MANUAL.md).
+
 On a server, the Grove is the one place everyone's spaces live. Each member opens its address in a browser, from any computer, and signs in with their own account. Nothing is copied between machines: when anyone adds an event, task, post or message, the server tells every open page in that space and they refresh within about a second.
 
 ```
