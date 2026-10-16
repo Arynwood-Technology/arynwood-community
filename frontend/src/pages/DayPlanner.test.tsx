@@ -30,3 +30,26 @@ it('offers only you for a private task', async () => {
   expect(screen.queryByRole('option', { name: 'Sam' })).toBeNull()
   expect(screen.getByRole('option', { name: 'Rowan (you)' })).toBeInTheDocument()
 })
+
+it('opens on the month, with the chosen day beside it', async () => {
+  const now = new Date(), year = now.getFullYear(), month = now.getMonth()
+  const iso = (d: number, h: number) => new Date(year, month, d, h).toISOString()
+  const screening = { ...bins, id: 'film', kind: 'event', title: 'Opening night', due: iso(20, 19), assigned_to: null }
+  const lists = [{ ...bins, id: 'pack', kind: 'list', title: 'Packing', assigned_to: null }, { ...bins, id: 'tape', kind: 'item', title: 'Gaffer tape', parent_id: 'pack', assigned_to: null }]
+  mocked.mockImplementation(async path => path.endsWith('/members') ? people : [screening, ...lists])
+  show()
+  const title = new Date(year, month, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })
+  expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Gaffer tape/ })).toBeInTheDocument()
+  const twentieth = new Date(year, month, 20)
+  const cell = screen.getByRole('button', { name: `${twentieth.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}, 1 scheduled` })
+  expect(cell).toHaveTextContent('Opening night')
+  fireEvent.click(cell)
+  expect(cell).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('heading', { name: twentieth.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) })).toBeInTheDocument()
+  expect(screen.getByText('1 scheduled', { exact: false })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
+  expect(screen.getByRole('heading', { name: new Date(year, month + 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' }) })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+  expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
+})

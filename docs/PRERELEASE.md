@@ -1,8 +1,12 @@
 # Arynwood Grove release notes
 
-Version: `0.5.4`
+Version: `0.5.5`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.5.5
+
+- **The calendar opens on the month.** A space's home is the month, with the chosen day's hours on the right and its tasks and lists under the month. Choose a day to see its schedule; **Today** comes back to today. On a phone the month comes first, then the day, then tasks and lists, and dots mark what's scheduled.
 
 ## 0.5.4
 

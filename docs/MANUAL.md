@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.5.4**. A server running an older release may
+This manual describes version **0.5.5**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -35,7 +35,7 @@ inside one Grove; they are not separate Groves.
 
 | Page | What to do there |
 |---|---|
-| Calendar | Plan the day and add or review events. **Month overview** shows the wider view. |
+| Calendar | Where a space opens: the month, with the chosen day's hours beside it and the space's tasks and lists below. Choose a day to see its schedule; on a phone, dots mark what's scheduled. |
 | Overview | See upcoming plans, open tasks and recent activity in the selected space. |
 | Board | Share posts and replies. |
 | Updates | Post news and updates for everyone in the space. A Grove can give it its own name, such as Event journal. |

@@ -482,7 +482,17 @@ main.full-bleed { overflow: hidden; }
 @scope (.grove-community) {
 .planner-date { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
 .planner-date label { display:flex; align-items:center; gap:8px; }
-.planner-grid { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr); gap:22px; align-items:start; }
+/* Calendar home: the month and the lists on the left, the chosen day's hours on the right. */
+.planner-board { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); gap:22px; align-items:start; }
+.planner-main { display:grid; gap:18px; min-width:0; }
+.planner-month { padding:20px; }
+.planner-month .section-heading { justify-content:flex-start; gap:10px; }
+.planner-month .section-heading h2 { min-width:11ch; text-align:center; }
+.planner-today { margin-left:auto; }
+.planner-hours .section-heading { gap:10px; }
+.planner-hours .section-heading h2 { flex:1; text-align:center; font-size:18px; }
+.planner-board > .planner-hours { position:sticky; top:20px; }
+.planner-board .planner-focus { grid-template-columns:repeat(2,minmax(0,1fr)); position:static; align-items:start; }
 .planner-hours { padding:20px; }
 .planner-hour { display:grid; grid-template-columns:100px minmax(0,1fr); min-height:62px; border-top:1px solid var(--border); padding:7px 0; }
 .planner-hour-add { display:flex; align-items:center; justify-content:space-between; gap:6px; align-self:start; background:none; border:none; padding:8px 10px 8px 0; color:var(--text-muted); cursor:pointer; font-size:13px; }
@@ -497,7 +507,23 @@ main.full-bleed { overflow: hidden; }
 .community-nav { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
 .community-nav a { min-height:38px; }
 .community-connection { height:650px; min-height:400px; border:1px solid var(--border); border-radius:14px; overflow:hidden; margin:20px 32px 32px; }
-@media (max-width:1000px) { .planner-grid { grid-template-columns:minmax(0,1fr); } .planner-focus { position:static; grid-row:1; } .community-connection { margin:16px; } }
+@media (max-width:1000px) {
+  .planner-board { grid-template-columns:minmax(0,1fr); }
+  .planner-main { display:contents; }
+  .planner-month { order:1; }
+  .planner-board > .planner-hours { order:2; position:static; }
+  .planner-board .planner-focus { order:3; }
+  .community-connection { margin:16px; }
+}
+@media (max-width:700px) {
+  .planner-board .planner-focus { grid-template-columns:minmax(0,1fr); }
+  .planner-month { padding:14px; }
+  /* Too narrow for titles: each scheduled thing becomes a dot under the date. */
+  .planner-month .calendar-cell { min-height:52px; padding:4px; flex-direction:row; flex-wrap:wrap; align-content:flex-start; gap:3px; }
+  .planner-month .calendar-cell > span { flex:0 0 auto; margin-right:calc(100% - 24px); min-width:24px; }
+  .planner-month .calendar-cell small { display:block; font-size:0; width:7px; height:7px; padding:0; border-radius:50%; }
+  .grove-community .planner-board .planner-time-window { max-height:50vh; }
+}
 .space-topic { margin:4px 0 0; color:var(--text-muted); overflow-wrap:anywhere; }
 .role-select { padding:6px 10px !important; font-size:13px !important; }
 .danger-zone { margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
