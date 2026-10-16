@@ -13,14 +13,16 @@ After staging:
 1. Assign the four setup tasks to actual team members and give them confirmed deadlines.
 2. Review each department checklist with its lead. Use Tasks for separately accountable actions; use Calendar for confirmed deadline reviews, screening blocks, rehearsals, guest sessions and production calls.
 3. Put submission data into `Festival Operations/Submissions/submissions.csv` and keep the intake platform reference. Use the same film IDs in reviews, screening blocks and assets.
-4. Open `Files → Festival Operations → Finance → budget.csv → Open spreadsheet`. Add real estimates, approvals and actuals; link invoices and receipts by reference.
+4. Download `Files → Festival Operations → Finance → budget.csv`, add real estimates, approvals and actuals in a spreadsheet program (LibreOffice Calc, Excel or Google Sheets), save it as CSV and upload it with the same name as a new version. Link invoices and receipts by reference.
 5. Upload assets into the appropriate working/approved folders. Track image rights, credits, alt text and approval in `Publicity/assets.csv`.
-6. Use Notes for working briefs and decisions, Board for approved updates, and Files for editable documents. Files also offers **New spreadsheet** and **New document** for other client workflows.
+6. Use Notes for working briefs and decisions, Board for approved updates, and Files for editable documents.
 7. Owners/managers can use Webmaster tools to import an existing public site into Files. Edits and temporary previews are followed by the team's existing hosting release process. They do not automatically publish to the festival website.
 
 Every member of a space can read its shared files and trackers. A folder called Finance or Jury has no extra access control. Create separate spaces with appropriate membership for confidential financial records, personal information, contracts or deliberation. Grove owners/managers have the administrative visibility described by the app.
 
-## Spreadsheet behavior
+## Spreadsheet behavior (held back)
+
+The table editor below, and **New spreadsheet** and **New document** in Files, are in the code but switched off (`DOCUMENT_TOOLS` in `frontend/src/pages/FileBank.tsx`) until documents and spreadsheets have proper editors. Until then, CSV trackers open as text in Files, or download into a spreadsheet program.
 
 CSV tables support editable column headings and multiline cells, row/column addition, row removal, versioned saves and existing file download/history. Table limits are 1,000 data rows, 40 columns and 20,000 cells; larger or malformed files remain available through the source editor or download. Formula strings remain text: there is no formula engine or macro execution.
 

@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.5.4. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -55,7 +55,7 @@ Each person makes their own account on your Grove, from any computer or phone. E
 - **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type. Owners and managers can bring a website in by its address, edit it here and download it as a .zip.
 - **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
 - **Your group's look:** its name, tagline, logo, website and shop links, and a colour theme with readable contrast worked out for you (see Configuration).
-- **Workspace setup:** space owners stage a film festival or a client project: department checklists, operating notes, documents, asset folders and CSV trackers. CSV files open as spreadsheets, with budget totals by currency, and Files makes new spreadsheets and documents. See the [producer workspace guide](docs/PRODUCER-WORKSPACE.md).
+- **Workspace setup:** space owners stage a film festival or a client project: department checklists, operating notes, documents, asset folders and trackers, which are CSV files for any spreadsheet program. See the [producer workspace guide](docs/PRODUCER-WORKSPACE.md).
 - **Host connections (host only):** Mail over IMAP/SMTP, a full IRC client in Public chat (any server; irc.arynwood.com and `#general` by default), and Private messages over NKN.
 
 ## Upgrading from Arynwood Community 0.3
@@ -63,8 +63,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.3.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.3.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.4.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.5.4.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.

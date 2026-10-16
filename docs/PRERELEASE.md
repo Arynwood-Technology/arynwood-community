@@ -1,8 +1,13 @@
 # Arynwood Grove release notes
 
-Version: `0.5.3`
+Version: `0.5.4`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.5.4
+
+- The spreadsheet table editor, and **New spreadsheet** and **New document** in Files, are held back until documents and spreadsheets have proper editors. CSV and Markdown files open in the text editor as before.
+- Workspace setup stays. Its trackers are CSV files: download one, edit it in a spreadsheet program, and upload it with the same name as a new version. The kits' guides say so.
 
 ## 0.5.3
 

@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.5.3**. A server running an older release may
+This manual describes version **0.5.4**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -47,7 +47,7 @@ inside one Grove; they are not separate Groves.
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
 | Webmaster tools | Owners and managers bring website files into a space for editing and handoff. |
-| Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and spreadsheets. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
+| Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and CSV trackers. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
 
 Changes normally appear on other members' pages within about a second. If the
 live connection drops, the page polls for changes until it reconnects. The wish
@@ -120,15 +120,11 @@ editor. Only a file's author or a space owner can move, rename, delete or
 restore it. A folder containing other people's files needs a space owner to
 change it.
 
-### Spreadsheets and documents
+### Spreadsheets
 
-**New spreadsheet** and **New document** in Files make a CSV table or a Markdown
-document. A CSV file opens with **Open spreadsheet**: edit headings and cells, add
-rows and columns, and save a new version. Formulas stay text; nothing is
-calculated except budget totals. A table with `Type`, `Currency`, `Planned` and
-`Actual` columns shows income, expenses and net for each currency. The table
-editor handles up to 1,000 rows, 40 columns and 20,000 cells; larger files open
-in the text editor or download.
+CSV files, such as Workspace setup's trackers, open in the text editor. To work
+on one as a table, download it, edit it in a spreadsheet program, save it as CSV
+and upload it with the same name as a new version.
 
 ### Edit text and preview HTML
 

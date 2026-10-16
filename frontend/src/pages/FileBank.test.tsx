@@ -58,6 +58,8 @@ it('uploads a new version from the same name', async () => {
 it('makes folders, and bins and restores what someone added', async () => {
   show()
   fireEvent.click(await screen.findByRole('button', { name: 'New folder' }))
+  // Held back until documents and spreadsheets have proper editors.
+  for (const name of ['New spreadsheet', 'New document']) expect(screen.queryByRole('button', { name })).toBeNull()
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Sponsors' } })
   fireEvent.click(screen.getByRole('button', { name: 'Make folder' }))
   await waitFor(() => expect(mocked).toHaveBeenCalledWith('/community/spaces/crew/folders', 'POST', { folder: '', name: 'Sponsors' }))

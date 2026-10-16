@@ -15,6 +15,6 @@ it('requires preview before applying and leaves unconfirmed dates unset', async 
   expect(api).toHaveBeenCalledWith('/community/spaces/festival/workspace-setup/preview','POST',{kit:'film-festival',client:'RogueFest',opening_date:null})
   fireEvent.click(apply)
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('RogueFest is staged'))
-  expect(screen.getByRole('link',{name:'Open documents & spreadsheets'})).toHaveAttribute('href','/community/files?folder=Festival%20Operations')
+  expect(screen.getByRole('link',{name:'Open documents & trackers'})).toHaveAttribute('href','/community/files?folder=Festival%20Operations')
   expect(screen.queryByRole('button',{name:'Preview setup'})).toBeNull()
 })
