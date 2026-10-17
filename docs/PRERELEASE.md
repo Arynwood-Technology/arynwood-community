@@ -7,6 +7,7 @@ Arynwood Community is now **Arynwood Grove**: "The Grove, your community – you
 ## 0.6.1
 
 - **Messages.** Private conversations between two members who share a space, with photos: up to six a message, shrunk to 2048 pixels across, and kept without location or camera details. Only the two people can read a conversation; owners and managers can't, and the activity log doesn't mention it. Unread messages are counted in the menu, and new ones arrive without reloading. The host's own peer-to-peer inbox is still **Private messages**, under host tools.
+- **Private messages work on servers.** Releases now include the library the host's peer-to-peer inbox uses, so it runs wherever the server has Node.js 20.19+ or 22.12+, without `./setup.sh`.
 
 ## 0.6.0
 

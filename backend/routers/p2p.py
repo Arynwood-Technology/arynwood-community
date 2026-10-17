@@ -88,7 +88,7 @@ async def _start_bridge() -> None:
         return  # already running
 
     if not os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(BRIDGE_SCRIPT)), "node_modules", "nkn-sdk")):
-        await _broadcast({"type": "error", "message": "Messaging is not installed. Run ./setup.sh."})
+        await _broadcast({"type": "error", "message": "Messaging is not installed here. On a server, update the Grove to a newer release; in a source checkout, run ./setup.sh."})
         return
     identifier = os.environ.get("NKN_IDENTIFIER", "arynwood-hub")
     env = {**os.environ, "NKN_IDENTIFIER": identifier}

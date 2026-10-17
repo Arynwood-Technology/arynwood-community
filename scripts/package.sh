@@ -14,6 +14,9 @@ untracked=$(git ls-files --others --exclude-standard -- backend deploy docs fron
 
 npm --prefix frontend ci --no-audit --no-fund >/dev/null
 npm --prefix frontend run build >/dev/null
+# The host's Private messages run nkn/bridge.js with the server's Node.js. Its library is pure
+# JavaScript and comes ready, so servers never run npm.
+npm --prefix nkn ci --omit=dev --no-audit --no-fund >/dev/null
 
 name=arynwood-grove-$version
 stage=$(mktemp -d); trap 'rm -rf "$stage"' EXIT
@@ -22,6 +25,7 @@ mkdir "$stage/$name"
 git ls-files -z -- backend deploy docs frontend nkn tests scripts LICENSE README.md requirements.txt requirements-dev.txt .env.example setup.sh start.sh \
   | tar --null -T - -cf - | tar -xf - -C "$stage/$name"
 cp -r frontend/dist "$stage/$name/frontend/dist"
+cp -r nkn/node_modules "$stage/$name/nkn/node_modules"
 echo "$version" >"$stage/$name/VERSION"
 
 mkdir -p release

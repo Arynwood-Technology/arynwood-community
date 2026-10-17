@@ -157,7 +157,7 @@ A server upgraded this way doesn't have the `arynwood-grove` command. It takes l
 
 ## By hand
 
-The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`), so the server does not need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
+The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`) and the Private messages library (`nkn/node_modules`), so the server needs Node.js only for the host's Private messages. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
 
 ## Things to know
 
@@ -165,4 +165,4 @@ The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.
 - **Behind Cloudflare or another proxy,** nginx sees the proxy's address, not the visitor's, so sign-in and public-link limits apply per proxy address. Configure nginx's `real_ip` module with the proxy's address ranges so they apply per visitor.
 - **The host account reaches Mail, IRC and Private messages from the public address.** Those use the server's own mail account and identities. Use a strong, unique host password. On a Grove you run for someone else, set `GROVE_HOST_TOOLS=off`.
 - **Uploads go through nginx in pieces of up to 8 MB.** The installer's site allows 10 MB a request. A site made by hand, or by Community 0.3, needs `client_max_body_size 10m;` for full-speed uploads and for saving pages over 1 MB in the editor.
-- **Private messages need Node.js** and `npm --prefix nkn ci` in the release folder; the installer does not set them up.
+- **Private messages need Node.js** 20.19+ or 22.12+ on the server, as `node` on the service's path. Releases from 0.6.1 include the library they use; the installer doesn't install Node.js itself.
