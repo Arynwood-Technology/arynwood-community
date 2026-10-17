@@ -29,7 +29,7 @@ LISTS: department checklists. Each list names the proposed responsible role; che
 FILES: Festival Operations contains editable documents, empty operational trackers and categorized asset folders. The trackers are CSV files: download one, edit it in a spreadsheet program such as LibreOffice Calc, Excel or Google Sheets, and upload it with the same name as a new version. Earlier versions are kept.
 CALENDAR: add confirmed screenings, deadlines, rehearsals, Q&As, meetings, load-in and load-out. Dates staged from a supplied opening date are PROPOSED and need approval. Without a date, scheduling work remains a checklist.
 BOARD: publish approved decisions and weekly department updates. The space log (Updates, or the name your Grove gives it) carries short news for everyone; Public chat, where your Grove has it, is for conversation.
-WEBMASTER TOOLS: owners/managers can import a public site, then edit and preview files. Importing or editing a file does not publish it to external hosting.
+WEBMASTER TOOLS: the Grove's owners and the webmasters they choose bring the festival website into Files, edit it, and publish it at the Grove's address; everyone can preview it first. Nothing goes live until one of them publishes.
 
 First producer meeting: confirm scope; assign leads; confirm submission platform and deadlines; approve financial baseline; confirm screening venues; set access boundaries; agree the next review date.
 
@@ -66,7 +66,7 @@ Ticket, submission and contact destinations: [confirmed URLs]
 Event dates, venues and screening details: [approved source]
 Review: desktop and mobile; keyboard navigation; headings; readable contrast; image loading; link behavior; form destination; metadata.
 Release record: approved version / approver / date / hosting destination / rollback copy / live verification.
-Use Webmaster tools for imports and Files for edits and previews. Preview is temporary; use the agreed hosting process to publish. Do not treat a local preview as a live release.''',
+Use Webmaster tools to bring the site in, Files to edit it and Website preview to check it. Publishing from Webmaster tools makes it live at the Grove's address and keeps earlier versions to put back; a site hosted elsewhere follows that host's release process, using a downloaded .zip.''',
  'Screening run of show template': '''Screening/block ID: [ID]
 Confirmed date / timezone / venue: [details]
 Show caller / technical operator / front of house / moderator: [contacts]

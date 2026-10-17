@@ -77,7 +77,7 @@ export function Workspace({ section, space, user, search, mark }: { section: Sec
   const card = (entry: Entry) => <button className="content-card" key={entry.id} onClick={() => setSelected(entry.id)}>
     <div className="card-meta"><span>{entry.author}</span>{entry.visibility === 'private' && <Lock size={13} />}<span className="push">{new Date(entry.created).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span></div>
     <h3>{entry.title}</h3><p className="excerpt">{entry.body || (entry.kind === 'list' ? `${entries.filter(e => e.parent_id === entry.id && e.done).length} of ${entries.filter(e => e.parent_id === entry.id).length} done` : 'Open to read more')}</p>
-    {entry.kind === 'board' && <span className="card-meta"><MessageSquare size={14} /> {entries.filter(e => e.parent_id === entry.id).length} replies</span>}
+    {entry.kind === 'board' && <span className="card-meta"><MessageSquare size={14} /> {(n => `${n} ${n === 1 ? 'reply' : 'replies'}`)(entries.filter(e => e.parent_id === entry.id).length)}</span>}
   </button>
 
   return <div className="workspace">
