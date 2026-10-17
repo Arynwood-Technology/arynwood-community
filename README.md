@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.6.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.6.1. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -53,6 +53,7 @@ Each person makes their own account on your Grove, from any computer or phone. E
 - **Public chat:** when the Grove names an IRC room (`GROVE_CHAT_CHANNEL`), every member can join it from the Grove with a nickname of their own. Conversation goes here; Updates is for news.
 - **Spaces and people:** the first account is the host. Anyone can start more spaces. A space's owners rename it and give it a topic, invite and remove people, make other members owners, and can delete it for everyone; a space always keeps at least one owner. Members can leave.
 - **Live updates:** a change by anyone reaches every open page in that space at once.
+- **Messages:** private conversations with anyone you share a space with, with photos (shrunk, and stripped of location and camera details). Owners and managers can't read them.
 - **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type.
 - **Website:** each Grove can show a static website at its own address, with the members' page at `/community`. Owners, and the webmasters they choose, bring a site in by its address, as a .zip or as a one-page starter; edit it in Files; preview the whole site; and publish it, put an earlier version back or take it down. Everyone in the Grove can preview it.
 - **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
@@ -65,8 +66,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.0.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.0.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.

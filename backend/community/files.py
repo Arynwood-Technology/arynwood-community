@@ -400,9 +400,13 @@ def sweep(clock=time.time):
     with db() as c:
         c.execute('DELETE FROM files WHERE deleted IS NOT NULL AND deleted<?', (cutoff,))
         c.execute('DELETE FROM uploads WHERE started<?', (moment - UPLOAD_SECONDS,))
+        # Photos sent for a message (messages.py) that never followed.
+        c.execute('DELETE FROM message_photos WHERE message_id IS NULL AND created<?', ((datetime.fromtimestamp(moment, timezone.utc) - timedelta(days=1)).isoformat(),))
         uploading = {r['id'] for r in c.execute('SELECT id FROM uploads')}
-        # A published website's releases (website.py) keep their pages after the files change.
-        kept = 'SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions UNION SELECT blob FROM site_release_files'
+        # A published website's releases (website.py) keep their pages after the files change, and
+        # photos in Messages (messages.py) are kept as long as their message is.
+        kept = ('SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions UNION SELECT blob FROM site_release_files'
+                ' UNION SELECT blob FROM message_photos')
         named = {r[0] for r in c.execute(kept)}
         orphans = {r['blob']: r['since'] for r in c.execute('SELECT * FROM orphan_blobs')}
         c.execute(f'DELETE FROM orphan_blobs WHERE blob IN ({kept})')

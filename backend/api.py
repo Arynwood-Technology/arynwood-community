@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 from backend.routers import chat, mail, irc, p2p
-from backend.community import admin, auth, editor, files, routes, store, webmaster, website, wishes, workspace_setup
+from backend.community import admin, auth, editor, files, messages, routes, store, webmaster, website, wishes, workspace_setup
 from backend import grove, setup, brand
 
 @asynccontextmanager
@@ -89,6 +89,7 @@ app.include_router(admin.router,prefix='/api/admin')
 app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(webmaster.router,prefix='/api/webmaster')
 app.include_router(website.router,prefix='/api/webmaster')
+app.include_router(messages.router,prefix='/api/messages')
 def host_tools():
     if not store.host_tools(): raise HTTPException(404,'Not found')
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(host_tools),Depends(auth.administrator)])

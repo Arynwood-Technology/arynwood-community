@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.6.0'
+VERSION = '0.6.1'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
@@ -183,6 +183,24 @@ def initialize():
           blob TEXT NOT NULL, size INTEGER NOT NULL, PRIMARY KEY(release_id,path));
         -- People an owner trusts with the website: they change Website folders and publish.
         CREATE TABLE IF NOT EXISTS webmasters (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE);
+        -- Messages (messages.py): private conversations between two members, and their photos.
+        -- A pair is the two members' ids, sorted, so two people have one conversation.
+        CREATE TABLE IF NOT EXISTS conversations (
+          id TEXT PRIMARY KEY, pair TEXT NOT NULL UNIQUE, created TEXT NOT NULL, updated TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS conversation_members (
+          conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, read_at TEXT NOT NULL DEFAULT '',
+          PRIMARY KEY(conversation_id,user_id));
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+          sender_id TEXT REFERENCES users(id) ON DELETE SET NULL, body TEXT NOT NULL DEFAULT '',
+          created TEXT NOT NULL, deleted TEXT);
+        CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id,created);
+        -- A photo waits without a message (message_id NULL) until its message is sent.
+        CREATE TABLE IF NOT EXISTS message_photos (
+          id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          message_id TEXT REFERENCES messages(id) ON DELETE CASCADE, blob TEXT NOT NULL, size INTEGER NOT NULL,
+          media_type TEXT NOT NULL, width INTEGER, height INTEGER, created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_setups (
           space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
           kit TEXT NOT NULL, client TEXT NOT NULL, opening_date TEXT NOT NULL DEFAULT '',

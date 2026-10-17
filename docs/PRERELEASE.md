@@ -1,8 +1,12 @@
 # Arynwood Grove release notes
 
-Version: `0.6.0`
+Version: `0.6.1`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.6.1
+
+- **Messages.** Private conversations between two members who share a space, with photos: up to six a message, shrunk to 2048 pixels across, and kept without location or camera details. Only the two people can read a conversation; owners and managers can't, and the activity log doesn't mention it. Unread messages are counted in the menu, and new ones arrive without reloading. The host's own peer-to-peer inbox is still **Private messages**, under host tools.
 
 ## 0.6.0
 

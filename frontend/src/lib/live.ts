@@ -9,12 +9,17 @@ const RECONNECT_GRACE_MS = 5_000
  *  each change (no content, just "changed"); this polls every `fallbackMs` only while that
  *  connection is down, or where EventSource is unavailable. */
 export function useSpaceRefresh(spaceId: string, refresh: () => void, fallbackMs: number) {
+  useLiveRefresh(`/community-api/community/spaces/${encodeURIComponent(spaceId)}/events`, refresh, fallbackMs)
+}
+
+/** The same for any of the Grove's notice streams, such as a member's Messages. */
+export function useLiveRefresh(url: string, refresh: () => void, fallbackMs: number) {
   const latest = useRef(refresh)
   useEffect(() => { latest.current = refresh })
   useEffect(() => {
     let last = Date.now(), lastError = 0, pending: ReturnType<typeof setTimeout> | undefined
     const run = () => { last = Date.now(); latest.current() }
-    const source = typeof EventSource === 'undefined' ? null : new EventSource(`/community-api/community/spaces/${encodeURIComponent(spaceId)}/events`)
+    const source = typeof EventSource === 'undefined' ? null : new EventSource(url)
     // Several changes in a burst (a list and its items) become one refetch.
     source?.addEventListener('changed', () => { clearTimeout(pending); pending = setTimeout(run, 150) })
     source?.addEventListener('error', () => {
@@ -26,5 +31,5 @@ export function useSpaceRefresh(spaceId: string, refresh: () => void, fallbackMs
       (source.readyState === EventSource.CONNECTING && Date.now() - lastError < RECONNECT_GRACE_MS))
     const timer = setInterval(() => { if (!connected() || Date.now() - last >= SAFETY_POLL_MS) run() }, fallbackMs)
     return () => { source?.close(); clearTimeout(pending); clearInterval(timer) }
-  }, [spaceId, fallbackMs])
+  }, [url, fallbackMs])
 }

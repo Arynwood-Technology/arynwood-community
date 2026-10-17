@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.6.0**. A server running an older release may
+This manual describes version **0.6.1**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -46,6 +46,7 @@ inside one Grove; they are not separate Groves.
 | Files | Upload, organize, download and edit the space's files. |
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
+| Messages | Private conversations with anyone you share a space with, with photos. Only the two people in a conversation can read it. |
 | Look & feel | Owners make the Grove look like their organisation: name and tagline, colours (light or dark), the login page's colour and picture, type, corners and logo, or all of it suggested from the Grove's website. |
 | Webmaster tools | Owners and webmasters bring the Grove's website in, change it in Files, preview it and publish it at the Grove's address. Everyone else sees **Website preview**: what's live, and previews of what's coming. |
 | Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and CSV trackers. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
@@ -63,6 +64,15 @@ IRC network: anyone on that network can join it, so treat it as public, unlike t
 space's Updates. A Grove's sign-in does not register or protect an IRC nickname.
 On a Grove without a room, Public chat is the host's own IRC client, under host
 tools.
+
+**Messages** are private conversations between two members, opened with **New
+message** and anyone you share a space with. Add photos with the picture button,
+by pasting or by dropping them in, up to six a message. Each photo is shrunk to
+at most 2048 pixels across before it is sent, and the Grove keeps none of what
+the camera wrote into it, such as where it was taken. **Take back** removes a
+message's words and photos for both people. The menu shows how many messages
+are unread. If you stop sharing a space with someone, your conversation stays
+readable but takes no new messages.
 
 To recover a forgotten password, ask the server operator for a recovery code.
 Enter it under **Forgot password?** Codes last 15 minutes; there is no automatic
@@ -92,7 +102,9 @@ The invitation page explains the administrative visibility:
 > This Grove's owners and managers can see everything shared there, and a log of activity, including what is posted and deleted. Private notes stay private: they see only that they exist.
 
 Private notes are restricted by the application to their author. The activity
-log records that they exist, never their titles or words. This is not
+log records that they exist, never their titles or words. Messages are
+restricted to the two people in each conversation: owners and managers cannot
+read them, and the activity log does not mention them. This is not
 end-to-end encryption, and does not remove the server operator's responsibility
 to protect the database and backups. Only grant infrastructure access when
 authorized and necessary.
@@ -287,6 +299,7 @@ flowchart TB
 | `backend/community/workspace_setup.py`, `workspace_kits.py` | Workspace setup: the kits' content and staging them in one transaction. |
 | `backend/routers/irc.py`, `chat.py` | The host's IRC relay, and members' Public chat on the configured room. |
 | `backend/brand.py` | `read_brand()` merges the host's branding with what owners saved in Look & feel, validates it and derives accessible CSS theme tokens, light or dark. |
+| `backend/community/messages.py`, `photos.py` | Messages between members, and photos without their metadata. |
 | `backend/community/site_look.py` | Reads a website in Files for Look & feel's suggestions: colours, type, logo and share picture. |
 | `frontend/src/Community.tsx` | Signed-in page, space selection and section routing. |
 | `frontend/src/pages/` | Welcome, calendar, files, settings, admin and other views. |

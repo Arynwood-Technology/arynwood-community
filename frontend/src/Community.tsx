@@ -1,7 +1,7 @@
 import { BrandLogo, BrandLinks, BrandCredit } from './components/Brand'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, Hash, Radio, MessageSquare, UserRound } from 'lucide-react'
+import { CalendarDays, Hash, Radio, MessageCircle, MessageSquare, UserRound } from 'lucide-react'
 import { api, type Space, type User } from './lib/community'
 import { useBrand, brandStyle } from './lib/brand'
 import { PublicInviteLink } from './components/PublicInviteLink'
@@ -16,14 +16,16 @@ import { Admin } from './pages/Admin'
 import { FileBank } from './pages/FileBank'
 import { Webmaster } from './pages/Webmaster'
 import { LookAndFeel } from './pages/LookAndFeel'
+import { Messages } from './pages/Messages'
 import { WorkspaceSetup } from './pages/WorkspaceSetup'
 import { WishLamp } from './components/WishLamp'
 import { ircDisconnect } from './lib/irc-manager'
-import { useSpaceRefresh } from './lib/live'
+import { useLiveRefresh, useSpaceRefresh } from './lib/live'
+import { messagesApi } from './lib/messages'
 import { useAppStore as useCommunityStore } from './store/useAppStore'
 import './community.css'
-const sections=['calendar','today','boards','discussion','household','lists','notes','settings','month','irc','messages','mail','admin','files','website','look','setup'] as const
-const nav=[['calendar','Calendar',CalendarDays],['irc','Public chat',Hash],['messages','Private messages',Radio],['discussion','Updates',MessageSquare]] as const
+const sections=['calendar','today','boards','discussion','household','lists','notes','settings','month','irc','messages','mail','admin','files','website','look','inbox','setup'] as const
+const nav=[['calendar','Calendar',CalendarDays],['irc','Public chat',Hash],['inbox','Messages',MessageCircle],['messages','Private messages',Radio],['discussion','Updates',MessageSquare]] as const
 export function Community() {
   const brand=useBrand()
   const location=useLocation(), navigate=useNavigate()
@@ -32,6 +34,7 @@ export function Community() {
   const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(false)
   const [spaces,setSpaces]=useState<Space[]>([]),[selected,setSelected]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [peerVisited,setPeerVisited]=useState(false)
+  const [unread,setUnread]=useState(0)
   // Set on a server (GROVE_PUBLIC_URL): the address members on other computers use.
   const [publicUrl,setPublicUrl]=useState<string|null>(null)
   useEffect(()=>{let active=true;api<{public_url?:string|null}>('/auth/status').then(s=>{if(active)setPublicUrl(s?.public_url??null)}).catch(()=>{});return()=>{active=false}},[])
@@ -97,14 +100,15 @@ export function Community() {
         {!!user.admin&&publicUrl&&/(\.sslip\.io|\.nip\.io|^[\d.]+|^\[.*\])$/.test(new URL(publicUrl).hostname)&&<p className="notice">This Grove is on a temporary address. <NavLink to="/community/settings">Use your own domain</NavLink></p>}
         {space?.role==='owner'&&<p><NavLink to="/community/setup">Workspace setup</NavLink> — stage checklists, documents and trackers for your team.</p>}
         <p className="muted-text">{publicUrl?`Community storage: this Grove's server (${new URL(publicUrl).host}), shared live with your members`:brand.branded?'Community storage: this Grove’s server':'Community storage: this computer · Separate from community.arynwood.com'}</p>
-        <nav className="community-nav" aria-label="Community sections">{nav.filter(([s])=>user.host_tools||(s==='irc'&&!!user.public_chat)||!['irc','messages'].includes(s)).map(([s,label,Icon])=><NavLink key={s} to={'/community/'+s} className={()=>section===s||(s==='calendar'&&section==='month')?'primary':'secondary'}><Icon size={15}/>{s==='discussion'?logName:label}</NavLink>)}{(['today','boards','household','lists','notes','files','settings'] as const).map(s=><NavLink key={s} to={'/community/'+s} className={()=>section===s?'primary':'secondary'}>{({today:'Overview',boards:'Board',household:'Tasks',lists:'Lists',notes:'Notes',files:'Files',settings:'People & identity'})[s]}</NavLink>)}{user.role!=='member'&&<NavLink to="/community/admin" className={()=>section==='admin'?'primary':'secondary'}>Grove admin</NavLink>}{user.role==='owner'&&<NavLink to="/community/look" className={()=>section==='look'?'primary':'secondary'}>Look &amp; feel</NavLink>}<NavLink to="/community/website" className={()=>section==='website'?'primary':'secondary'}>{user.webmaster?'Webmaster tools':'Website preview'}</NavLink>{!!user.host_tools&&<NavLink to="/community/mail" className={()=>section==='mail'?'primary':'secondary'}>Mail</NavLink>}</nav>
+        <nav className="community-nav" aria-label="Community sections">{nav.filter(([s])=>user.host_tools||(s==='irc'&&!!user.public_chat)||!['irc','messages'].includes(s)).map(([s,label,Icon])=><NavLink key={s} to={'/community/'+s} className={()=>section===s||(s==='calendar'&&section==='month')?'primary':'secondary'}><Icon size={15}/>{s==='discussion'?logName:label}{s==='inbox'&&unread>0&&<span className="nav-badge" aria-label={`${unread} unread`}>{unread}</span>}</NavLink>)}{(['today','boards','household','lists','notes','files','settings'] as const).map(s=><NavLink key={s} to={'/community/'+s} className={()=>section===s?'primary':'secondary'}>{({today:'Overview',boards:'Board',household:'Tasks',lists:'Lists',notes:'Notes',files:'Files',settings:'People & identity'})[s]}</NavLink>)}{user.role!=='member'&&<NavLink to="/community/admin" className={()=>section==='admin'?'primary':'secondary'}>Grove admin</NavLink>}{user.role==='owner'&&<NavLink to="/community/look" className={()=>section==='look'?'primary':'secondary'}>Look &amp; feel</NavLink>}<NavLink to="/community/website" className={()=>section==='website'?'primary':'secondary'}>{user.webmaster?'Webmaster tools':'Website preview'}</NavLink>{!!user.host_tools&&<NavLink to="/community/mail" className={()=>section==='mail'?'primary':'secondary'}>Mail</NavLink>}</nav>
         {section==='discussion'&&<p className="muted-text" style={{marginTop:14}}>{logName} is where news and updates for everyone in this space go.{(user.public_chat||user.host_tools)&&' For conversation, use Public chat.'}{user.host_tools&&' For peer messages and photos, use Private messages.'}</p>}
         {hostPage&&user.host_tools&&<p className="muted-text" style={{marginTop:14}}>{section==='irc'?'Public chat is IRC, with your own network nickname and account. Connect explicitly; your Grove sign-in does not authenticate an IRC identity.':section==='messages'?'NKN messages use your peer address. Verify a contact’s address before sharing photos; a contact label is only a name you chose.':'Mail uses the host’s configured mailbox, separate from your Grove account.'} These connections currently belong to the host.</p>}
         {error&&<p role="alert" className="error">{error}</p>}
         {notice&&<p role="status" className="notice">{notice}</p>}
         {space&&<WatchSpace key={space.id} id={space.id} onChange={()=>void reloadSpaces()}/>}
+        <WatchInbox onCount={setUnread}/>
       </header>
-      {hostPage&&!user.host_tools?<div className="workspace"><p>{user.admin?'Mail, Public chat and Private messages are switched off on this Grove.':'Host access required. Shared calendars, plans, and discussions are available to space members.'}</p></div>:section==='irc'?<div className="community-connection"><IRC chat={user.public_chat} full={!!user.host_tools}/></div>:section==='mail'?<div className="community-connection"><Mail/></div>:section==='messages'?null:section==='look'?(user.role==='owner'?<LookAndFeel/>:<div className="workspace"><p>Only this Grove’s owners change how it looks.</p></div>):section==='website'?<Webmaster user={user} spaces={spaces} current={space?.id} onOpen={(id,folder)=>{setSelected(id);navigate('/community/files?folder='+encodeURIComponent(folder))}}/>:section==='admin'?(user.role==='member'?<div className="workspace"><p>Only this Grove’s owners and managers can open Grove admin.</p></div>:<Admin user={user} onChanged={()=>void api<User>('/auth/me').then(setUser).catch(()=>{})}/>):space?section==='setup'?(space.role==='owner'?<WorkspaceSetup key={space.id} space={space}/>:<div className="workspace"><p>Space owner access required.</p></div>):section==='settings'?<Settings key={space.id} space={space} user={user} onLogout={logout} onLeft={(id,note)=>{setSpaces(list=>list.filter(s=>s.id!==id));setNotice(note)}} onChanged={()=>void reloadSpaces()}/>:section==='calendar'||section==='month'?<DayPlanner key={space.id} space={space} user={user}/>:section==='files'?<FileBank key={space.id+location.search} space={space} user={user} startFolder={new URLSearchParams(location.search).get('folder')??''}/>:<Workspace key={space.id} section={section==='discussion'?'chat':section as 'today'|'boards'|'household'|'lists'|'notes'} space={space} user={user} search="" mark={brand.branded?brand.logo_url:undefined}/>:<div className="workspace"><p>{user.can_start_spaces?'Create a new space, or open an invitation to join one.':'Open an invitation to join a space.'}</p></div>}
+      {hostPage&&!user.host_tools?<div className="workspace"><p>{user.admin?'Mail, Public chat and Private messages are switched off on this Grove.':'Host access required. Shared calendars, plans, and discussions are available to space members.'}</p></div>:section==='irc'?<div className="community-connection"><IRC chat={user.public_chat} full={!!user.host_tools}/></div>:section==='mail'?<div className="community-connection"><Mail/></div>:section==='messages'?null:section==='inbox'?<Messages user={user}/>:section==='look'?(user.role==='owner'?<LookAndFeel/>:<div className="workspace"><p>Only this Grove’s owners change how it looks.</p></div>):section==='website'?<Webmaster user={user} spaces={spaces} current={space?.id} onOpen={(id,folder)=>{setSelected(id);navigate('/community/files?folder='+encodeURIComponent(folder))}}/>:section==='admin'?(user.role==='member'?<div className="workspace"><p>Only this Grove’s owners and managers can open Grove admin.</p></div>:<Admin user={user} onChanged={()=>void api<User>('/auth/me').then(setUser).catch(()=>{})}/>):space?section==='setup'?(space.role==='owner'?<WorkspaceSetup key={space.id} space={space}/>:<div className="workspace"><p>Space owner access required.</p></div>):section==='settings'?<Settings key={space.id} space={space} user={user} onLogout={logout} onLeft={(id,note)=>{setSpaces(list=>list.filter(s=>s.id!==id));setNotice(note)}} onChanged={()=>void reloadSpaces()}/>:section==='calendar'||section==='month'?<DayPlanner key={space.id} space={space} user={user}/>:section==='files'?<FileBank key={space.id+location.search} space={space} user={user} startFolder={new URLSearchParams(location.search).get('folder')??''}/>:<Workspace key={space.id} section={section==='discussion'?'chat':section as 'today'|'boards'|'household'|'lists'|'notes'} space={space} user={user} search="" mark={brand.branded?brand.logo_url:undefined}/>:<div className="workspace"><p>{user.can_start_spaces?'Create a new space, or open an invitation to join one.':'Open an invitation to join a space.'}</p></div>}
       <WishLamp page={section} spaceId={space?.id}/>
       {!!user.host_tools&&peerVisited&&<div className="community-connection" hidden={section!=='messages'}><P2PChat/></div>}
       {dialog&&<Modal title={dialog==='create'?'Create new space':'Invite members'} onClose={()=>{if(!busy)setDialog(null)}}>
@@ -127,3 +131,9 @@ export function Community() {
   </div>
 }
 function WatchSpace({id,onChange}:{id:string;onChange:()=>void}){useSpaceRefresh(id,onChange,30000);return null}
+// Unread messages, for the menu's count: only while someone is signed in.
+function WatchInbox({onCount}:{onCount:(n:number)=>void}){
+  const load=()=>{messagesApi.unread().then(v=>onCount(v.unread)).catch(()=>{})}
+  useEffect(load,[])// eslint-disable-line react-hooks/exhaustive-deps
+  useLiveRefresh('/community-api/messages/events',load,30000);return null
+}
