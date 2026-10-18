@@ -3,7 +3,7 @@ import {
   Radio, Copy, Check, Send, UserPlus, Trash2, Wifi, WifiOff,
   Users, Plus, X, Image as ImageIcon, Clock, CheckCheck, KeyRound,
 } from 'lucide-react'
-import { decodeAttachment, encodeAttachment } from '../lib/attachments'
+import { decodeAttachment, encodeAttachment, MAX_ATTACHMENT_BYTES } from '../lib/attachments'
 import { shrinkPhoto } from '../lib/messages'
 import { useAppStore } from '../store/useAppStore'
 
@@ -386,8 +386,8 @@ export function P2PChat() {
     e.target.value = ''
     if (!file) return
     try {
-      const picture = file.type === 'image/gif' ? file : await shrinkPhoto(file)
-      if (picture.size > 2 * 1024 * 1024) throw new Error('Image too large — max 2 MB')
+      const picture = file.type === 'image/gif' ? file : await shrinkPhoto(file, 2048, MAX_ATTACHMENT_BYTES)
+      if (picture.size > MAX_ATTACHMENT_BYTES) throw new Error('Image too large — max 2.5 MB')
       setStaged({ kind: 'image', content: await dataUrl(picture), name: file.name })
     } catch (err) {
       setErrMsg((err as Error).message)
@@ -793,7 +793,7 @@ export function P2PChat() {
                   <ImageIcon size={15} />
                 </button>
                 <input type="file" ref={attachmentInputRef} style={{display:'none'}} aria-label="Choose a file" onChange={e=>void handleFileSelect(e)}/>
-                <button title="Attach a file (up to 1 MB)" disabled={!connected} onClick={()=>attachmentInputRef.current?.click()} style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',color:'var(--text-muted)',cursor:'pointer'}}>File</button>
+                <button title="Attach a file (up to 2.5 MB)" disabled={!connected} onClick={()=>attachmentInputRef.current?.click()} style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',color:'var(--text-muted)',cursor:'pointer'}}>File</button>
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}

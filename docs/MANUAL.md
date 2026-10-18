@@ -68,7 +68,7 @@ tools.
 **Messages** are private conversations between two members, opened with **New
 message** and anyone you share a space with. Add photos with the picture button,
 by pasting or by dropping them in, up to six a message. Each photo is shrunk to
-at most 2048 pixels across before it is sent, and the Grove keeps none of what
+at most 4096 pixels across before it is sent, and the Grove keeps none of what
 the camera wrote into it, such as where it was taken. **Take back** removes a
 message's words and photos for both people. The menu shows how many messages
 are unread. If you stop sharing a space with someone, your conversation stays

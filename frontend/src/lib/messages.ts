@@ -7,15 +7,17 @@ export interface Message { id: string; sender_id: string | null; body: string; p
 export interface Thread extends Conversation { messages: Message[]; can_write: boolean }
 
 export const photoUrl = (id: string) => `/community-api/messages/photos/${id}`
-const LONGEST = 2048
+// Under the Grove's 10 MB limit for one photo, which is also its web server's limit for one request.
+const MOST = 9 * 1024 * 1024
 
-/** A photo as Messages sends it: at most 2048 pixels across, as a JPEG. Drawing it afresh leaves
- *  behind what the camera wrote into the file, such as where it was taken. */
-export async function shrinkPhoto(file: File): Promise<Blob> {
+/** A photo as Messages sends it: at most 4096 pixels across, as a JPEG. Drawing it afresh leaves
+ *  behind what the camera wrote into the file, such as where it was taken. A very detailed photo
+ *  goes at a lower JPEG quality to stay under `most` bytes. */
+export async function shrinkPhoto(file: File, longest = 4096, most = MOST): Promise<Blob> {
   let picture: ImageBitmap
   try { picture = await createImageBitmap(file, { imageOrientation: 'from-image' }) }
   catch { throw new Error(`${file.name} can't be opened as a photo here. Try a JPEG or PNG.`) }
-  const scale = Math.min(1, LONGEST / Math.max(picture.width, picture.height))
+  const scale = Math.min(1, longest / Math.max(picture.width, picture.height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(picture.width * scale); canvas.height = Math.round(picture.height * scale)
   const context = canvas.getContext('2d')
@@ -23,9 +25,12 @@ export async function shrinkPhoto(file: File): Promise<Blob> {
   context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height)
   context.drawImage(picture, 0, 0, canvas.width, canvas.height)
   picture.close()
-  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85))
-  if (!blob) throw new Error('This browser can’t prepare photos.')
-  return blob
+  for (const quality of [0.85, 0.7, 0.55]) {
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', quality))
+    if (!blob) throw new Error('This browser can’t prepare photos.')
+    if (blob.size <= most) return blob
+  }
+  throw new Error(`${file.name} is too large to send, even made smaller.`)
 }
 
 export async function uploadPhoto(blob: Blob): Promise<Photo> {
