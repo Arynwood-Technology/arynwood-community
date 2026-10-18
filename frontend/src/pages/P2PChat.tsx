@@ -4,6 +4,7 @@ import {
   Users, Plus, X, Image as ImageIcon, Clock, CheckCheck, KeyRound,
 } from 'lucide-react'
 import { decodeAttachment, encodeAttachment } from '../lib/attachments'
+import { shrinkPhoto } from '../lib/messages'
 import { useAppStore } from '../store/useAppStore'
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,15 @@ function normalise(msg: P2PMessage & { text?: string }): P2PMessage {
   }
 }
 
+function dataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('That picture could not be read.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
@@ -171,6 +181,8 @@ export function P2PChat() {
   const [history,     setHistory]     = useState<Record<string, P2PMessage[]>>(loadHistory)
   const [activeKey,   setActiveKey]   = useState<string | null>(null)
   const [input,       setInput]       = useState('')
+  // A picture or file waits beside the message box until Send.
+  const [staged,      setStaged]      = useState<{ kind: 'image' | 'file'; content: string; name: string } | null>(null)
   const [copied,      setCopied]      = useState(false)
   const [errMsg,      setErrMsg]      = useState<string | null>(null)
 
@@ -196,6 +208,7 @@ export function P2PChat() {
   function switchActiveKey(key: string | null) {
     activeKeyRef.current = key
     setActiveKey(key)
+    setStaged(null)
     if (key) setP2pUnread({ ...useAppStore.getState().p2pUnread, [key]: 0 })
   }
 
@@ -341,9 +354,10 @@ export function P2PChat() {
 
   function handleSend() {
     const text = input.trim()
-    if (!text || !activeKey || !connected) return
-    sendContent('text', text)
-    setInput('')
+    if ((!text && !staged) || !activeKey || !connected) return
+    if (staged) sendContent(staged.kind, staged.content)
+    if (text) sendContent('text', text)
+    setInput(''); setStaged(null)
   }
 
   function sendContent(contentType: 'text' | 'image' | 'file', content: string) {
@@ -365,26 +379,25 @@ export function P2PChat() {
     addToHistory(activeKey, msg)
   }
 
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  // Photos are redrawn at most 2048px across, which also leaves their location and camera details
+  // behind. A GIF goes as it is, so it keeps moving.
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
     e.target.value = ''
-    if (file.size > 2 * 1024 * 1024) {
-      setErrMsg('Image too large — max 2 MB')
+    if (!file) return
+    try {
+      const picture = file.type === 'image/gif' ? file : await shrinkPhoto(file)
+      if (picture.size > 2 * 1024 * 1024) throw new Error('Image too large — max 2 MB')
+      setStaged({ kind: 'image', content: await dataUrl(picture), name: file.name })
+    } catch (err) {
+      setErrMsg((err as Error).message)
       setTimeout(() => setErrMsg(null), 4000)
-      return
     }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string
-      sendContent('image', dataUrl)
-    }
-    reader.readAsDataURL(file)
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file=e.target.files?.[0];e.target.value='';if(!file)return
-    try { sendContent('file',await encodeAttachment(file)) } catch(e) { setErrMsg((e as Error).message) }
+    try { setStaged({ kind: 'file', content: await encodeAttachment(file), name: file.name }) } catch(e) { setErrMsg((e as Error).message) }
   }
 
   function handleCopyAddr() {
@@ -413,7 +426,7 @@ export function P2PChat() {
   function handleCreateGroup() {
     const name = newGroupName.trim()
     if (!name) return
-    const group: Group = { id: Date.now().toString(), name, members: Array.from(selectedMembers) }
+    const group: Group = { id: genId(), name, members: Array.from(selectedMembers) }
     setGroups(prev => { const u = [...prev, group]; saveGroups(u); return u })
     setNewGroupName(''); setSelectedMembers(new Set()); setCreateGroupOpen(false)
     switchActiveKey(`group:${group.id}`)
@@ -743,19 +756,34 @@ export function P2PChat() {
                 <div ref={bottomRef} />
               </div>
 
+              {/* Picture or file waiting for Send */}
+              {staged && (
+                <div aria-label="Waiting to send" style={{ padding: '10px 16px 0', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                  {staged.kind === 'image'
+                    ? <img src={staged.content} alt="" style={{ height: 56, maxWidth: 96, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+                    : <span style={{ fontSize: 13, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{staged.name}</span>}
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Goes when you press Send.</span>
+                  <button onClick={() => setStaged(null)} aria-label="Remove attachment" title="Remove" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
+
               {/* Input bar */}
-              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+              <div style={{ padding: '12px 16px', borderTop: staged ? 'none' : '1px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  accept="image/*"
                   ref={fileInputRef}
                   style={{ display: 'none' }}
-                  onChange={handleImageSelect}
+                  aria-label="Choose an image"
+                  onChange={e => void handleImageSelect(e)}
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={!connected}
-                  title="Send image"
+                  title="Add an image"
+                  aria-label="Add an image"
                   style={{
                     background: 'none', border: '1px solid var(--border)', borderRadius: 8,
                     padding: '8px 10px', cursor: connected ? 'pointer' : 'not-allowed',
@@ -764,8 +792,8 @@ export function P2PChat() {
                   }}>
                   <ImageIcon size={15} />
                 </button>
-                <input type="file" ref={attachmentInputRef} style={{display:'none'}} onChange={e=>void handleFileSelect(e)}/>
-                <button title="Send file (up to 1 MB)" disabled={!connected} onClick={()=>attachmentInputRef.current?.click()} style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',color:'var(--text-muted)',cursor:'pointer'}}>File</button>
+                <input type="file" ref={attachmentInputRef} style={{display:'none'}} aria-label="Choose a file" onChange={e=>void handleFileSelect(e)}/>
+                <button title="Attach a file (up to 1 MB)" disabled={!connected} onClick={()=>attachmentInputRef.current?.click()} style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',color:'var(--text-muted)',cursor:'pointer'}}>File</button>
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -778,11 +806,11 @@ export function P2PChat() {
                     color: 'inherit', fontSize: 14, outline: 'none',
                   }}
                 />
-                <button onClick={handleSend} disabled={!connected || !input.trim()} style={{
+                <button onClick={handleSend} disabled={!connected || (!input.trim() && !staged)} style={{
                   padding: '8px 16px', borderRadius: 8, border: 'none',
                   background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 6,
-                  opacity: (!connected || !input.trim()) ? 0.5 : 1,
+                  opacity: (!connected || (!input.trim() && !staged)) ? 0.5 : 1,
                 }}>
                   <Send size={15} aria-label="Send" />
                 </button>
