@@ -196,7 +196,6 @@ python3 -m venv "$staging/.venv"
 # Only the server's own Grove (no --name) uses them: other Groves have no host tools.
 rm -rf "$target.new/config" "$target.new/data"
 ln -s /var/lib/arynwood-grove/config "$target.new/config"
-mkdir -p "$target.new/nkn"; ln -sfn /var/lib/arynwood-grove/nkn-wallet.json "$target.new/nkn/wallet.json"
 chown -R root:root "$target.new"; chmod -R u+rwX,go=rX "$target.new"
 if [[ $target == "$previous" ]]; then rm -rf "$target.old"; mv "$target" "$target.old"; previous="$target.old"; fi
 rm -rf "$target"; mv "$staging" "$target"; staging=""
@@ -218,7 +217,7 @@ if [[ ! -f $ENV_FILE ]]; then
   scheme=https; [[ $HTTPS == 0 ]] && scheme=http
   code=$(python3 -c 'import secrets; print("-".join(secrets.token_hex(3) for _ in range(4)))')
   named_settings=""
-  if [[ -n $NAME ]]; then named_settings=$'# Mail, IRC and Private messages belong to the server\'s own Grove.\nGROVE_HOST_TOOLS=off'; fi
+  if [[ -n $NAME ]]; then named_settings=$'# Mail and IRC belong to the server\'s own Grove.\nGROVE_HOST_TOOLS=off'; fi
   umask 027
   cat >"$ENV_FILE" <<ENV
 # Arynwood Grove settings. Restart after editing: sudo systemctl restart $SERVICE
@@ -234,7 +233,7 @@ $named_settings
 # Optional host mailbox for the Mail page:
 # MAIL_IMAP_HOST=  MAIL_IMAP_PORT=993  MAIL_IMAP_USER=  MAIL_IMAP_PASS=
 # MAIL_SMTP_HOST=  MAIL_SMTP_PORT=587  MAIL_SMTP_USER=  MAIL_SMTP_PASS=  MAIL_FROM=
-# Running it for someone else? Hide the host's Mail, IRC and Private messages, and email wishes to you:
+# Running it for someone else? Hide the host's Mail and IRC, and email wishes to you:
 # GROVE_HOST_TOOLS=off  GROVE_WISH_EMAIL=
 # Room for each space's files, and the largest single file, in MB:
 # GROVE_SPACE_STORAGE_MB=10240  GROVE_FILE_MAX_MB=2048

@@ -2,38 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { basicSetup } from 'codemirror'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { syntaxHighlighting } from '@codemirror/language'
 import { openSearchPanel } from '@codemirror/search'
-import { tags } from '@lezer/highlight'
 import { api } from '../lib/community'
+import { colours, language, theme } from '../lib/codemirror'
 import { previewFolder, readText, rebased, saveText, siteRoot, type FileItem, type Version } from '../lib/files'
 import { Modal } from '../pages/Workspace'
 import './code-editor.css'
-
-async function language(name: string) {
-  if (/\.html?$/i.test(name)) return (await import('@codemirror/lang-html')).html()
-  if (/\.css$/i.test(name)) return (await import('@codemirror/lang-css')).css()
-  if (/\.[cm]?jsx?$/i.test(name)) return (await import('@codemirror/lang-javascript')).javascript({ jsx: /jsx$/i.test(name) })
-  if (/\.tsx?$/i.test(name)) return (await import('@codemirror/lang-javascript')).javascript({ typescript: true, jsx: /tsx$/i.test(name) })
-  if (/\.json$/i.test(name)) return (await import('@codemirror/lang-json')).json()
-  if (/\.md$/i.test(name)) return (await import('@codemirror/lang-markdown')).markdown()
-  return []
-}
-const colours = HighlightStyle.define([
-  { tag: [tags.keyword, tags.tagName, tags.heading], color: 'var(--accent-text)' },
-  { tag: [tags.string, tags.attributeValue, tags.link], color: 'var(--text)' },
-  { tag: [tags.comment, tags.meta], color: 'var(--text-muted)', fontStyle: 'italic' },
-  { tag: [tags.number, tags.bool, tags.attributeName], color: 'var(--accent2)' },
-])
-const theme = EditorView.theme({
-  '&': { color: 'var(--text)', backgroundColor: 'var(--surface)', fontSize: '14px' },
-  '.cm-content': { caretColor: 'var(--accent)' },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent)' },
-  '.cm-gutters': { backgroundColor: 'var(--bg)', color: 'var(--text-muted)', borderColor: 'var(--border)' },
-  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--accent-soft)' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'var(--accent-soft)' },
-  '.cm-panels, .cm-tooltip': { backgroundColor: 'var(--surface2)', color: 'var(--text)', borderColor: 'var(--border)' },
-}, { dark: true })
 
 /** `url` previews the site's top folder; the page sits `inside` it. */
 function documentFor(draft: string, url: string, inside: string) {

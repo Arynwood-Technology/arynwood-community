@@ -173,7 +173,7 @@ class AdminTests(unittest.TestCase):
         with test_hub.patch.dict(test_hub.os.environ, {'GROVE_HOST_TOOLS': 'off'}):
             self.assertFalse(host.get('/api/auth/me').json()['host_tools'])
             # Gone rather than forbidden, for the host as much as anyone.
-            for path in ('/api/mail/accounts', '/api/irc/client-config', '/api/p2p/status'):
+            for path in ('/api/mail/accounts', '/api/irc/client-config'):
                 self.assertEqual(host.get(path).status_code, 404, path)
                 self.assertEqual(TestClient(app).get(path).status_code, 404, path)
 

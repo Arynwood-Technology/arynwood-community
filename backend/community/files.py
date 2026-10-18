@@ -86,6 +86,11 @@ def live_item(c, sid, fid, kind=None):
 WEBSITE = 'Website'
 def website(*paths): return any(p == WEBSITE or p.startswith(WEBSITE + '/') for p in paths)
 
+def announce(sid, *paths):
+    """Tells the space's open pages it changed, and every open website preview when a website file did."""
+    live.publish(sid)
+    if website(*paths): live.publish(live.WEBSITE)
+
 def may_change_website(current, *paths):
     """A space's Website folder holds the Grove's website: everyone in the space sees it, and only the
     Grove's owners and webmasters change it. True when the paths are in it and this person may."""
@@ -146,7 +151,7 @@ def new_folder(sid: str, body: FolderBody, current=Depends(user)):
                   (fid, sid, folder, name, 'folder', current['id'], current['id'], stamp, stamp))
         record(c, 'folder_created', actor=current['id'], space=sid, target=fid, target_name=joined(folder, name))
         saved = item(c, fid)
-    live.publish(sid)
+    announce(sid, joined(folder, name))
     return saved
 
 class UploadBody(BaseModel):
@@ -256,7 +261,7 @@ def finish_upload(sid: str, uid: str, current=Depends(user)):
         # Its pieces are already filed away, so this upload cannot be finished another time.
         with db() as c: c.execute('DELETE FROM uploads WHERE id=?', (uid,))
         raise
-    live.publish(sid)
+    announce(sid, joined(row['folder'], row['name']))
     return saved
 
 # Website files Python may not know without the system's mime.types.
@@ -338,7 +343,7 @@ def move(sid: str, fid: str, body: MoveBody, current=Depends(user)):
                 c.execute(f'UPDATE files SET folder=?||substr(folder,?) WHERE space_id=? AND (deleted IS NULL OR trash_root=id) AND {where}', (new, len(old) + 1, sid, *args))
             record(c, 'file_moved' if folder != f['folder'] else 'file_renamed', actor=current['id'], space=sid, target=fid, target_name=new, kind=f['kind'], **{'from': old})
         saved = item(c, fid)
-    live.publish(sid)
+    announce(sid, old, new)
     return saved
 
 @router.delete('/spaces/{sid}/files/{fid}')
@@ -354,7 +359,7 @@ def trash(sid: str, fid: str, current=Depends(user)):
             where, args = inside(joined(f['folder'], f['name']))
             c.execute(f'UPDATE files SET deleted=?,trash_root=? WHERE space_id=? AND deleted IS NULL AND {where}', (stamp, fid, sid, *args))
         record(c, 'file_deleted', actor=current['id'], space=sid, target=fid, target_name=joined(f['folder'], f['name']), kind=f['kind'])
-    live.publish(sid)
+    announce(sid, joined(f['folder'], f['name']))
     return {'ok': True}
 
 def trashed(c, sid, fid):
@@ -376,7 +381,7 @@ def restore(sid: str, fid: str, current=Depends(user)):
         c.execute('UPDATE files SET deleted=NULL,trash_root=NULL WHERE space_id=? AND trash_root=?', (sid, fid))
         record(c, 'file_restored', actor=current['id'], space=sid, target=fid, target_name=joined(f['folder'], f['name']), kind=f['kind'])
         saved = item(c, fid)
-    live.publish(sid)
+    announce(sid, joined(f['folder'], f['name']))
     return saved
 
 @router.delete('/spaces/{sid}/trash/{fid}')
@@ -389,7 +394,7 @@ def purge(sid: str, fid: str, current=Depends(user)):
         may_change_website(current, joined(f['folder'], f['name']))
         c.execute('DELETE FROM files WHERE space_id=? AND trash_root=?', (sid, fid))
         record(c, 'file_purged', actor=current['id'], space=sid, target=fid, target_name=joined(f['folder'], f['name']), kind=f['kind'])
-    live.publish(sid)
+    announce(sid, joined(f['folder'], f['name']))
     return {'ok': True}
 
 def sweep(clock=time.time):
@@ -401,12 +406,14 @@ def sweep(clock=time.time):
         c.execute('DELETE FROM files WHERE deleted IS NOT NULL AND deleted<?', (cutoff,))
         c.execute('DELETE FROM uploads WHERE started<?', (moment - UPLOAD_SECONDS,))
         # Photos sent for a message (messages.py) that never followed.
-        c.execute('DELETE FROM message_photos WHERE message_id IS NULL AND created<?', ((datetime.fromtimestamp(moment, timezone.utc) - timedelta(days=1)).isoformat(),))
-        uploading = {r['id'] for r in c.execute('SELECT id FROM uploads')}
+        day_ago = (datetime.fromtimestamp(moment, timezone.utc) - timedelta(days=1)).isoformat()
+        c.execute('DELETE FROM message_photos WHERE message_id IS NULL AND created<?', (day_ago,))
+        c.execute('DELETE FROM message_files WHERE message_id IS NULL AND created<?', (day_ago,))
+        uploading = {r['id'] for r in c.execute('SELECT id FROM uploads UNION SELECT id FROM message_files WHERE blob IS NULL')}
         # A published website's releases (website.py) keep their pages after the files change, and
-        # photos in Messages (messages.py) are kept as long as their message is.
+        # photos and files in Messages (messages.py) are kept as long as their message is.
         kept = ('SELECT blob FROM files WHERE blob IS NOT NULL UNION SELECT blob FROM file_versions UNION SELECT blob FROM site_release_files'
-                ' UNION SELECT blob FROM message_photos')
+                ' UNION SELECT blob FROM message_photos UNION SELECT blob FROM message_files WHERE blob IS NOT NULL')
         named = {r[0] for r in c.execute(kept)}
         orphans = {r['blob']: r['since'] for r in c.execute('SELECT * FROM orphan_blobs')}
         c.execute(f'DELETE FROM orphan_blobs WHERE blob IN ({kept})')

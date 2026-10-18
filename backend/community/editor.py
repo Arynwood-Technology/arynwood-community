@@ -1,4 +1,4 @@
-"""Small text edits with versions, and short-lived, cookie-free website previews."""
+"""Small text edits with versions, drafts kept as people type, and short-lived, cookie-free website previews."""
 import base64
 import hashlib
 import hmac
@@ -9,11 +9,11 @@ import secrets
 import shutil
 import tempfile
 import time
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from . import files, live
+from . import files
 from .auth import user, now
 from .store import db
 from .routes import membership
@@ -33,15 +33,20 @@ class TextBody(BaseModel):
     text: str = Field(max_length=TEXT_MAX)
     version: int = Field(ge=1, strict=True)
 
+def editable(c, sid, fid, current):
+    """A text file this person may change in the editor."""
+    membership(c, sid, current['id'])
+    f = files.live_item(c, sid, fid, 'file')
+    files.may_change_website(current, files.joined(f['folder'], f['name']))
+    if not files.is_text(f['name']): raise HTTPException(415, 'Only text files can be edited.')
+    if f['size'] > TEXT_MAX: raise HTTPException(413, 'The editor opens files up to 2 MB.')
+    return f
+
 @router.put('/spaces/{sid}/files/{fid}/text')
 def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
-        membership(c, sid, current['id'])
-        f = files.live_item(c, sid, fid, 'file')
-        files.may_change_website(current, files.joined(f['folder'], f['name']))
-        if not files.is_text(f['name']): raise HTTPException(415, 'Only text files can be edited.')
-        if f['size'] > TEXT_MAX: raise HTTPException(413, 'The editor opens files up to 2 MB.')
+        f = editable(c, sid, fid, current)
         if f['version'] != body.version: raise HTTPException(409, STALE)
         try:
             previous = files.blob_path(f['blob']).read_bytes().decode('utf-8')
@@ -67,10 +72,42 @@ def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
         c.execute('DELETE FROM orphan_blobs WHERE blob=?', (blob,))
         c.execute('INSERT INTO file_versions VALUES (?,?,?,?,?,?)', (fid, f['version'], f['blob'], f['size'], f['updated_by'], f['updated']))
         c.execute('UPDATE files SET blob=?,size=?,version=version+1,updated_by=?,updated=? WHERE id=?', (blob, len(data), current['id'], stamp, fid))
+        c.execute('DELETE FROM file_drafts WHERE file_id=? AND user_id=?', (fid, current['id']))
         record(c, 'file_edited', actor=current['id'], space=sid, target=fid, target_name=files.joined(f['folder'], f['name']), version=f['version'] + 1)
         saved = files.item(c, fid)
-    live.publish(sid)
+    files.announce(sid, files.joined(f['folder'], f['name']))
     return saved
+
+# Drafts: what someone has typed and not saved. Only they see it, in the editor and in their own
+# previews. A draft remembers the version it started from, so saving it later can't overwrite
+# someone else's newer save.
+@router.put('/spaces/{sid}/files/{fid}/draft')
+def save_draft(sid: str, fid: str, body: TextBody, current=Depends(user)):
+    try: size = len(body.text.encode('utf-8'))
+    except UnicodeError: raise HTTPException(415, 'The editor needs UTF-8 text.')
+    if '\x00' in body.text: raise HTTPException(415, 'Only text files can be edited.')
+    if size > TEXT_MAX: raise HTTPException(413, 'The editor saves files up to 2 MB.')
+    with db() as c:
+        editable(c, sid, fid, current)
+        stamp = now()
+        c.execute('INSERT OR REPLACE INTO file_drafts VALUES (?,?,?,?,?)', (fid, current['id'], body.version, body.text, stamp))
+    return {'version': body.version, 'updated': stamp}
+
+@router.get('/spaces/{sid}/files/{fid}/draft')
+def draft(sid: str, fid: str, current=Depends(user)):
+    with db() as c:
+        membership(c, sid, current['id'])
+        files.live_item(c, sid, fid, 'file')
+        row = c.execute('SELECT text,version,updated FROM file_drafts WHERE file_id=? AND user_id=?', (fid, current['id'])).fetchone()
+    if not row: raise HTTPException(404, 'There’s no draft of this file.')
+    return dict(row)
+
+@router.delete('/spaces/{sid}/files/{fid}/draft')
+def discard_draft(sid: str, fid: str, current=Depends(user)):
+    with db() as c:
+        membership(c, sid, current['id'])
+        c.execute('DELETE FROM file_drafts WHERE file_id=? AND user_id=?', (fid, current['id']))
+    return {'ok': True}
 
 class PreviewBody(BaseModel):
     folder: str = Field(default='', max_length=4200)
@@ -85,9 +122,13 @@ def preview_token(sid: str, body: PreviewBody, current=Depends(user)):
         if not files.folder_exists(c, sid, folder): raise HTTPException(404, 'Folder not found.')
     return {'url': preview_url(sid, folder)}
 
-def preview_url(sid, folder):
-    """An address showing a folder and everything in it, for an hour, to whoever has it."""
-    payload = base64.urlsafe_b64encode(json.dumps([sid, folder, int(time.time()) + PREVIEW_SECONDS], separators=(',', ':')).encode()).decode().rstrip('=')
+def preview_url(sid, folder, drafts=None, bridge=False):
+    """An address showing a folder and everything in it, for an hour, to whoever has it. With
+    `drafts` (a person's id) it shows their drafts in place of the saved files; with `bridge`, its
+    pages talk to the Grove's preview pane, for notes and live updates."""
+    details = [sid, folder, int(time.time()) + PREVIEW_SECONDS]
+    if drafts or bridge: details.append({**({'u': drafts} if drafts else {}), **({'b': 1} if bridge else {})})
+    payload = base64.urlsafe_b64encode(json.dumps(details, separators=(',', ':')).encode()).decode().rstrip('=')
     return f'/api/community/preview/{payload}.{sign(payload)}/'
 
 def unpack(token):
@@ -95,9 +136,10 @@ def unpack(token):
         if len(token) > 12000: raise ValueError()
         payload, signature = token.split('.')
         if not hmac.compare_digest(signature, sign(payload)): raise ValueError()
-        sid, folder, expires = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
-        if expires <= time.time(): raise ValueError()
-        return sid, folder
+        sid, folder, expires, *rest = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
+        options = rest[0] if rest else {}
+        if expires <= time.time() or len(rest) > 1 or not isinstance(options, dict): raise ValueError()
+        return sid, folder, options
     except (ValueError, TypeError, UnicodeError):
         raise HTTPException(404, 'Preview expired or unavailable. Open it again.')
 
@@ -121,13 +163,22 @@ def rebased(text, kind, base):
         return css(value)
     return STYLE.sub(lambda s: s[1] + css(s[2]) + s[3], TAG.sub(tag, text))
 
+# Added to a page in the Grove's own preview pane, at the top of its <head>, without its opening comments.
+BRIDGE = '(() =>' + (Path(__file__).parent / 'preview_bridge.js').read_text().partition('\n(() =>')[2]
+OPENING = [re.compile(p, re.I) for p in (r'<head\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', r'<html\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', r'<!doctype\b[^>]*>')]
+
+def bridged(text, base):
+    script = '<script>' + BRIDGE.replace('__BASE__', json.dumps(base).replace('<', '\\u003c')) + '</script>'
+    found = next((m for m in (p.search(text) for p in OPENING) if m), None)
+    return text[:found.end()] + script + text[found.end():] if found else script + text
+
 def preview_row(c, sid, full):
     parent, _, name = full.rpartition('/')
-    return c.execute("SELECT name,blob FROM files WHERE space_id=? AND folder=? AND name=? AND kind='file' AND deleted IS NULL", (sid, parent, name)).fetchone()
+    return c.execute("SELECT id,name,blob FROM files WHERE space_id=? AND folder=? AND name=? AND kind='file' AND deleted IS NULL", (sid, parent, name)).fetchone()
 
 @router.get('/preview/{token}/{path:path}')
 def preview_file(token: str, path: str):
-    sid, folder = unpack(token)
+    sid, folder, options = unpack(token)
     parts = path.rstrip('/').split('/') if path else []
     if len(path) > 4200 or any(not part or part in ('.', '..') or files.BAD.search(part) for part in parts):
         raise HTTPException(404, 'File not found.')
@@ -143,10 +194,13 @@ def preview_file(token: str, path: str):
             # As on the live site: the site's own 404 page, when it has one.
             f, status = preview_row(c, sid, files.joined(folder, '404.html')), 404
             if not f: raise HTTPException(404, 'File not found.')
+        draft = options.get('u') and c.execute('SELECT text FROM file_drafts WHERE file_id=? AND user_id=?', (f['id'], options['u'])).fetchone()
     kind = PurePosixPath(f['name'].lower()).suffix
-    if kind in ('.html', '.htm', '.css'):
+    if kind in ('.html', '.htm', '.css') or draft:
         base = f'/api/community/preview/{token}'
-        text = files.blob_path(f['blob']).read_bytes().decode('utf-8', 'surrogateescape')
-        return Response(rebased(text, kind[1:], base).encode('utf-8', 'surrogateescape'), status_code=status,
+        text = draft['text'] if draft else files.blob_path(f['blob']).read_bytes().decode('utf-8', 'surrogateescape')
+        if kind in ('.html', '.htm', '.css'): text = rebased(text, kind[1:], base)
+        if kind in ('.html', '.htm') and options.get('b'): text = bridged(text, base)
+        return Response(text.encode('utf-8', 'surrogateescape'), status_code=status,
                         media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)
     return FileResponse(files.blob_path(f['blob']), status_code=status, media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)

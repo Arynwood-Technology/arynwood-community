@@ -74,6 +74,10 @@ export function describeActivity(a: Activity): string {
     case 'site_published': return `${who} published the website from ${quoted(a.target_name)}${here} (${count(d.files, 'file')})`
     case 'site_put_back': return `${who} put back the website published from ${quoted(a.target_name)} on ${new Date(String(d.published)).toLocaleDateString()}`
     case 'site_taken_down': return `${who} took the website down`
+    case 'site_note_added': return `${who} left a note on ${d.page} of ${quoted(a.target_name)}: ${quoted(d.note)}`
+    case 'site_note_done': return `${who} marked a note on ${d.page} of ${quoted(a.target_name)} done: ${quoted(d.note)}`
+    case 'site_note_reopened': return `${who} opened a note on ${d.page} of ${quoted(a.target_name)} again: ${quoted(d.note)}`
+    case 'site_note_deleted': return `${who} deleted a note on ${d.page} of ${quoted(a.target_name)}: ${quoted(d.note)}`
     case 'webmaster_changed': return d.webmaster ? `${who} made ${a.target_name} a webmaster` : `${who} stopped ${a.target_name} being a webmaster`
     case 'look_changed': return `${who} changed how the Grove looks`
     case 'look_reset': return `${who} put the Grove’s look back as its host set it up`

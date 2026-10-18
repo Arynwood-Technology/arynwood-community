@@ -2,10 +2,10 @@
 # Upgrade an Arynwood Community 0.3 server to Arynwood Grove, in place, or a Grove that was
 # upgraded this way to a newer release.
 #
-#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz
+#   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz
 #
 # Run it as the account that owns the install, not as root. It keeps the install's folder,
-# .env, data, IRC settings, NKN wallet and Python environment, so the existing systemd service
+# .env, data, IRC settings and Python environment, so the existing systemd service
 # and nginx site keep working unchanged. Accounts, spaces and signed-in sessions carry over.
 # The only step that needs sudo is the short stop and start of the service.
 #
@@ -52,6 +52,7 @@ for db in "$DATA"/*.sqlite3; do
 done
 cp -p "$DIR/.env" "$BACKUP/.env"
 [[ -d $DIR/config ]] && cp -rp "$DIR/config" "$BACKUP/config"
+# Private messages (NKN) are gone; their identity is kept with the backup all the same.
 [[ -f $DIR/nkn/wallet.json ]] && cp -p "$DIR/nkn/wallet.json" "$BACKUP/wallet.json"
 chmod -R go-rwx "$BACKUP"
 
@@ -62,8 +63,6 @@ tar -xzf "$FROM" -C "$NEXT" --strip-components=1
 NEW=$(cat "$NEXT/VERSION" 2>/dev/null || true)
 cp -p "$DIR/.env" "$NEXT/.env"
 [[ -d $DIR/config ]] && { rm -rf "$NEXT/config"; cp -rp "$DIR/config" "$NEXT/config"; }
-[[ -f $DIR/nkn/wallet.json ]] && cp -p "$DIR/nkn/wallet.json" "$NEXT/nkn/wallet.json"
-[[ -d $DIR/nkn/node_modules ]] && cp -a "$DIR/nkn/node_modules" "$NEXT/nkn/node_modules"
 # The environment is copied, not rebuilt: it ends up at the same path once the folders swap.
 cp -a "$DIR/.venv" "$NEXT/.venv"
 "$NEXT/.venv/bin/python" -m pip install -q --disable-pip-version-check -r "$NEXT/requirements.txt"

@@ -37,21 +37,26 @@ async function reason(response: Response) {
 
 /** Sends a file in pieces. A dropped connection picks up where the server got to. */
 export async function uploadFile(spaceId: string, file: File, options: { folder?: string; name?: string; replaces?: string; onProgress?: (sent: number) => void } = {}) {
-  const root = `/community/spaces/${spaceId}/uploads`
-  const started = await api<{ id: string; chunk: number }>(root, 'POST', { folder: options.folder ?? '', name: options.name ?? file.name, size: file.size, replaces: options.replaces ?? null })
+  return sendInPieces<FileItem>(`/community/spaces/${spaceId}/uploads`, { folder: options.folder ?? '', name: options.name ?? file.name, size: file.size, replaces: options.replaces ?? null }, file, options.onProgress)
+}
+
+/** Starts an upload at `root` with `start`, sends the file there in pieces, and finishes it. Files
+ *  and Messages both take uploads this way. */
+export async function sendInPieces<T>(root: string, start: object, file: Blob, onProgress?: (sent: number) => void) {
+  const started = await api<{ id: string; chunk: number }>(root, 'POST', start)
   let piece = started.chunk, offset = 0, failures = 0
   while (offset < file.size) {
     const part = file.slice(offset, offset + piece)
     const response = await fetch(`/community-api${root}/${started.id}?offset=${offset}`, { method: 'PUT', body: part,
       headers: { 'X-Community-Request': '1', 'Content-Type': 'application/octet-stream' } }).catch(() => null)
-    if (response?.ok) { offset += part.size; failures = 0; options.onProgress?.(offset); continue }
+    if (response?.ok) { offset += part.size; failures = 0; onProgress?.(offset); continue }
     if (response?.status === 413 && piece > SMALL_PIECE) { piece = SMALL_PIECE; continue }
     if (response && response.status !== 409 && response.status < 500) throw new Error(await reason(response))
     if (++failures > 5) throw new Error('The connection keeps dropping. Try again in a moment.')
     await new Promise(resolve => setTimeout(resolve, 500 * failures))
     offset = (await api<{ received: number }>(`${root}/${started.id}`)).received
   }
-  return api<FileItem>(`${root}/${started.id}/finish`, 'POST')
+  return api<T>(`${root}/${started.id}/finish`, 'POST')
 }
 
 export const saveText = (spaceId: string, id: string, text: string, version: number) => api<FileItem>(`/community/spaces/${spaceId}/files/${id}/text`, 'PUT', { text, version })

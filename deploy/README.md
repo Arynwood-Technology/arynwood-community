@@ -32,7 +32,7 @@ What it sets up:
 | Where | What |
 |---|---|
 | `/opt/arynwood-grove/releases/<version>`, `current` | The program, read-only to the service. The three newest releases are kept for rollback. |
-| `/var/lib/arynwood-grove` | The database, daily backups (`backups/`, 14 kept), IRC settings and the Private messages identity. Only the `grove` user can read it. |
+| `/var/lib/arynwood-grove` | The database, daily backups (`backups/`, 14 kept) and IRC settings. Only the `grove` user can read it. |
 | `/etc/arynwood-grove/grove.env` | Settings (address, port, setup code, optional mailbox). Readable by root and the service. |
 | `arynwood-grove.service`, `arynwood-grove-backup.timer` | The service, hardened with `ProtectSystem=strict`, and the daily backup. |
 | `arynwood-grove-offsite.timer` | Nightly off-server copies of every Grove, once you set them up (see Off-server copies). |
@@ -47,7 +47,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.6.1   # a particular release
+sudo arynwood-grove update --version 0.7.0   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -138,15 +138,15 @@ sudo arynwood-grove update --all --canary roguefest    # roguefest first; the re
 
 `update --all` downloads the release once and updates one Grove first: the one named by `--canary`, or the Grove without a name. If that Grove doesn't start on the new release, it goes back to its previous one and the others are left alone. Each Grove can also be updated or rolled back by itself.
 
-Named Groves have `GROVE_HOST_TOOLS=off`: Mail, IRC and Private messages use the server owner's own accounts, so only the Grove without a name offers them. Any Grove can open Public chat to its members with `GROVE_CHAT_CHANNEL` (see the configuration table in the main README).
+Named Groves have `GROVE_HOST_TOOLS=off`: Mail and IRC use the server owner's own accounts, so only the Grove without a name offers them. Any Grove can open Public chat to its members with `GROVE_CHAT_CHANNEL` (see the configuration table in the main README).
 
 ## Upgrading a Community 0.3 server
 
-`upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, NKN wallet, Python environment, systemd service and nginx site. Run it as the account that owns the install:
+`upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.
@@ -157,12 +157,11 @@ A server upgraded this way doesn't have the `arynwood-grove` command. It takes l
 
 ## By hand
 
-The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`) and the Private messages library (`nkn/node_modules`), so the server needs Node.js only for the host's Private messages. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
+The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`), so the server doesn't need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
 
 ## Things to know
 
 - **One process.** Keep `--workers 1`: change notices are shared in memory, and SQLite has one writer. Pages fall back to polling if their live connection drops.
 - **Behind Cloudflare or another proxy,** nginx sees the proxy's address, not the visitor's, so sign-in and public-link limits apply per proxy address. Configure nginx's `real_ip` module with the proxy's address ranges so they apply per visitor.
-- **The host account reaches Mail, IRC and Private messages from the public address.** Those use the server's own mail account and identities. Use a strong, unique host password. On a Grove you run for someone else, set `GROVE_HOST_TOOLS=off`.
+- **The host account reaches Mail and IRC from the public address.** Those use the server's own mail account and identities. Use a strong, unique host password. On a Grove you run for someone else, set `GROVE_HOST_TOOLS=off`.
 - **Uploads go through nginx in pieces of up to 8 MB.** The installer's site allows 10 MB a request. A site made by hand, or by Community 0.3, needs `client_max_body_size 10m;` for full-speed uploads and for saving pages over 1 MB in the editor.
-- **Private messages need Node.js** 20.19+ or 22.12+ on the server, as `node` on the service's path. Releases from 0.6.1 include the library they use; the installer doesn't install Node.js itself.

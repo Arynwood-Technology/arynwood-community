@@ -9,8 +9,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
-from backend.routers import chat, mail, irc, p2p
-from backend.community import admin, auth, editor, files, messages, routes, store, webmaster, website, wishes, workspace_setup
+from backend.routers import chat, mail, irc
+from backend.community import admin, auth, editor, files, messages, routes, site_notes, store, webmaster, website, wishes, workspace_setup
 from backend import grove, setup, brand
 
 @asynccontextmanager
@@ -18,7 +18,6 @@ async def lifespan(app):
     store.initialize()
     grove.initialize()
     yield
-    await p2p.p2p_stop()
 
 app = FastAPI(title='Arynwood Grove', version=store.VERSION, lifespan=lifespan,
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -89,12 +88,12 @@ app.include_router(admin.router,prefix='/api/admin')
 app.include_router(wishes.router,prefix='/api/wishes')
 app.include_router(webmaster.router,prefix='/api/webmaster')
 app.include_router(website.router,prefix='/api/webmaster')
+app.include_router(site_notes.router,prefix='/api/webmaster')
 app.include_router(messages.router,prefix='/api/messages')
 def host_tools():
     if not store.host_tools(): raise HTTPException(404,'Not found')
 app.include_router(mail.router,prefix='/api/mail',dependencies=[Depends(host_tools),Depends(auth.administrator)])
 app.include_router(irc.router,prefix='/api/irc',dependencies=[Depends(host_tools),Depends(auth.administrator)])
-app.include_router(p2p.router,prefix='/api/p2p',dependencies=[Depends(host_tools),Depends(auth.administrator)])
 app.include_router(chat.router,prefix='/api/chat')
 app.include_router(brand.router,prefix='/api/brand')
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = '0.6.1'
+VERSION = '0.7.0'
 
 def setting(name, default=''):
     """GROVE_<name>, else COMMUNITY_<name>: an Arynwood Community 0.3 install keeps its .env when upgraded."""
@@ -16,7 +16,7 @@ def setting(name, default=''):
     return default if value is None else value
 
 def host_tools():
-    """Mail, IRC and Private messages use the host's own accounts; a Grove run for someone else turns them off."""
+    """Mail and IRC use the host's own accounts; a Grove run for someone else turns them off."""
     return setting('HOST_TOOLS', 'on').strip().lower() not in ('off', '0', 'no', 'false')
 
 def log_name():
@@ -183,6 +183,26 @@ def initialize():
           blob TEXT NOT NULL, size INTEGER NOT NULL, PRIMARY KEY(release_id,path));
         -- People an owner trusts with the website: they change Website folders and publish.
         CREATE TABLE IF NOT EXISTS webmasters (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE);
+        -- Unsaved work in the editor (editor.py), one per file and person, kept as they type: their
+        -- previews show it, and it waits for them if the page closes. Saving the file ends it.
+        CREATE TABLE IF NOT EXISTS file_drafts (
+          file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          version INTEGER NOT NULL, text TEXT NOT NULL, updated TEXT NOT NULL, PRIMARY KEY(file_id,user_id));
+        -- Notes on a website's preview (site_notes.py): a spot on a page, what should change there,
+        -- and the replies under it. They outlive their authors, as the activity log does.
+        CREATE TABLE IF NOT EXISTS site_notes (
+          id TEXT PRIMARY KEY, space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE, folder TEXT NOT NULL,
+          page TEXT NOT NULL, selector TEXT NOT NULL DEFAULT '', quote TEXT NOT NULL DEFAULT '', x REAL, y REAL,
+          device TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '', suggestion TEXT,
+          status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','done')),
+          author_id TEXT REFERENCES users(id) ON DELETE SET NULL, created TEXT NOT NULL,
+          closed_by TEXT REFERENCES users(id) ON DELETE SET NULL, closed TEXT);
+        CREATE INDEX IF NOT EXISTS site_notes_site ON site_notes(space_id,folder,created);
+        CREATE TABLE IF NOT EXISTS site_note_replies (
+          id TEXT PRIMARY KEY, note_id TEXT NOT NULL REFERENCES site_notes(id) ON DELETE CASCADE,
+          author_id TEXT REFERENCES users(id) ON DELETE SET NULL, body TEXT NOT NULL, created TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS site_note_replies_note ON site_note_replies(note_id,created);
         -- Messages (messages.py): private conversations between two members, and their photos.
         -- A pair is the two members' ids, sorted, so two people have one conversation.
         CREATE TABLE IF NOT EXISTS conversations (
@@ -201,6 +221,12 @@ def initialize():
           id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           message_id TEXT REFERENCES messages(id) ON DELETE CASCADE, blob TEXT NOT NULL, size INTEGER NOT NULL,
           media_type TEXT NOT NULL, width INTEGER, height INTEGER, created TEXT NOT NULL);
+        -- Any other file for a message, sent in pieces: its blob comes when the last piece is in,
+        -- and like a photo it waits without a message until that's sent.
+        CREATE TABLE IF NOT EXISTS message_files (
+          id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          message_id TEXT REFERENCES messages(id) ON DELETE CASCADE, name TEXT NOT NULL, size INTEGER NOT NULL,
+          received INTEGER NOT NULL DEFAULT 0, blob TEXT, created TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_setups (
           space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
           kit TEXT NOT NULL, client TEXT NOT NULL, opening_date TEXT NOT NULL DEFAULT '',

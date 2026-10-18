@@ -33,7 +33,7 @@ from .auth import webmaster, identifier, now
 from .store import db, public_origin, VERSION
 from .activity import record
 from .routes import membership
-from . import files, live
+from . import files
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -255,7 +255,7 @@ def run_import(job):
     progress(status, message)
     with db() as c:
         record(c, 'site_imported', actor=uid, space=sid, target=job, target_name=folder, url=start, status=status, **counts)
-    live.publish(sid)
+    files.announce(sid, folder)
 
 class ImportBody(BaseModel):
     url: str = Field(min_length=3, max_length=2000)
@@ -338,7 +338,7 @@ def unpack(body: UnpackBody, current=Depends(webmaster)):
     with db() as c:
         front = c.execute("SELECT 1 FROM files WHERE space_id=? AND folder=? AND name='index.html' AND kind='file' AND deleted IS NULL", (sid, folder)).fetchone()
         record(c, 'site_unpacked', actor=uid, space=sid, target=f['id'], target_name=folder, zip=f['name'], **counts)
-    live.publish(sid)
+    files.announce(sid, folder)
     return {'space_id': sid, 'folder': folder, **counts, 'bytes': total, 'skipped_files': skipped, 'message': message, 'has_index': bool(front)}
 
 # A one-page starter -------------------------------------------------------------------------------
@@ -415,5 +415,5 @@ def starter(body: StarterBody, current=Depends(webmaster)):
     except Refused as reason:
         raise HTTPException(409, str(reason))
     with db() as c: record(c, 'site_started', actor=current['id'], space=body.space_id, target_name=folder)
-    live.publish(body.space_id)
+    files.announce(body.space_id, folder)
     return {'space_id': body.space_id, 'folder': folder}

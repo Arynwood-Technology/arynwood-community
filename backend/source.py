@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def archive():
     files=[ROOT/name for name in ('LICENSE','README.md','requirements.txt','requirements-dev.txt','setup.sh','start.sh','.env.example')]
-    for dirname,suffixes in [('backend',{'.py'}),('frontend/src',{'.ts','.tsx','.css'}),('tests',{'.py'}),('scripts',{'.py','.sh'}),('nkn',{'.js','.json'}),
+    for dirname,suffixes in [('backend',{'.py'}),('frontend/src',{'.ts','.tsx','.css'}),('tests',{'.py'}),('scripts',{'.py','.sh'}),
                              ('deploy',{'.sh','.service','.timer','.conf','.md',''}),('docs',{'.md'}),('desktop',{'.sh',''})]:
         files.extend(p for p in (ROOT/dirname).rglob('*') if p.is_file() and p.suffix in suffixes and 'node_modules' not in p.parts and '__pycache__' not in p.parts)
     files.extend(ROOT/'frontend'/name for name in ('package.json','package-lock.json','index.html','vite.config.ts','vitest.config.ts',

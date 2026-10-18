@@ -2,7 +2,7 @@
 # Serve Arynwood Grove. Defaults to this computer only (127.0.0.1:8018).
 set -euo pipefail
 cd "$(dirname "$0")"
-if [[ ! -x .venv/bin/python || ! -f frontend/dist/index.html || ! -d nkn/node_modules ]]; then
+if [[ ! -x .venv/bin/python || ! -f frontend/dist/index.html ]]; then
   echo 'Run ./setup.sh first.' >&2
   exit 1
 fi

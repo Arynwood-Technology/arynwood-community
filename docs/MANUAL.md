@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.6.1**. A server running an older release may
+This manual describes version **0.7.0**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -46,9 +46,9 @@ inside one Grove; they are not separate Groves.
 | Files | Upload, organize, download and edit the space's files. |
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
-| Messages | Private conversations with anyone you share a space with, with photos. Only the two people in a conversation can read it. |
+| Messages | Private conversations with anyone you share a space with, with photos and files. Only the two people in a conversation can read it. |
 | Look & feel | Owners make the Grove look like their organisation: name and tagline, colours (light or dark), the login page's colour and picture, type, corners and logo, or all of it suggested from the Grove's website. |
-| Webmaster tools | Owners and webmasters bring the Grove's website in, change it in Files, preview it and publish it at the Grove's address. Everyone else sees **Website preview**: what's live, and previews of what's coming. |
+| Webmaster tools | Owners and webmasters bring the Grove's website in, change it in the site editor with a live preview, and publish it at the Grove's address. Everyone else sees **Website preview**: what's live, previews of what's coming, and notes on what should change. |
 | Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and CSV trackers. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
 
 Changes normally appear on other members' pages within about a second. If the
@@ -69,8 +69,12 @@ tools.
 message** and anyone you share a space with. Add photos with the picture button,
 by pasting or by dropping them in, up to six a message. Each photo is shrunk to
 at most 4096 pixels across before it is sent, and the Grove keeps none of what
-the camera wrote into it, such as where it was taken. **Take back** removes a
-message's words and photos for both people. The menu shows how many messages
+the camera wrote into it, such as where it was taken. Attach any other file, up
+to 50 MB, with the paperclip, or drop or paste it in; up to six go in a message.
+Files go as they are, in pieces that pick up after a dropped connection, and
+always download rather than open in the Grove. Put bigger files in a space's
+Files. **Take back** removes a message's words, photos and files for both
+people. The menu shows how many messages
 are unread. If you stop sharing a space with someone, your conversation stays
 readable but takes no new messages.
 
@@ -91,8 +95,8 @@ There are three different kinds of authority. They should not be confused.
 Grove admin provides visibility across the Grove; it is not an infrastructure
 control panel. Managers see everything in Grove admin but cannot change roles
 or settings. Whether members can start spaces is a Grove setting: everyone, or
-owners and managers only. Mail, the host's IRC client and Private messages, when
-enabled, are restricted to the host; being a manager or another owner does not
+owners and managers only. Mail and the host's IRC client, when enabled, are
+restricted to the host; being a manager or another owner does not
 grant those connections. Members' Public chat can reach only the Grove's
 configured IRC server and room, and never uses the host's IRC settings or
 passwords.
@@ -135,9 +139,11 @@ change it.
 
 ### Spreadsheets
 
-CSV files, such as Workspace setup's trackers, open in the text editor. To work
-on one as a table, download it, edit it in a spreadsheet program, save it as CSV
-and upload it with the same name as a new version.
+CSV and TSV files, such as Workspace setup's trackers, open as a table: the first
+row as headings, columns of numbers lined up on the right, and the first 500
+rows shown. **Show as text** shows the file as it is. **Edit** opens it in the
+text editor. To work on one in a spreadsheet program, download it, save it as
+CSV and upload it with the same name as a new version.
 
 ### Edit text and preview HTML
 
@@ -192,13 +198,35 @@ Importing or unpacking again creates versions of changed files and deletes
 nothing. Review local edits before reimporting: the live website may differ
 from your working copy.
 
-**Change it** in Files, with the editor or by uploading new versions. Nothing
-changes on the live site until someone publishes.
+**Change it** in the site editor: **Open editor** on the site shows its files,
+their code and a preview side by side. The preview follows what you type, on
+any page and in any file, styles included, before you save. Unsaved changes are
+kept on the server as a draft as you type, so closing the page loses nothing;
+only you see them, and **Save** makes a new version for everyone. If someone
+saved the file after your draft began, the editor says so: use their version,
+or save yours over it (theirs stays in the file's versions). Click the target
+in the preview, then anything on the page, to find it in the code. New pages,
+folders and pictures can be added from the file list; rename, move and delete
+in Files. Uploading new versions in Files works too. Nothing changes on the
+live site until someone publishes.
 
-**Preview** shows the whole site as visitors will see it: its links, clean
-addresses such as `/about` for `about.html`, its 404 page, and its scripts.
-Scripts run in a sandbox, with no access to members' sign-ins, and nothing
-outside the Grove loads, so an embedded video shows as blocked.
+**Preview & notes** shows the whole site as visitors will see it, at computer,
+tablet and phone sizes: its links, clean addresses such as `/about` for
+`about.html`, its 404 page, and its scripts. It reloads by itself, where the
+reader had scrolled to, whenever a webmaster saves. Scripts run in a sandbox,
+with no access to members' sign-ins, and nothing outside the Grove loads, so
+an embedded video shows as blocked.
+
+**Notes.** Everyone in the Grove can leave notes on a preview: **Add a note**,
+click the part of the page it's about (or write about the whole page), say
+what should change, and optionally suggest new wording. Each note is pinned
+where it was made and kept with the page and the words it pointed at, so it
+finds its place after small edits. Webmasters see notes in the editor as
+they're left: **Show me** opens the page at the pin, **Find in code** selects
+those words in the page's code, and **Use this wording** puts the suggestion
+in their place when the words appear once and no tag sits inside them. Anyone
+can reply. A note's author and the webmasters mark it done, open it again, or
+delete it; adding, closing and deleting notes is in the activity log.
 
 **Publish.** A website is a folder in `Website` with an `index.html` at its
 top. **Publish** puts it at the Grove's address straight away. A publish keeps
@@ -292,10 +320,11 @@ flowchart TB
 | `backend/api.py` | Application assembly, middleware, route mounting and frontend delivery. |
 | `backend/community/store.py` | Version, settings lookup, database location and schema initialization. Reads `GROVE_*`, with legacy `COMMUNITY_*` fallback. |
 | `backend/community/auth.py`, `routes.py` | Accounts, sessions, access rules, spaces and shared entries. |
-| `backend/community/files.py`, `editor.py` | File metadata and contents, uploads in pieces, versions, text editing and previews. |
+| `backend/community/files.py`, `editor.py` | File metadata and contents, uploads in pieces, versions, text editing, drafts and previews. |
 | `backend/community/admin.py`, `activity.py`, `wishes.py` | Grove administration, activity records and wishes. |
 | `backend/community/webmaster.py` | Bringing a website in: imports from its address, .zip uploads and the one-page starter. |
-| `backend/community/website.py` | Publishing the website: releases, putting one back, previews for everyone, and serving the live site at the Grove's address. |
+| `backend/community/website.py` | Publishing the website: releases, putting one back, previews for everyone, the site editor's file list, and serving the live site at the Grove's address. |
+| `backend/community/site_notes.py`, `preview_bridge.js` | Notes on a website's preview, and the script the Grove's own preview pane adds to each page for pins, picking a spot and live reloads. |
 | `backend/community/workspace_setup.py`, `workspace_kits.py` | Workspace setup: the kits' content and staging them in one transaction. |
 | `backend/routers/irc.py`, `chat.py` | The host's IRC relay, and members' Public chat on the configured room. |
 | `backend/brand.py` | `read_brand()` merges the host's branding with what owners saved in Look & feel, validates it and derives accessible CSS theme tokens, light or dark. |
@@ -348,8 +377,7 @@ the tag; keep `frontend/package.json` at the same version. The package contains
 tracked source files, documentation, deployment tooling and the built frontend;
 it excludes local secrets and runtime data. The package script refuses
 untracked files in its source directories so they cannot be silently omitted.
-Servers use the built page and do not need Node for it; optional NKN
-connections have additional Node requirements.
+Servers use the built page and do not need Node.
 
 For local development, use `./setup.sh`, then `./start.sh`. For frontend work,
 run `npm --prefix frontend run dev` alongside the backend. Before releasing:

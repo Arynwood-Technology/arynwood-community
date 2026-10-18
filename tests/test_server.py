@@ -76,15 +76,15 @@ class ServerSettingsTests(unittest.TestCase):
 
 class Events:
     """Reads one server-sent event stream on a thread; events arrive on a queue."""
-    def __init__(self, client, sid, last_event_id=None):
+    def __init__(self, client, sid, last_event_id=None, path=None):
         self.events, self.status = queue.Queue(), None
         headers = {'Last-Event-ID': last_event_id} if last_event_id else {}
-        self.thread = threading.Thread(target=self.read, args=(client, sid, headers), daemon=True)
+        self.thread = threading.Thread(target=self.read, args=(client, path or f'/api/community/spaces/{sid}/events', headers), daemon=True)
         self.thread.start()
 
-    def read(self, client, sid, headers):
+    def read(self, client, path, headers):
         try:
-            with client.stream('GET', f'/api/community/spaces/{sid}/events', headers=headers, timeout=httpx.Timeout(10, read=20)) as r:
+            with client.stream('GET', path, headers=headers, timeout=httpx.Timeout(10, read=20)) as r:
                 self.status = r.status_code
                 event = {}
                 for line in r.iter_lines():
@@ -183,6 +183,25 @@ class LiveTests(unittest.TestCase):
         self.assertEqual(host.delete(f'/api/community/spaces/{sid}/members/{member_id}', headers=H).status_code, 200)
         self.assertEqual(member_events.next(), 'END')
         reopened = Events(member, sid); self.assertEqual(reopened.next(), 'END'); self.assertEqual(reopened.status, 404)
+
+    def test_website_changes_ride_on_everyones_messages_stream(self):
+        host, member = self.client(), self.client()
+        self.signup(host, 'host@example.test', 'Host')
+        sid = host.get('/api/community/spaces').json()[0]['id']
+        folder = host.post('/api/webmaster/starter', headers=H, json={'space_id': sid}).json()['folder']
+        theirs = host.post('/api/community/spaces', headers=H, json={'name': 'Elsewhere'}).json()['id']
+        self.signup(member, 'member@example.test', 'Member', self.invite(host, theirs))
+        events = Events(member, None, path='/api/messages/events'); self.assertEqual(events.next(), 'ready')
+        self.assertEqual(live.streams_for(member.get('/api/auth/me').json()['id']), 1)
+        # A note from anyone, and a saved website file, even in a space they aren't in.
+        self.assertEqual(member.post('/api/webmaster/notes', headers=H, json={'space_id': sid, 'folder': folder, 'body': 'Bigger logo'}).status_code, 201)
+        self.assertEqual(events.next(), 'website')
+        page = next(i for i in host.get(f'/api/community/spaces/{sid}/files', params={'folder': folder}).json()['items'] if i['name'] == 'index.html')
+        self.assertEqual(host.put(f"/api/community/spaces/{sid}/files/{page['id']}/text", headers=H, json={'text': '<h1>Hi</h1>', 'version': 1}).status_code, 200)
+        self.assertEqual(events.next(), 'website')
+        # A draft is only its author's, so it tells no one.
+        self.assertEqual(host.put(f"/api/community/spaces/{sid}/files/{page['id']}/draft", headers=H, json={'text': '<h1>Hey</h1>', 'version': 2}).status_code, 200)
+        self.assertTrue(events.quiet_for(1.5))
 
     def test_space_changes_reach_members_and_deleting_ends_their_streams(self):
         host, member = self.client(), self.client()

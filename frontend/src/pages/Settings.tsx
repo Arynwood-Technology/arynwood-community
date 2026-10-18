@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Plus, Download, LogOut, UserMinus, KeyRound, Mail, Hash, Radio, Trash2 } from 'lucide-react'
+import { Copy, Plus, Download, LogOut, UserMinus, KeyRound, Mail, Hash, Trash2 } from 'lucide-react'
 import { api, type Member, type Space, type User } from '../lib/community'
 import { Modal } from './Workspace'
 import { useSpaceRefresh } from '../lib/live'
@@ -84,7 +84,7 @@ export function Settings({ space, user, onLogout, onLeft, onChanged }: { space: 
         <h2>Your identity</h2>
         <p><strong>{user.name}</strong> · {user.email}</p>
         <p className="muted-text">Your Grove account signs you into this space with email and password. Email ownership has not been verified. Your space role controls shared plans and membership.</p>
-        <p className="muted-text">Public chat (IRC) nicknames and NKN peer addresses are separate identities. A display name does not prove who a person is; confirm their account or address through a trusted conversation.</p>
+        <p className="muted-text">Public chat (IRC) nicknames are a separate identity. A display name does not prove who a person is; confirm their account through a trusted conversation.</p>
       </section>
       <section className="panel">
         <h2>Your data</h2>
@@ -94,12 +94,11 @@ export function Settings({ space, user, onLogout, onLeft, onChanged }: { space: 
       <PasswordPanel onDone={flash} />
       {user.admin ? <section className="panel">
         <h2>Connections</h2>
-        <p>{user.host_tools ? 'Mail, Public chat and Message run on this computer and are visible only to the host.' : `Mail${user.public_chat ? '' : ', Public chat'} and Message are switched off on this Grove.${user.public_chat ? ` Public chat is open to every member, in ${user.public_chat.channel}.` : ''} Mail sending is used only to email wishes.`}</p>
+        <p>{user.host_tools ? 'Mail and Public chat run on this computer and are visible only to the host.' : `${user.public_chat ? 'Mail is' : 'Mail and Public chat are'} switched off on this Grove.${user.public_chat ? ` Public chat is open to every member, in ${user.public_chat.channel}.` : ''} Mail sending is used only to email wishes.`}</p>
         <ul className="status-list">
           {user.host_tools && <li><Mail size={16} /><span>Mail reading</span><b className={connections?.mail ? 'ok' : ''}>{connections === null ? '...' : connections.mail ? 'Ready' : 'Not set up'}</b></li>}
           <li><Mail size={16} /><span>Mail sending</span><b className={connections?.smtp ? 'ok' : ''}>{connections === null ? '...' : connections.smtp ? 'Ready' : 'Not set up'}</b></li>
-          {user.host_tools && <><li><Hash size={16} /><span>Public chat</span><b className="ok">Connect from Public chat</b></li>
-          <li><Radio size={16} /><span>Message</span><b className="ok">Open Private messages</b></li></>}
+          {user.host_tools && <li><Hash size={16} /><span>Public chat</span><b className="ok">Connect from Public chat</b></li>}
         </ul>
         {user.host_tools && connections && !connections.mail && <p className="muted-text">Add mail settings to <code>.env</code> and restart to read mail over IMAP. Without them, local Thunderbird mailboxes are used when available.</p>}
         {connections && <p className="muted-text">Version {connections.version}</p>}

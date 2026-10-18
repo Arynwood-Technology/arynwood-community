@@ -90,3 +90,21 @@ it('keeps the Website folder for the Grove’s owners and webmasters to change',
   expect(screen.getByRole('button', { name: /Upload/ })).toBeInTheDocument()
   expect(screen.queryByText(/These are the Grove’s website files/)).toBeNull()
 })
+
+it('reads a CSV as a table, and as text on request', async () => {
+  const sheet = entry('budget', 'Budget.csv', { size: 80 })
+  mocked.mockImplementation(async path => path.includes('/files?') ? { folder: '', items: [sheet], used: 80, limit: 10 * 1024 ** 3, file_limit: 1 } : path.endsWith('/versions') ? [] : { ok: true })
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('Line,Amount,Notes\r\nVenue,"1,200",Deposit paid\r\nPosters,85.50,\r\n')))
+  try {
+    show()
+    fireEvent.click(await screen.findByRole('button', { name: 'Budget.csv' }))
+    const table = await screen.findByRole('table')
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Line', 'Amount', 'Notes'])
+    expect(within(table).getByText('1,200')).toHaveClass('number')
+    expect(within(table).getByText('Venue')).not.toHaveClass('number')
+    expect(screen.getByText('2 rows, 3 columns')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show as text' }))
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.getByText(/Venue,"1,200",Deposit paid/)).toBeInTheDocument()
+  } finally { vi.unstubAllGlobals() }
+})

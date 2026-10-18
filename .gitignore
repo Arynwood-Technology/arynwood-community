@@ -4,10 +4,8 @@ node_modules/
 dist/
 __pycache__/
 *.pyc
-nkn/wallet.json
 config/irc_client.json
 data/
 backups/
 release/
 !frontend/package-lock.json
-!nkn/package-lock.json

@@ -7,7 +7,6 @@ import { api } from './lib/community'
 vi.mock('./lib/community',()=>({api:vi.fn()}))
 vi.mock('./pages/DayPlanner',()=>({DayPlanner:()=> <div>Daily planner</div>}))
 vi.mock('./pages/IRC',()=>({IRC:()=>null}))
-vi.mock('./pages/P2PChat',()=>({P2PChat:()=>null}))
 vi.mock('./pages/Mail',()=>({Mail:()=>null}))
 const user={id:'owner',name:'Test owner',email:'owner@example.test',admin:0,role:'member',can_start_spaces:true}
 const home={id:'home',name:'Home',role:'owner'}
@@ -116,5 +115,4 @@ it('opens Public chat to members only when the Grove has a room, and names the l
  expect(screen.getByRole('link',{name:'Public chat'})).toHaveAttribute('href','/community/irc')
  expect(screen.getByRole('link',{name:"Event journal"})).toHaveAttribute('href','/community/discussion')
  expect(screen.getByText(/Event journal is where news and updates for everyone in this space go\. For conversation, use Public chat\./)).toBeInTheDocument()
- expect(screen.queryByRole('link',{name:'Private messages'})).toBeNull()
 })

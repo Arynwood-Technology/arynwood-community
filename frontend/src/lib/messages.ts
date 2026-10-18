@@ -1,12 +1,18 @@
 import { api } from './community'
+import { sendInPieces } from './files'
 
 export interface Person { id: string; name: string }
 export interface Conversation { id: string; with: { id: string | null; name: string }; last: string; last_from_me: boolean; updated: string; unread: number }
 export interface Photo { id: string; width: number; height: number }
-export interface Message { id: string; sender_id: string | null; body: string; photos: Photo[]; created: string; deleted: boolean }
+/** Any other file in a message: it downloads, and is never opened in the Grove's page. */
+export interface Attachment { id: string; name: string; size: number }
+export interface Message { id: string; sender_id: string | null; body: string; photos: Photo[]; files: Attachment[]; created: string; deleted: boolean }
 export interface Thread extends Conversation { messages: Message[]; can_write: boolean }
 
 export const photoUrl = (id: string) => `/community-api/messages/photos/${id}`
+export const fileUrl = (id: string) => `/community-api/messages/files/${id}`
+/** The most a file in Messages can be; bigger ones belong in a space's Files. */
+export const FILE_MAX = 50 * 1024 * 1024
 // Under the Grove's 10 MB limit for one photo, which is also its web server's limit for one request.
 const MOST = 9 * 1024 * 1024
 
@@ -40,13 +46,16 @@ export async function uploadPhoto(blob: Blob): Promise<Photo> {
   return data as Photo
 }
 
+export const uploadAttachment = (file: File, onProgress?: (sent: number) => void) =>
+  sendInPieces<Attachment>('/messages/uploads', { name: file.name, size: file.size }, file, onProgress)
+
 export const messagesApi = {
   people: () => api<Person[]>('/messages/people'),
   conversations: () => api<Conversation[]>('/messages/conversations'),
   start: (userId: string) => api<Conversation>('/messages/conversations', 'POST', { user_id: userId }),
   thread: (id: string) => api<Thread>(`/messages/conversations/${id}`),
   read: (id: string) => api(`/messages/conversations/${id}/read`, 'POST'),
-  send: (id: string, body: string, photos: string[]) => api<Message>(`/messages/conversations/${id}/messages`, 'POST', { body, photos }),
+  send: (id: string, body: string, photos: string[], files: string[] = []) => api<Message>(`/messages/conversations/${id}/messages`, 'POST', { body, photos, files }),
   takeBack: (id: string) => api(`/messages/messages/${id}`, 'DELETE'),
   unread: () => api<{ unread: number }>('/messages/unread'),
 }

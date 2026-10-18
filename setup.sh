@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup: Python environment, NKN bridge, and the production frontend build.
+# One-time setup: Python environment and the production frontend build.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -11,7 +11,6 @@ node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip >/dev/null
 .venv/bin/python -m pip install -r requirements.txt
-npm --prefix nkn ci
 npm --prefix frontend ci
 npm --prefix frontend run build
 

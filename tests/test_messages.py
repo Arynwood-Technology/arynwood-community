@@ -140,6 +140,53 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(member.get(f"/api/messages/photos/{kept['id']}").status_code, 200)
         self.assertEqual(host.get(f"/api/messages/photos/{waiting['id']}").status_code, 404)
 
+    def send_file(self, client, name, data, piece=4000, finish=True):
+        r = client.post('/api/messages/uploads', headers=H, json={'name': name, 'size': len(data)})
+        self.assertEqual(r.status_code, 201, r.text)
+        fid = r.json()['id']
+        for offset in range(0, len(data), piece):
+            self.assertEqual(client.put(f'/api/messages/uploads/{fid}', headers=H, params={'offset': offset}, content=data[offset:offset + piece]).status_code, 200)
+        if finish: self.assertEqual(client.post(f'/api/messages/uploads/{fid}/finish', headers=H).status_code, 201)
+        return fid
+
+    def test_files_go_up_in_pieces_and_only_to_the_conversation(self):
+        host, member, sid, host_id, member_id = self.people()
+        chat = host.post('/api/messages/conversations', headers=H, json={'user_id': member_id}).json()
+        say = lambda client, **body: client.post(f"/api/messages/conversations/{chat['id']}/messages", headers=H, json=body)
+        data = b'%PDF-1.7 <script>alert(1)</script> minutes of the meeting ' * 300
+        fid = self.send_file(host, 'Minutes “draft”.pdf', data, finish=False)
+        self.assertEqual(host.get(f'/api/messages/uploads/{fid}').json(), {'received': len(data), 'size': len(data)})
+        self.assertEqual(host.put(f'/api/messages/uploads/{fid}', headers=H, params={'offset': 0}, content=b'again').status_code, 409)
+        self.assertEqual(say(host, files=[fid]).status_code, 422)  # not finished yet
+        self.assertEqual(member.post(f'/api/messages/uploads/{fid}/finish', headers=H).status_code, 404)
+        self.assertEqual(host.post(f'/api/messages/uploads/{fid}/finish', headers=H).json(), {'id': fid, 'name': 'Minutes “draft”.pdf', 'size': len(data)})
+        # Until it's sent, a file is only its uploader's.
+        self.assertEqual(member.get(f'/api/messages/files/{fid}').status_code, 404)
+        sent = say(host, body='The minutes', files=[fid]).json()
+        self.assertEqual(sent['files'], [{'id': fid, 'name': 'Minutes “draft”.pdf', 'size': len(data)}])
+        got = member.get(f'/api/messages/files/{fid}')
+        self.assertEqual([got.status_code, got.content, got.headers['content-type'], got.headers['content-security-policy']], [200, data, 'application/octet-stream', 'sandbox'])
+        self.assertTrue(got.headers['content-disposition'].startswith('attachment;'))
+        self.assertIn("filename*=utf-8''Minutes%20%E2%80%9Cdraft%E2%80%9D.pdf", got.headers['content-disposition'])
+        # A file goes with one message only; a file on its own reads as one in the list.
+        self.assertEqual(say(member, files=[fid]).status_code, 422)
+        self.assertEqual(say(host, files=[self.send_file(host, 'Poster.ai', b'art')]).status_code, 201)
+        self.assertEqual(member.get('/api/messages/conversations').json()[0]['last'], 'A file')
+        outsider = test_hub.TestClient(test_hub.app); outsider.__enter__(); self.addCleanup(outsider.__exit__, None, None, None)
+        self.signup(outsider, 'third@example.test', 'Third Person', self.invite(host, sid))
+        self.assertEqual(outsider.get(f'/api/messages/files/{fid}').status_code, 404)
+        self.assertEqual(host.post('/api/messages/uploads', headers=H, json={'name': 'Film.mov', 'size': 50 * files.MB + 1}).status_code, 413)
+        self.assertEqual(host.post('/api/messages/uploads', headers=H, json={'name': '../secrets', 'size': 1}).status_code, 422)
+        # Taking the message back takes its file; the sweep clears uploads that never became a message.
+        self.assertEqual(host.delete(f"/api/messages/messages/{sent['id']}", headers=H).status_code, 200)
+        self.assertEqual(member.get(f'/api/messages/files/{fid}').status_code, 404)
+        stalled, waiting = self.send_file(host, 'Half.zip', b'x' * 9000, finish=False), self.send_file(host, 'Unsent.txt', b'never sent')
+        later = time.time() + 2 * 86400
+        files.sweep(lambda: later)
+        for gone in (stalled, waiting): self.assertEqual(host.get(f'/api/messages/uploads/{gone}').status_code, 404)
+        self.assertEqual(host.get(f'/api/messages/files/{waiting}').status_code, 404)
+        self.assertFalse(files.part_path(stalled).exists())
+
 
 if __name__ == '__main__':
     unittest.main()

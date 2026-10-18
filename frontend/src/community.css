@@ -378,7 +378,7 @@ main.full-bleed { overflow: hidden; }
 .welcome-form .primary { min-height: 46px; margin-top: 4px; }
 .welcome-form .text-button { align-self: center; }
 
-/* ── Connection pages (mail, IRC, NKN) ───────────────────────────────────── */
+/* ── Connection pages (mail, IRC) ────────────────────────────────────────── */
 
 .connection-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
 .page-bar, .connection-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
@@ -414,7 +414,7 @@ main.full-bleed { overflow: hidden; }
 .mail-body { padding: 20px 24px; }
 .mail-body pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; line-height: 1.65; }
 
-.irc-side input, .p2p input, .p2p textarea { font-size: 13px !important; padding: 7px 10px !important; }
+.irc-side input { font-size: 13px !important; padding: 7px 10px !important; }
 .irc-user:hover { background: var(--surface2) !important; }
 
 /* ── Motion ──────────────────────────────────────────────────────────────── */
@@ -477,8 +477,8 @@ main.full-bleed { overflow: hidden; }
   .mail-head { padding: 14px 16px; }
   .mail-body { padding: 16px; }
 
-  .irc-layout, .p2p-layout { flex-direction: column; }
-  .irc-side, .p2p-side { width: 100% !important; max-height: 38%; border-right: none !important; border-bottom: 1px solid var(--border); overflow-y: auto; }
+  .irc-layout { flex-direction: column; }
+  .irc-side { width: 100% !important; max-height: 38%; border-right: none !important; border-bottom: 1px solid var(--border); overflow-y: auto; }
   .irc-users { display: none !important; }
 }
 

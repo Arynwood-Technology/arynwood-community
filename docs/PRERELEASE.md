@@ -1,8 +1,28 @@
 # Arynwood Grove release notes
 
-Version: `0.6.1`
+Version: `0.7.0`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.7.0
+
+Websites
+
+- **The site editor.** **Open editor** on a site in Webmaster tools shows its files, their code and a live preview side by side. The preview follows what you type on any page, styles and scripts included, before anything is saved; style changes swap in without reloading. Unsaved work is kept on the server as a draft as you type, seen only by you, so closing the page loses nothing, and **Save** makes it a new version for everyone. Add pages (blank, or a copy of one), folders and pictures from the file list, click anything in the preview to find it in the code, and publish without leaving. If someone saves a file after your draft of it began, the editor offers their version or yours; every version stays in Files.
+- **Preview & notes.** Everyone in the Grove sees a site before it's published, at computer, tablet and phone sizes, and the preview reloads by itself, where they'd scrolled to, whenever a webmaster saves. **Add a note**, click the part of the page it's about, and say what should change or suggest new wording. Each note is pinned where it was made. Webmasters see notes as they're left, find them in the code, put suggested wording in place with one click, reply and mark them done. Adding, closing and deleting notes is in the activity log.
+
+Messages
+
+- **Files in Messages.** Attach any file up to 50 MB with the paperclip, or drop or paste it in, up to six a message. Files go in pieces that pick up after a dropped connection, only the two people in the conversation can download them, and they always download rather than open in the Grove. Files never sent go with the daily sweep.
+- **Private messages are gone.** The host's NKN peer-to-peer inbox is removed, with its server bridge and its Node.js library: releases are smaller, and servers no longer need Node.js. Messages, between members, stays. An old NKN identity file is left where it was, unused; `/community/messages` now opens Messages.
+
+Files
+
+- **CSV and TSV files open as a table**: the first row as headings, columns of numbers lined up on the right, the first 500 rows shown. **Show as text** shows the file as it is.
+
+Fixes
+
+- Live updates share one connection per page, and website notices travel on each member's Messages connection. A Grove reached without HTTP/2, such as one on this computer, no longer stops loading when a few of its pages are open at once.
 
 ## 0.6.1
 

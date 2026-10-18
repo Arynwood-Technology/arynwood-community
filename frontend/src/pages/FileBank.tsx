@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ChevronRight, Download, File as FileIcon, FileText, Folder, FolderPlus, Image as ImageIcon, Pencil, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { api, stamp, type Space, type User } from '../lib/community'
 import { bytes, contentUrl, freeName, inWebsite, isImage, isText, joined, readText, uploadFile, zipUrl, type FileItem, type Listing, type Version } from '../lib/files'
 import { useSpaceRefresh } from '../lib/live'
+import { readCSV } from '../lib/spreadsheet'
 import { Modal } from './Workspace'
 import './files.css'
 // The table editor and New spreadsheet / New document are held back until documents and spreadsheets
@@ -152,7 +153,12 @@ export function FileBank({ space, user, startFolder = '' }: { space: Space; user
 
 function FilePreview({ space, item, locked, onClose, onNewVersion }: { space: Space; item: FileItem; locked: boolean; onClose: () => void; onNewVersion: (file: File) => void }) {
   const [current, setCurrent] = useState(item), [editing, setEditing] = useState(false), [sheet, setSheet] = useState(false)
-  const [text, setText] = useState<string | null>(null), [versions, setVersions] = useState<Version[]>([])
+  const [text, setText] = useState<string | null>(null), [versions, setVersions] = useState<Version[]>([]), [raw, setRaw] = useState(false)
+  // A CSV or TSV reads as a table; one the reader can't make sense of shows as text.
+  const table = useMemo(() => {
+    if (text === null || !/\.(csv|tsv)$/i.test(item.name)) return null
+    try { return readCSV(text, /\.tsv$/i.test(item.name) ? '\t' : ',') } catch { return null }
+  }, [text, item.name])
   useEffect(() => {
     let active = true
     api<Version[]>(`/community/spaces/${space.id}/files/${item.id}/versions`).then(v => { if (active) setVersions(v) }).catch(() => {})
@@ -166,7 +172,8 @@ function FilePreview({ space, item, locked, onClose, onNewVersion }: { space: Sp
   }}/></Suspense>
   return <Modal title={item.name} onClose={onClose}>
     {isImage(item.name) && <img className="file-preview" src={contentUrl(space.id, item.id, '?inline=1')} alt={item.name} />}
-    {text !== null && <pre className="file-text">{text}</pre>}
+    {table && !raw ? <Table rows={table} /> : text !== null && <pre className="file-text">{text}</pre>}
+    {table && <button className="text-button" onClick={() => setRaw(r => !r)}>{raw ? 'Show as a table' : 'Show as text'}</button>}
     {/\.pdf$/i.test(item.name) && <p><a href={contentUrl(space.id, item.id, '?inline=1')} target="_blank" rel="noopener noreferrer">Open the PDF in a new tab</a></p>}
     <p className="muted-text">{bytes(current.size)} · added by {item.author || 'someone who has left'} · {stamp(item.created)}</p>
     <div className="action-row">
@@ -179,4 +186,19 @@ function FilePreview({ space, item, locked, onClose, onNewVersion }: { space: Sp
       <span>Version {v.version} · {bytes(v.size)} · {v.author || 'someone who has left'} · {stamp(v.created)}</span>
       <a href={contentUrl(space.id, item.id, `?version=${v.version}`)} download>Download</a></li>)}</ul></section>}
   </Modal>
+}
+
+const TABLE_ROWS = 500
+const NUMBER = /^[-+]?[$€£]?\s?\d[\d,]*(\.\d+)?%?$/
+/** A CSV's rows under its first row's headings. Columns of numbers line up on the right. */
+function Table({ rows }: { rows: string[][] }) {
+  const [head, ...body] = rows, shown = body.slice(0, TABLE_ROWS)
+  const numeric = head.map((_, c) => body.some(r => r[c].trim()) && body.every(r => !r[c].trim() || NUMBER.test(r[c].trim())))
+  return <>
+    <div className="csv-table" tabIndex={0} role="region" aria-label="Table"><table>
+      <thead><tr>{head.map((name, c) => <th key={c} scope="col" className={numeric[c] ? 'number' : undefined}>{name}</th>)}</tr></thead>
+      <tbody>{shown.map((row, r) => <tr key={r}>{row.map((value, c) => <td key={c} className={numeric[c] ? 'number' : undefined}>{value}</td>)}</tr>)}</tbody>
+    </table></div>
+    <p className="muted-text">{body.length} {body.length === 1 ? 'row' : 'rows'}, {head.length} {head.length === 1 ? 'column' : 'columns'}{body.length > TABLE_ROWS ? `. Showing the first ${TABLE_ROWS}; download it to see them all.` : ''}</p>
+  </>
 }

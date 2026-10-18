@@ -1,10 +1,11 @@
-"""Messages: private conversations between two members, with photos.
+"""Messages: private conversations between two members, with photos and files.
 
 Anyone can write to someone they share a space with. A conversation belongs to the two people
 in it: the Grove's owners and managers can't read it, and the activity log doesn't mention it
 (the server's operator can still read the database, as with everything here). Photos go up one
 at a time before the message that carries them, are kept without their metadata, and are shown
-only to the people in the conversation."""
+only to the people in the conversation. Other files go up in pieces, as in Files, and are only ever
+downloaded, never opened in the Grove's page."""
 import hashlib
 import os
 import shutil
@@ -21,6 +22,8 @@ from . import files, live, photos
 router = APIRouter()
 PHOTO_MAX = 10 * files.MB      # as sent; members' pages shrink photos well below this
 PHOTOS_PER_MESSAGE = 6
+FILE_MAX = 50 * files.MB       # bigger things belong in a space's Files
+FILES_PER_MESSAGE = 6
 TEXT_MAX = 4000
 PAGE = 200                     # messages shown at once, newest last
 
@@ -45,11 +48,13 @@ def other(c, cid, uid):
 
 def summary(c, row, uid):
     them = other(c, row['id'], uid)
-    last = c.execute('''SELECT m.body,m.sender_id,m.created,(SELECT COUNT(*) FROM message_photos p WHERE p.message_id=m.id) AS photos
+    last = c.execute('''SELECT m.body,m.sender_id,m.created,(SELECT COUNT(*) FROM message_photos p WHERE p.message_id=m.id) AS photos,
+                        (SELECT COUNT(*) FROM message_files f WHERE f.message_id=m.id) AS files
                         FROM messages m WHERE m.conversation_id=? AND m.deleted IS NULL ORDER BY m.created DESC LIMIT 1''', (row['id'],)).fetchone()
     read = c.execute('SELECT read_at FROM conversation_members WHERE conversation_id=? AND user_id=?', (row['id'], uid)).fetchone()['read_at']
     unread = c.execute('SELECT COUNT(*) FROM messages WHERE conversation_id=? AND deleted IS NULL AND sender_id<>? AND created>?', (row['id'], uid, read)).fetchone()[0]
-    preview = '' if not last else last['body'] or ('A photo' if last['photos'] == 1 else f"{last['photos']} photos")
+    preview = '' if not last else last['body'] or ('A photo' if last['photos'] == 1 else f"{last['photos']} photos" if last['photos']
+                                                    else 'A file' if last['files'] == 1 else f"{last['files']} files")
     return {'id': row['id'], 'with': dict(them) if them else {'id': None, 'name': 'Someone who has left'},
             'last': preview, 'last_from_me': bool(last and last['sender_id'] == uid), 'updated': row['updated'], 'unread': unread}
 
@@ -87,8 +92,10 @@ def start(body: StartBody, current=Depends(user)):
 def message(c, row):
     shown = [{'id': p['id'], 'width': p['width'], 'height': p['height']} for p in
              c.execute('SELECT id,width,height FROM message_photos WHERE message_id=? ORDER BY created', (row['id'],))]
+    attached = [dict(f) for f in c.execute('SELECT id,name,size FROM message_files WHERE message_id=? ORDER BY created', (row['id'],))]
     return {'id': row['id'], 'sender_id': row['sender_id'], 'body': row['body'] if not row['deleted'] else '',
-            'photos': shown if not row['deleted'] else [], 'created': row['created'], 'deleted': bool(row['deleted'])}
+            'photos': shown if not row['deleted'] else [], 'files': attached if not row['deleted'] else [],
+            'created': row['created'], 'deleted': bool(row['deleted'])}
 
 @router.get('/conversations/{cid}')
 def read(cid: str, current=Depends(user)):
@@ -110,6 +117,7 @@ def seen(cid: str, current=Depends(user)):
 class MessageBody(BaseModel):
     body: str = Field(default='', max_length=TEXT_MAX)
     photos: list[str] = Field(default_factory=list, max_length=PHOTOS_PER_MESSAGE)
+    files: list[str] = Field(default_factory=list, max_length=FILES_PER_MESSAGE)
     @field_validator('body')
     @classmethod
     def trimmed(cls, value): return value.strip()
@@ -117,7 +125,7 @@ class MessageBody(BaseModel):
 @router.post('/conversations/{cid}/messages', status_code=201)
 def send(cid: str, body: MessageBody, current=Depends(user)):
     uid = current['id']
-    if not body.body and not body.photos: raise HTTPException(422, 'Write something, or add a photo.')
+    if not body.body and not body.photos and not body.files: raise HTTPException(422, 'Write something, or add a photo or a file.')
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         conversation(c, cid, uid)
@@ -125,11 +133,15 @@ def send(cid: str, body: MessageBody, current=Depends(user)):
         if not them or not shares_a_space(c, uid, them['id']): raise HTTPException(403, 'You no longer share a space with them, so you can’t write here.')
         mine = {r['id'] for r in c.execute(f"SELECT id FROM message_photos WHERE owner_id=? AND message_id IS NULL AND id IN ({','.join('?' * len(body.photos))})", (uid, *body.photos))} if body.photos else set()
         if len(mine) != len(set(body.photos)): raise HTTPException(422, 'A photo is missing. Add it again.')
+        ready = {r['id'] for r in c.execute(f"SELECT id FROM message_files WHERE owner_id=? AND message_id IS NULL AND blob IS NOT NULL AND id IN ({','.join('?' * len(body.files))})", (uid, *body.files))} if body.files else set()
+        if len(ready) != len(set(body.files)): raise HTTPException(422, 'A file is missing or still on its way. Add it again.')
         mid, stamp = identifier(), now()
         c.execute('INSERT INTO messages VALUES (?,?,?,?,?,?)', (mid, cid, uid, body.body, stamp, None))
         for order, pid in enumerate(body.photos):
             # Photos keep the order they were chosen in.
             c.execute('UPDATE message_photos SET message_id=?,created=? WHERE id=?', (mid, f'{stamp}#{order:02d}', pid))
+        for order, fid in enumerate(body.files):
+            c.execute('UPDATE message_files SET message_id=?,created=? WHERE id=?', (mid, f'{stamp}#{order:02d}', fid))
         c.execute('UPDATE conversations SET updated=? WHERE id=?', (stamp, cid))
         c.execute('UPDATE conversation_members SET read_at=? WHERE conversation_id=? AND user_id=?', (stamp, cid, uid))
         sent = message(c, c.execute('SELECT * FROM messages WHERE id=?', (mid,)).fetchone())
@@ -138,13 +150,14 @@ def send(cid: str, body: MessageBody, current=Depends(user)):
 
 @router.delete('/messages/{mid}')
 def unsend(mid: str, current=Depends(user)):
-    """Takes back a message: its words and photos go for everyone; that something was said stays."""
+    """Takes back a message: its words, photos and files go for everyone; that something was said stays."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         row = c.execute('SELECT * FROM messages WHERE id=? AND sender_id=?', (mid, current['id'])).fetchone()
         if not row or row['deleted']: raise HTTPException(404, 'Message not found.')
         c.execute("UPDATE messages SET body='',deleted=? WHERE id=?", (now(), mid))
         c.execute('DELETE FROM message_photos WHERE message_id=?', (mid,))
+        c.execute('DELETE FROM message_files WHERE message_id=?', (mid,))
         people = [r['user_id'] for r in c.execute('SELECT user_id FROM conversation_members WHERE conversation_id=?', (row['conversation_id'],))]
     for person in people: live.publish(inbox(person))
     return {'ok': True}
@@ -188,6 +201,80 @@ def photo(pid: str, current=Depends(user)):
     return FileResponse(files.blob_path(row['blob']), media_type=row['media_type'],
                         headers={'Content-Security-Policy': 'sandbox', 'Content-Disposition': f'inline; filename="photo-{pid[:8]}.{row["media_type"].split("/")[1]}"'})
 
+# Files: started, sent in pieces that pick up where the server got to, and finished, as in Files.
+class FileStart(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    size: int = Field(ge=0)
+
+@router.post('/uploads', status_code=201)
+def start_file(body: FileStart, current=Depends(user)):
+    name = files.clean_name(body.name)
+    if body.size > FILE_MAX: raise HTTPException(413, f'Files in Messages can be up to {FILE_MAX // files.MB} MB. Put bigger ones in a space’s Files.')
+    files.storage().mkdir(mode=0o700, parents=True, exist_ok=True)
+    if shutil.disk_usage(files.storage()).free - body.size < files.MIN_FREE: raise HTTPException(507, 'The server is nearly out of space. Tell the host.')
+    fid = identifier()
+    with db() as c: c.execute('INSERT INTO message_files (id,owner_id,name,size,created) VALUES (?,?,?,?,?)', (fid, current['id'], name, body.size, now()))
+    files.part_path(fid).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    files.part_path(fid).touch(mode=0o600)
+    return {'id': fid, 'chunk': files.CHUNK, 'received': 0}
+
+def unfinished(c, fid, uid):
+    row = c.execute('SELECT * FROM message_files WHERE id=? AND owner_id=? AND blob IS NULL', (fid, uid)).fetchone()
+    if not row: raise HTTPException(404, 'This upload has stopped. Add the file again.')
+    return row
+
+@router.get('/uploads/{fid}')
+def file_status(fid: str, current=Depends(user)):
+    with db() as c: row = unfinished(c, fid, current['id'])
+    return {'received': row['received'], 'size': row['size']}
+
+def write_file_piece(fid, uid, offset, data):
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row = unfinished(c, fid, uid)
+        if offset != row['received']: raise HTTPException(409, f"Expected the piece at {row['received']}.")
+        if offset + len(data) > row['size']: raise HTTPException(422, 'This is more than the file’s size.')
+        with open(files.part_path(fid), 'r+b') as part:
+            part.seek(offset); part.write(data)
+        c.execute('UPDATE message_files SET received=? WHERE id=?', (offset + len(data), fid))
+    return {'received': offset + len(data)}
+
+@router.put('/uploads/{fid}')
+async def file_piece(fid: str, offset: int, request: Request, current=Depends(user)):
+    if int(request.headers.get('content-length') or 0) > files.CHUNK_MAX: raise HTTPException(413, 'Send at most 8 MB at a time.')
+    data = bytearray()
+    async for piece in request.stream():
+        data += piece
+        if len(data) > files.CHUNK_MAX: raise HTTPException(413, 'Send at most 8 MB at a time.')
+    return await run_in_threadpool(write_file_piece, fid, current['id'], offset, bytes(data))
+
+@router.post('/uploads/{fid}/finish', status_code=201)
+def finish_file(fid: str, current=Depends(user)):
+    with db() as c: row = unfinished(c, fid, current['id'])
+    if row['received'] != row['size']: raise HTTPException(409, 'The upload is not complete yet.')
+    blob = files.sha256(files.part_path(fid))
+    target = files.blob_path(blob)
+    if target.exists(): files.part_path(fid).unlink()
+    else:
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.replace(files.part_path(fid), target)
+    with db() as c:
+        c.execute('DELETE FROM orphan_blobs WHERE blob=?', (blob,))
+        c.execute('UPDATE message_files SET blob=? WHERE id=?', (blob, fid))
+    return {'id': fid, 'name': row['name'], 'size': row['size']}
+
+@router.get('/files/{fid}')
+def attachment(fid: str, current=Depends(user)):
+    """A message's file, for the two people in its conversation (or its sender, before it's sent).
+    It always downloads: a page or a script in it never runs at the Grove's address."""
+    with db() as c:
+        row = c.execute('''SELECT f.* FROM message_files f LEFT JOIN messages m ON m.id=f.message_id
+                           LEFT JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=?
+                           WHERE f.id=? AND f.blob IS NOT NULL AND (cm.user_id IS NOT NULL OR (f.message_id IS NULL AND f.owner_id=?))''', (current['id'], fid, current['id'])).fetchone()
+    if not row: raise HTTPException(404, 'File not found.')
+    return FileResponse(files.blob_path(row['blob']), media_type='application/octet-stream', filename=row['name'],
+                        content_disposition_type='attachment', headers={'Content-Security-Policy': 'sandbox'})
+
 @router.get('/unread')
 def unread(current=Depends(user)):
     with db() as c:
@@ -199,8 +286,9 @@ def signed_in(token, uid):
 
 @router.get('/events')
 async def events(request: Request, current=Depends(user)):
-    """Tells this person's open pages when a conversation of theirs changes."""
+    """Tells this person's open pages when a conversation of theirs changes, and, as `website`
+    events, when one of the Grove's websites or its notes does: every signed-in page has this open."""
     token = digest(session_token(request))
     if live.streams_for(current['id']) >= live.MAX_STREAMS_PER_USER: raise HTTPException(429, 'Too many open pages. Close some and reload.')
-    return StreamingResponse(live.stream(inbox(current['id']), current['id'], request.headers.get('last-event-id'), lambda: signed_in(token, current['id'])),
+    return StreamingResponse(live.stream(inbox(current['id']), current['id'], request.headers.get('last-event-id'), lambda: signed_in(token, current['id']), also=(live.WEBSITE,)),
                              media_type='text/event-stream', headers={'X-Accel-Buffering': 'no'})

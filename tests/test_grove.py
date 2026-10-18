@@ -51,15 +51,3 @@ class GroveTests(unittest.TestCase):
         with self.assertRaises(urllib.error.URLError):
             NoRedirect().redirect_request(None,None,302,'Found',{},'https://example.test/')
 
-    def test_p2p_file_payload_is_forwarded_only_from_host(self):
-        import json
-        from unittest.mock import AsyncMock
-        host, member, sid = self.host_and_member()
-        payload={'type':'send','dest':'qa-peer','contentType':'file','content':json.dumps({'name':'QA.txt','base64':'UUE='}),'id':'qa-file'}
-        with patch('backend.routers.p2p._send_to_bridge',new_callable=AsyncMock,return_value=True) as bridge:
-            with host.websocket_connect('/api/p2p/ws') as socket:
-                socket.receive_json()
-                socket.send_json(payload)
-                socket.send_json({'type':'send','dest':'','content':''})
-                socket.receive_json()
-            bridge.assert_awaited_once_with(payload)

@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.6.1. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -53,21 +53,21 @@ Each person makes their own account on your Grove, from any computer or phone. E
 - **Public chat:** when the Grove names an IRC room (`GROVE_CHAT_CHANNEL`), every member can join it from the Grove with a nickname of their own. Conversation goes here; Updates is for news.
 - **Spaces and people:** the first account is the host. Anyone can start more spaces. A space's owners rename it and give it a topic, invite and remove people, make other members owners, and can delete it for everyone; a space always keeps at least one owner. Members can leave.
 - **Live updates:** a change by anyone reaches every open page in that space at once.
-- **Messages:** private conversations with anyone you share a space with, with photos (shrunk, and stripped of location and camera details). Owners and managers can't read them.
+- **Messages:** private conversations with anyone you share a space with, with photos (shrunk, and stripped of location and camera details) and files up to 50 MB. Owners and managers can't read them.
 - **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type.
 - **Website:** each Grove can show a static website at its own address, with the members' page at `/community`. Owners, and the webmasters they choose, bring a site in by its address, as a .zip or as a one-page starter; edit it in Files; preview the whole site; and publish it, put an earlier version back or take it down. Everyone in the Grove can preview it.
 - **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
 - **Your group's look:** owners choose it in **Look & feel**: name, tagline, website and shop links; background, text and accent colours, light or dark, with readable contrast worked out for them; the login page's colour and picture; heading and body type; corners; and the logo. **Start from your website** suggests all of it from the Grove's website. The host's settings (see Configuration) are the starting point.
 - **Workspace setup:** space owners stage a film festival or a client project: department checklists, operating notes, documents, asset folders and trackers, which are CSV files for any spreadsheet program. See the [producer workspace guide](docs/PRODUCER-WORKSPACE.md).
-- **Host connections (host only):** Mail over IMAP/SMTP, a full IRC client in Public chat (any server; irc.arynwood.com and `#general` by default), and Private messages over NKN.
+- **Host connections (host only):** Mail over IMAP/SMTP, and a full IRC client in Public chat (any server; irc.arynwood.com and `#general` by default).
 
 ## Upgrading from Arynwood Community 0.3
 
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.6.1.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.
@@ -99,7 +99,7 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `GROVE_BRAND_SITE_URL`, `GROVE_BRAND_SITE_LABEL` | Website link and label (default: Website). HTTPS; HTTP allowed only on localhost or loopback. |
 | `GROVE_BRAND_SHOP_URL`, `GROVE_BRAND_SHOP_LABEL` | Shop link and label (default: Shop), with the same URL rules. |
 | `GROVE_BRAND_LOGO` | File inside the data directory: PNG, JPEG or WebP, at most 512 KB. Invalid files are ignored; branded Groves never show the Arynwood tree. |
-| `GROVE_HOST_TOOLS` | `off` hides Mail, the host's IRC client and Private messages, which use the host’s own accounts, on a Grove run for someone else. Default `on`. |
+| `GROVE_HOST_TOOLS` | `off` hides Mail and the host's IRC client, which use the host’s own accounts, on a Grove run for someone else. Default `on`. |
 | `GROVE_CHAT_CHANNEL` | Opens Public chat to every member, in this IRC room, e.g. `#RogueFest`. Unset: Public chat is only the host's IRC client. |
 | `GROVE_CHAT_NICK` | Each member's first nickname in Public chat; every `#` becomes a random digit. Default `Guest###`. Members can change theirs. |
 | `GROVE_CHAT_SERVER` | Public chat's IRC server, `host` or `host:port`. Default `irc.arynwood.com:6697` (TLS). Every member connects from the Grove's server address, so the IRC server must allow that many connections from it. |
@@ -110,7 +110,7 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `GROVE_SETUP_CODE` | Set by the installer: required to create the host account. |
 | `GROVE_ORIGIN`, `GROVE_HOSTS` | Extra page origins and host names to accept, comma-separated. |
 | `MAIL_IMAP_*`, `MAIL_SMTP_*`, `MAIL_FROM` | The host's mailbox for Mail. |
-| `NKN_IDENTIFIER`, `SOCKS5_PROXY` | Prefix for the Private messages address; optional SOCKS5 proxy for IRC. |
+| `SOCKS5_PROXY` | Optional SOCKS5 proxy for IRC. |
 
 Keep the service on `127.0.0.1` behind an HTTPS reverse proxy. Do not expose it over plain HTTP.
 
@@ -129,8 +129,7 @@ In **Look & feel**, owners may also choose a light background: the same rules th
 ## Your data
 
 - Accounts, spaces and everything in them: `grove.sqlite3` in the data folder (`community.sqlite3` on an upgraded 0.3 install), readable by the service only. Servers keep 14 daily copies in `backups/`, and `arynwood-grove offsite` copies everything, files included, off the server each night (see deploy/README.md). Export a space as JSON from People & identity.
-- Private messages identity: `nkn/wallet.json` (on an installed server, `nkn-wallet.json` in the data folder). Keep a private backup; losing it changes the address.
-- In the browser: Private messages contacts and history, IRC settings, and your last-selected space.
+- In the browser: IRC settings and your last-selected space.
 
 ## Checks
 
@@ -141,7 +140,7 @@ npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix fro
 scripts/package.sh         # builds release/arynwood-grove-<version>.tar.gz
 ```
 
-Tests use mocked mail, IRC and NKN services; they never contact live accounts.
+Tests use mocked mail and IRC services; they never contact live accounts.
 
 ## Security
 
@@ -150,7 +149,7 @@ Tests use mocked mail, IRC and NKN services; they never contact live accounts.
 - Every state-changing request needs a custom header and an allowed `Origin`; WebSocket handshakes check the origin too.
 - A strict Content Security Policy, with no third-party scripts, styles or fonts. Change notices carry no content: pages re-read through the normal permission checks.
 - On a server, the service runs as its own user with a read-only program folder; only the data folder is writable.
-- Mail, the host's IRC client and Private messages are for the host only. **On a public server the host reaches them from the public address**, so use a strong, unique host password.
+- Mail and the host's IRC client are for the host only. **On a public server the host reaches them from the public address**, so use a strong, unique host password.
 - Members' Public chat connects only to the Grove's configured IRC server and room. The browser chooses nothing but a nickname, no IRC password is sent, and each member may hold two connections at once.
 
 ## FAQ

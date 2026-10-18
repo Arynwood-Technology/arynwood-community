@@ -8,7 +8,7 @@ os.environ.setdefault('GROVE_HOSTS', 'testserver,localhost,127.0.0.1')
 from fastapi.testclient import TestClient
 from backend.api import app
 from backend.community import store
-from backend.routers import irc, mail, p2p
+from backend.routers import irc, mail
 
 H = {'X-Community-Request': '1'}
 PASSWORD = 'correct horse battery staple'
@@ -49,9 +49,8 @@ class HubTests(unittest.TestCase):
             health = client.get('/api/health').json()
             self.assertEqual(health['name'], 'Arynwood Grove')
             self.assertEqual(health['version'], store.VERSION)
-            for path in ['/api/servers', '/api/irc/bots', '/api/tools', '/api/spotify/status']:
+            for path in ['/api/servers', '/api/irc/bots', '/api/tools', '/api/spotify/status', '/api/p2p/status']:
                 self.assertEqual(client.get(path).status_code, 404)
-            self.assertEqual(client.get('/api/p2p/status').status_code, 401)
 
     def test_first_account_space_and_permissions(self):
         with TestClient(app) as client:
@@ -274,17 +273,6 @@ class HubTests(unittest.TestCase):
             self.assertEqual(r.status_code, 400)
             r = client.post('/api/mail/send', headers=H, json={'to':'a@example.test\r\nBcc: b@example.test','subject':'Hi','body':'x'})
             self.assertEqual(r.status_code, 422)
-
-    def test_wallet_import_is_private(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            wallet = os.path.join(tmp, 'wallet.json')
-            with patch.object(p2p.os.path, 'abspath', side_effect=lambda p: wallet if p.endswith('wallet.json') else os.path.realpath(p)):
-                with TestClient(app) as client:
-                    self.signup(client)
-                    r = client.post('/api/p2p/wallet', headers=H, json={'seed': 'a' * 64})
-                    self.assertEqual(r.status_code, 200, r.text)
-                    self.assertEqual(client.post('/api/p2p/wallet', headers=H, json={'seed': 'xyz'}).status_code, 400)
-            self.assertEqual(stat.S_IMODE(os.stat(wallet).st_mode), 0o600)
 
     def run_irc(self, server_lines, commands=()):
         class Writer:

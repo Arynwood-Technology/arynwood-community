@@ -38,6 +38,13 @@ it('describes the website being brought in, published, put back and taken down',
   expect(describeActivity(row('webmaster_changed', { target_name: 'Ada', space_name: '', details: { webmaster: false } }))).toBe('Sam stopped Ada being a webmaster')
 })
 
+it('describes notes left on a website preview', () => {
+  const note = (action: string) => describeActivity(row(action, { target_name: 'Website/roguefest-site', details: { page: '/about', note: 'The date moved' } }))
+  expect(note('site_note_added')).toBe('Sam left a note on /about of “Website/roguefest-site”: “The date moved”')
+  expect(note('site_note_done')).toBe('Sam marked a note on /about of “Website/roguefest-site” done: “The date moved”')
+  expect(note('site_note_reopened')).toBe('Sam opened a note on /about of “Website/roguefest-site” again: “The date moved”')
+})
+
 it('describes changes to the Grove’s look', () => {
   expect(describeActivity(row('look_changed', { space_name: '' }))).toBe('Sam changed how the Grove looks')
   expect(describeActivity(row('look_picture_changed', { space_name: '', details: { picture: 'picture', removed: true } }))).toBe('Sam removed the Grove’s login page picture')

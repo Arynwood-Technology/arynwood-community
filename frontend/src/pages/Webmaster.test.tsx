@@ -12,7 +12,7 @@ const member: User = { ...owner, id: 'm', name: 'Member', admin: 0, role: 'membe
 const job = (extra: Partial<SiteImport> = {}): SiteImport => ({ id: 'i1', space_id: 'web', space_name: 'Website team', url: 'https://roguefestfilmfestival.com/',
   folder: 'Website/roguefestfilmfestival.com', status: 'done', added: 20, changed: 0, unchanged: 0, skipped: 1, bytes: 6 * 1024 * 1024, message: '',
   started: '2026-10-15T09:00:00Z', finished: '2026-10-15T09:01:00Z', notes: { elsewhere: ['player.vimeo.com', 'filmfreeway.com'], skipped: [['/assets/submission-burst.svg', 'the site answered 404']], server: 'cloudflare' }, ...extra })
-const site: Site = { space_id: 'web', space_name: 'Website team', folder: 'Website/roguefest-site', name: 'roguefest-site', member: true, files: 75, bytes: 1800000, updated: '2026-10-16T09:00:00Z' }
+const site: Site = { space_id: 'web', space_name: 'Website team', folder: 'Website/roguefest-site', name: 'roguefest-site', member: true, files: 75, bytes: 1800000, updated: '2026-10-16T09:00:00Z', notes: 0 }
 const release = (extra: Partial<Release> = {}): Release => ({ id: 'r1', space_id: 'web', space_name: 'Website team', folder: 'Website/roguefest-site', files: 75, bytes: 1800000,
   user_name: 'Host', created: '2026-10-16T10:00:00Z', live: true, ...extra })
 const state = (extra: Partial<SiteState> = {}): SiteState => ({ live: null, releases: [], sites: [site], ...extra })
@@ -26,7 +26,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks() })
 it('walks owners and webmasters through bringing a site in, changing it, and publishing it', async () => {
   serve(() => state())
   render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} />)
-  for (const step of ['Bring your website in', 'Change what you need', 'Preview and publish']) expect(screen.getByRole('heading', { name: new RegExp(step) })).toBeInTheDocument()
+  for (const step of ['Bring your website in', 'Change what you need', 'Gather notes, then publish']) expect(screen.getByRole('heading', { name: new RegExp(step) })).toBeInTheDocument()
   for (const way of ['From its address', 'From a .zip', 'Start with one page']) expect(screen.getByRole('heading', { name: way })).toBeInTheDocument()
   expect(screen.getByLabelText('Keep it in')).toHaveValue('crew')
   expect(await screen.findByText('Nothing is published yet. Visitors to localhost:3000 go to the members’ page.')).toBeInTheDocument()
@@ -109,29 +109,28 @@ it('publishes after asking, then puts an earlier version back or takes the site 
   expect(await screen.findByText('The website is down. Visitors to localhost:3000 go to the members’ page.')).toBeInTheDocument()
 })
 
-it('lets every member preview, but not change or publish', async () => {
-  serve(() => state({ live: release(), sites: [site, { ...site, space_id: 'other', space_name: 'Board', member: false, folder: 'Website/draft', name: 'draft' }] }),
-    path => path === '/webmaster/previews' ? { url: '/api/community/preview/token/' } : undefined)
-  const tab = { opener: {}, location: { href: '' }, close: vi.fn() }
-  vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
-  render(<Webmaster user={member} spaces={spaces} current="crew" onOpen={vi.fn()} />)
+it('lets every member preview and leave notes, but not change or publish', async () => {
+  serve(() => state({ live: release(), sites: [site, { ...site, space_id: 'other', space_name: 'Board', member: false, folder: 'Website/draft', name: 'draft', notes: 2 }] }))
+  const onShow = vi.fn()
+  render(<Webmaster user={member} spaces={spaces} current="crew" onOpen={vi.fn()} onShow={onShow} />)
   expect(screen.getByRole('heading', { name: 'Website' })).toBeInTheDocument()
   expect(await screen.findByRole('link', { name: 'Visit the site' })).toBeInTheDocument()
-  for (const hidden of [/Bring your website in/, /Publish/, /Take it down/, /Import website/]) expect(screen.queryByRole('button', { name: hidden }) ?? screen.queryByRole('heading', { name: hidden })).toBeNull()
+  for (const hidden of [/Bring your website in/, /Publish/, /Take it down/, /Import website/, /Open editor/]) expect(screen.queryByRole('button', { name: hidden }) ?? screen.queryByRole('heading', { name: hidden })).toBeNull()
   expect(screen.getAllByRole('button', { name: /Open in Files/ })).toHaveLength(1)
+  expect(screen.getByText(/Board · 75 files, 1.7 MB .* · 2 open notes/)).toBeInTheDocument()
   expect(mocked).not.toHaveBeenCalledWith('/webmaster/imports')
-  fireEvent.click(screen.getAllByRole('button', { name: /Preview/ })[1])
-  await waitFor(() => expect(tab.location.href).toBe('/api/community/preview/token/'))
-  expect(tab.opener).toBeNull()
-  expect(mocked).toHaveBeenCalledWith('/webmaster/previews', 'POST', { space_id: 'other', folder: 'Website/draft' })
+  fireEvent.click(screen.getAllByRole('button', { name: /Preview & notes/ })[1])
+  expect(onShow).toHaveBeenCalledWith({ space: 'other', folder: 'Website/draft', mode: 'review' })
 })
 
-it('offers a link when the browser blocks the preview tab', async () => {
-  serve(() => state(), path => path === '/webmaster/previews' ? { url: '/api/community/preview/token/' } : undefined)
-  vi.spyOn(window, 'open').mockReturnValue(null)
-  render(<Webmaster user={member} spaces={spaces} onOpen={vi.fn()} />)
-  fireEvent.click(await screen.findByRole('button', { name: /Preview/ }))
-  expect(await screen.findByRole('link', { name: 'open it' })).toHaveAttribute('href', '/api/community/preview/token/')
+it('opens a site in the editor for webmasters', async () => {
+  serve(() => state())
+  const onShow = vi.fn()
+  render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} onShow={onShow} />)
+  fireEvent.click(await screen.findByRole('button', { name: /Open editor/ }))
+  expect(onShow).toHaveBeenCalledWith({ space: 'web', folder: 'Website/roguefest-site', mode: 'edit' })
+  fireEvent.click(screen.getByRole('button', { name: /Preview & notes/ }))
+  expect(onShow).toHaveBeenLastCalledWith({ space: 'web', folder: 'Website/roguefest-site', mode: 'review' })
 })
 
 it('uses the spaces once they arrive, even if the page opened before them', async () => {

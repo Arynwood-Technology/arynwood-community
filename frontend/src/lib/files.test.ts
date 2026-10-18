@@ -28,6 +28,15 @@ it('sends a file in the pieces the Grove asks for, then finishes it', async () =
   expect(mocked).toHaveBeenLastCalledWith('/community/spaces/crew/uploads/u1/finish', 'POST')
 })
 
+it('sends a file for Messages the same way, to its own address', async () => {
+  const { uploadAttachment } = await import('./messages')
+  mocked.mockImplementation(async (path, method) => method === 'POST' && path.endsWith('/uploads') ? { id: 'm1', chunk: 8 } : { id: 'm1', name: 'Screener.mov', size: 10 })
+  expect(await uploadAttachment(file(10))).toEqual({ id: 'm1', name: 'Screener.mov', size: 10 })
+  expect(mocked).toHaveBeenCalledWith('/messages/uploads', 'POST', { name: 'Screener.mov', size: 10 })
+  expect(sent).toEqual([{ offset: '0', size: 8 }, { offset: '8', size: 2 }])
+  expect(mocked).toHaveBeenLastCalledWith('/messages/uploads/m1/finish', 'POST')
+})
+
 it('picks up where the server got to after a dropped connection', async () => {
   mocked.mockImplementation(async (path, method) => method === 'POST' && path.endsWith('/uploads') ? { id: 'u1', chunk: 4 } : path.endsWith('/u1') ? { received: 4 } : { id: 'f1' })
   replies = [200, 'drop']

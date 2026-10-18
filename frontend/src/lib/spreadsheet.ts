@@ -1,5 +1,6 @@
-/** CSV tables only: formulas and macros are never evaluated. */
-export function parseCSV(text: string): string[][] {
+/** CSV tables only: formulas and macros are never evaluated. Rows come padded to the same width.
+ *  `separator` is a tab for TSV. */
+export function readCSV(text: string, separator = ','): string[][] {
   const rows: string[][] = [], row: string[] = []
   let value = '', quoted = false, closed = false
   const source = text.replace(/^\uFEFF/, '')
@@ -9,7 +10,7 @@ export function parseCSV(text: string): string[][] {
       if (c === '"') {
         if (source[i + 1] === '"') { value += '"'; i++ } else { quoted = false; closed = true }
       } else value += c
-    } else if (c === ',') { row.push(value); value = ''; closed = false }
+    } else if (c === separator) { row.push(value); value = ''; closed = false }
     else if (c === '\r' || c === '\n') {
       if (c === '\r' && source[i + 1] === '\n') i++
       row.push(value); rows.push([...row]); row.length = 0; value = ''; closed = false
@@ -22,9 +23,14 @@ export function parseCSV(text: string): string[][] {
   if (quoted) throw new Error('This CSV has an unclosed quoted cell. Open the source editor to correct it.')
   if (value || row.length || closed) { row.push(value); rows.push([...row]) }
   if (!rows.length) rows.push(['Column 1'])
-  const width = Math.max(...rows.map(r => r.length))
+  const width = rows.reduce((most, r) => Math.max(most, r.length), 0)
+  return rows.map(r => r.length < width ? [...r, ...Array<string>(width - r.length).fill('')] : r)
+}
+/** A CSV for the table editor, which keeps to a size it can show. */
+export function parseCSV(text: string): string[][] {
+  const rows = readCSV(text), width = rows[0].length
   if (rows.length > 1001 || width > 40 || rows.length * width > 20000) throw new Error('The table editor supports 1,000 data rows, 40 columns and 20,000 cells. Download this file or use the source editor for larger tables.')
-  return rows.map(r => [...r, ...Array<string>(width - r.length).fill('')])
+  return rows
 }
 export function writeCSV(rows: string[][]): string {
   return rows.map(row => row.map(cell => /[",\r\n]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell).join(',')).join('\r\n') + '\r\n'

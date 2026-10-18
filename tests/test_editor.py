@@ -9,7 +9,7 @@ import test_hub
 import test_files
 from fastapi.testclient import TestClient
 from backend.api import app
-from backend.community import editor, files, store
+from backend.community import editor, files, live, store
 
 H = test_hub.H
 
@@ -32,7 +32,7 @@ class EditorTests(unittest.TestCase):
     def test_any_member_saves_a_new_version_and_keeps_the_previous_one(self):
         host, member, sid = self.host_and_member()
         original = self.upload(host, sid, 'index.html', b'<h1>Before</h1>').json()
-        with patch.object(editor.live, 'publish') as publish:
+        with patch.object(live, 'publish') as publish:
             result = self.save(member, sid, original['id'], '<h1>After</h1>')
         self.assertEqual(result.status_code, 200, result.text)
         self.assertEqual(result.json()['version'], 2)

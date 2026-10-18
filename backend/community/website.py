@@ -40,7 +40,8 @@ def sites(c, uid):
     """Every space's websites, and whether this person is in the space that keeps each one."""
     out = []
     for r in c.execute('''SELECT f.space_id,s.name AS space_name,f.folder,
-                          EXISTS(SELECT 1 FROM members m WHERE m.space_id=f.space_id AND m.user_id=?) AS member
+                          EXISTS(SELECT 1 FROM members m WHERE m.space_id=f.space_id AND m.user_id=?) AS member,
+                          (SELECT COUNT(*) FROM site_notes n WHERE n.space_id=f.space_id AND n.folder=f.folder AND n.status='open') AS notes
                           FROM files f JOIN spaces s ON s.id=f.space_id
                           WHERE f.name='index.html' AND f.kind='file' AND f.deleted IS NULL
                           AND substr(f.folder,1,8)='Website/' AND instr(substr(f.folder,9),'/')=0
@@ -70,13 +71,37 @@ def site_folder(c, sid, folder):
         raise HTTPException(422, f'{folder} needs a page called index.html at its top. It’s the front page.')
     return folder
 
+class PreviewBody(SiteBody):
+    bridge: bool = False  # for the Grove's own preview pane: its pins, notes and live updates
+    drafts: bool = False  # with this webmaster's unsaved changes
+
+def a_site(c, sid, folder):
+    if not c.execute('SELECT 1 FROM spaces WHERE id=?', (sid,)).fetchone(): raise HTTPException(404, 'Website not found.')
+    return site_folder(c, sid, folder)
+
 @router.post('/previews')
-def preview(body: SiteBody, current=Depends(user)):
+def preview(body: PreviewBody, current=Depends(user)):
     """Anyone in the Grove may look at its websites before they're published."""
     with db() as c:
-        if not c.execute('SELECT 1 FROM spaces WHERE id=?', (body.space_id,)).fetchone(): raise HTTPException(404, 'Website not found.')
-        folder = site_folder(c, body.space_id, body.folder)
-    return {'url': editor.preview_url(body.space_id, folder)}
+        folder = a_site(c, body.space_id, body.folder)
+        if body.drafts:
+            if not looks_after_website(current): raise HTTPException(403, 'Only this Grove’s owners and webmasters change its website.')
+            membership(c, body.space_id, current['id'])
+    return {'url': editor.preview_url(body.space_id, folder, drafts=current['id'] if body.drafts else None, bridge=body.bridge)}
+
+@router.get('/files')
+def site_files(space_id: str, folder: str, current=Depends(webmaster)):
+    """Everything in a website's folder, for the site editor, with this webmaster's drafts."""
+    with db() as c:
+        membership(c, space_id, current['id'])
+        folder = site_folder(c, space_id, folder)
+        where, args = files.inside(folder)
+        drafts = {r['file_id']: dict(r) for r in c.execute(f'''SELECT d.file_id,d.version,d.updated FROM file_drafts d JOIN files f ON f.id=d.file_id
+                                                                 WHERE d.user_id=? AND f.space_id=? AND f.deleted IS NULL AND {where.replace('folder', 'f.folder')}''',
+                                                              (current['id'], space_id, *args))}
+        items = [{**dict(r), 'draft': drafts.get(r['id'])} for r in c.execute(files.ITEM + f" WHERE f.space_id=? AND f.deleted IS NULL AND {where.replace('folder', 'f.folder')} ORDER BY f.folder,f.kind DESC,f.name COLLATE NOCASE",
+                                                                           (space_id, *args))]
+        return {'space_id': space_id, 'folder': folder, 'items': items}
 
 def go_live(c, rid):
     c.execute('INSERT OR REPLACE INTO grove_settings VALUES (?,?)', (LIVE, rid))
