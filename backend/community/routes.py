@@ -256,7 +256,9 @@ def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
         c.execute('BEGIN IMMEDIATE')
         role=membership(c,sid,current['id'])
         entry=visible_entry(c,sid,eid,current['id'])
-        if entry['author_id']!=current['id'] and role!='owner' and entry['kind'] not in ('task','item'):
+        # Tasks and list items are shared work; a list is also kept by the person it's for.
+        if entry['author_id']!=current['id'] and role!='owner' and entry['kind'] not in ('task','item') \
+           and not (entry['kind']=='list' and entry['assigned_to']==current['id']):
             raise HTTPException(403,'Only the author or space owner can edit this item.')
         if entry['version']!=body.version: raise HTTPException(409,'This item changed. Refresh and try again.')
         if body.kind!=entry['kind'] or body.parent_id!=entry['parent_id']: raise HTTPException(422,'Item type cannot be changed.')
@@ -274,7 +276,9 @@ def delete_entry(sid:str,eid:str,current=Depends(user)):
     with db() as c:
         role=membership(c,sid,current['id'])
         entry=visible_entry(c,sid,eid,current['id'])
-        if entry['author_id']!=current['id'] and role!='owner': raise HTTPException(403,'Only the author or space owner can delete this item.')
+        # Whoever keeps a list, its author or the person it's for, may clear anyone's items from it.
+        keeps=entry['kind']=='item' and c.execute('SELECT 1 FROM entries WHERE id=? AND ? IN (author_id,assigned_to)',(entry['parent_id'],current['id'])).fetchone()
+        if entry['author_id']!=current['id'] and role!='owner' and not keeps: raise HTTPException(403,'Only the author or space owner can delete this item.')
         children=c.execute('SELECT COUNT(*) FROM entries WHERE parent_id=?',(eid,)).fetchone()[0]
         logged(c,'entry_deleted',current,entry,**({'children':children} if children else {}))
         c.execute('DELETE FROM entries WHERE id=?',(eid,))

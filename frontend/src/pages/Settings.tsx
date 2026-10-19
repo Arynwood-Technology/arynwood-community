@@ -5,6 +5,7 @@ import { Modal } from './Workspace'
 import { useSpaceRefresh } from '../lib/live'
 import { PublicInviteLink } from '../components/PublicInviteLink'
 import { GroveAddress } from '../components/GroveAddress'
+import { NotifyPanel } from '../components/NotifySettings'
 
 interface Connections { mail: boolean; smtp: boolean; version: string }
 
@@ -86,6 +87,7 @@ export function Settings({ space, user, onLogout, onLeft, onChanged }: { space: 
         <p className="muted-text">Your Grove account signs you into this space with email and password. Email ownership has not been verified. Your space role controls shared plans and membership.</p>
         <p className="muted-text">Public chat (IRC) nicknames are a separate identity. A display name does not prove who a person is; confirm their account through a trusted conversation.</p>
       </section>
+      <NotifyPanel />
       <section className="panel">
         <h2>Your data</h2>
         <p>Download a portable copy of this space, including your private notes.</p>

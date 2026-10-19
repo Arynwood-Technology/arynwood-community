@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.7.0**. A server running an older release may
+This manual describes version **0.7.1**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -30,8 +30,16 @@ The server operator can show that link again with `sudo arynwood-grove setup-lin
 Once an account exists, the command reports that the Grove already has a host.
 Do not put setup links or recovery codes in shared documentation.
 
-Choose a **Space** in the header. Spaces separate groups and their shared work
-inside one Grove; they are not separate Groves.
+The menu down the left side (behind **Menu** on a phone) holds everything.
+Choose a **Space** at its top; owners invite people there too. Spaces separate
+groups and their shared work inside one Grove; they are not separate Groves.
+Below it are the website card (**Webmaster tools**, or **Website preview**),
+then the pages in three groups: **Talk** (Public chat, Messages, Updates or the
+Grove's own name for them, Board, and Mail for the host), **Organize**
+(Overview, Calendar, Tasks, Lists, Notes, Files) and **Settings** (People &
+identity, Grove admin, Look & feel, Workspace setup). Your name and **Sign out**
+are at the bottom. In the site editor the menu waits behind its button, so the
+editor has the whole width.
 
 | Page | What to do there |
 |---|---|
@@ -41,14 +49,14 @@ inside one Grove; they are not separate Groves.
 | Updates | Post news and updates for everyone in the space. A Grove can give it its own name, such as Event journal. |
 | Public chat | Talk with other people in the Grove's IRC room, when the Grove has one (see below). |
 | Tasks | Track assignments and due dates. |
-| Lists | Keep shared lists. |
+| Lists | The Grove's shared lists and each person's own, on tabs. Pick a list, tick things off, add to it, and click an item's words to change them. |
 | Notes | Keep shared notes or choose private visibility for your own notes. |
 | Files | Upload, organize, download and edit the space's files. |
 | People & identity | Manage your identity and the selected space; space owners also manage invitations and membership. |
 | Grove admin | Owners and managers review people, spaces, storage, activity and wishes. |
 | Messages | Private conversations with anyone you share a space with, with photos and files. Only the two people in a conversation can read it. |
 | Look & feel | Owners make the Grove look like their organisation: name and tagline, colours (light or dark), the login page's colour and picture, type, corners and logo, or all of it suggested from the Grove's website. |
-| Webmaster tools | Owners and webmasters bring the Grove's website in, change it in the site editor with a live preview, and publish it at the Grove's address. Everyone else sees **Website preview**: what's live, previews of what's coming, and notes on what should change. |
+| Webmaster tools | Each website, pictured as visitors see it, with **Preview & notes**, **Open editor** and **Publish**. Below: what's live, then **Bring in a website**, **Tools** and **Help**, each folded behind its arrow. Everyone else sees **Website preview**: the same pictures, Preview & notes, and what's live. |
 | Workspace setup | Space owners stage a film festival or client project: checklists, notes, documents, folders and CSV trackers. See the [producer workspace guide](PRODUCER-WORKSPACE.md). |
 
 Changes normally appear on other members' pages within about a second. If the
@@ -59,11 +67,29 @@ can send mail.
 
 **Public chat** is an IRC room the Grove names (`GROVE_CHAT_CHANNEL`). Every
 member gets a starting nickname, made from the Grove's pattern, and can change it
-before connecting; the page remembers it in that browser. The room is on a public
-IRC network: anyone on that network can join it, so treat it as public, unlike the
-space's Updates. A Grove's sign-in does not register or protect an IRC nickname.
-On a Grove without a room, Public chat is the host's own IRC client, under host
-tools.
+before connecting; the page remembers it in that browser. Everyone, the host
+too, stays in that room: Public chat does not join, list or message other rooms,
+and does not reach ChanServ. A Grove's sign-in does not register or protect an
+IRC nickname. On a Grove without a room, Public chat is the host's own IRC
+client, under host tools.
+
+The room is private unless an owner opens it in Grove admin (**Who can find and
+join**). Private, it is left off the IRC network's channel list and locked with a
+key only the Grove knows, so nobody can find it or wander in from KVIrc, The
+Lounge or another IRC app. The Grove sets this, or takes it off, the next time a
+member in the room is a channel operator; the first person into an empty room
+is. If the IRC network's admin locked the room with a key of their own, put it
+in `GROVE_CHAT_KEY`. Open, anyone on the network can join, so treat it as public,
+unlike the space's Updates. How many members can chat at once is the IRC
+server's limit on connections from one address: each member chatting is one
+connection from the Grove's server.
+
+**Notifications** are each person's choice, on each device: **New messages**,
+and Public chat **Off**, **When I'm mentioned** (someone says your nickname or
+writes to you alone) or **Every message**. Set them in People & identity, with
+**Notify me** on Messages, or beside Public chat. The browser asks once for
+permission. They come while the Grove is open in a tab, and not for what you are
+already reading.
 
 **Messages** are private conversations between two members, opened with **New
 message** and anyone you share a space with. Add photos with the picture button,
@@ -97,9 +123,9 @@ control panel. Managers see everything in Grove admin but cannot change roles
 or settings. Whether members can start spaces is a Grove setting: everyone, or
 owners and managers only. Mail and the host's IRC client, when enabled, are
 restricted to the host; being a manager or another owner does not
-grant those connections. Members' Public chat can reach only the Grove's
-configured IRC server and room, and never uses the host's IRC settings or
-passwords.
+grant those connections. Public chat can reach only the Grove's configured IRC
+server and room, and never uses the host's IRC settings or passwords. Owners
+choose whether that room is private to the Grove or open to the IRC network.
 
 The invitation page explains the administrative visibility:
 
@@ -176,9 +202,10 @@ and everyone in the Grove can open **Website preview** to see what's live and
 preview what's coming. Managers are not webmasters unless an owner makes them
 one.
 
-**Bring the site in.** Open **Webmaster tools** and choose the space that
-will hold its files: a space for the people who work on the website is best.
-There are three ways in:
+**Bring the site in.** This is done once. Open **Webmaster tools**, unfold
+**Bring in a website** (it starts open while there is no website yet) and
+choose the space that will hold its files: a space for the people who work on
+the website is best. There are two ways in, and a third in **Tools**:
 
 - *From its address.* The importer reads public pages and the styles, scripts,
   images and fonts they use on the same address, following links and
@@ -191,8 +218,11 @@ There are three ways in:
   the folder that holds `index.html`. The .zip is kept in `Website` and
   unpacked into `Website/<the zip's name>`; links, password-protected entries
   and names that can't be files are left out and listed.
-- *Start with one page*: a front page made from the Grove's name, tagline,
-  colours and logo, with a way in for members, in `Website/<the Grove's address>`.
+- *Make a one-page site*, in **Tools**: a front page made from the Grove's name,
+  tagline, colours and logo, with a way in for members, in
+  `Website/<the Grove's address>`. Each space has one; asked again, it says
+  where it is and offers to open it. **Tools** also opens the Website folder in
+  Files.
 
 Importing or unpacking again creates versions of changed files and deletes
 nothing. Review local edits before reimporting: the live website may differ
@@ -521,6 +551,9 @@ a full recovery. Keep the off-server copies' password safe, off the server.
 | Cannot sign in on another Grove | Accounts and sessions belong to each Grove separately. |
 | Public chat does not appear | The Grove needs `GROVE_CHAT_CHANNEL`; without it, only the host sees Public chat, and only with host tools on. |
 | Public chat refuses to connect | The nickname (letters, numbers, `-` and `_`, starting with a letter, up to 30), two open windows already, or the IRC server's limit on connections from one address. |
+| Public chat says "Cannot join channel (+k)" | The room has a key the Grove doesn't know. Put the IRC admin's key in `GROVE_CHAT_KEY`, or have them take theirs off. |
+| Public chat's room still shows in the IRC network's list | No member in the room has been a channel operator since it was made private. An operator, or the network's ChanServ, can give one ops. |
+| No notifications | Turn them on in People & identity, and allow notifications for the Grove in the browser's site settings. The Grove must be open in a tab. |
 
 Code is AGPL-3.0; the running service offers its source at `/api/source`.
 Arynwood's tree artwork has separate rights (see the README). A Grove's own

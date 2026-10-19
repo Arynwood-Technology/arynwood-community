@@ -5,6 +5,7 @@ import { bytes } from '../lib/files'
 import { useLiveRefresh } from '../lib/live'
 import { FILE_MAX, fileUrl, messagesApi, photoUrl, shrinkPhoto, uploadAttachment, uploadPhoto, type Attachment, type Conversation, type Person, type Photo, type Thread } from '../lib/messages'
 import { Modal } from './Workspace'
+import { NotifyMessages } from '../components/NotifySettings'
 import './messages.css'
 
 /** A photo or file waiting to go with the next message. */
@@ -97,7 +98,7 @@ export function Messages({ user }: { user: User }) {
   return <div className={'workspace messages-page' + (openId ? ' reading' : '')}>
     <div className="page-heading"><div><span className="eyebrow">Just between you</span><h1>Messages</h1>
       <p>Private conversations with anyone you share a space with, with photos and files. Only the two of you can read them.</p></div>
-      <button className="primary" onClick={() => void choose()}><MessageCirclePlus size={16} /> New message</button></div>
+      <div className="action-row"><NotifyMessages /><button className="primary" onClick={() => void choose()}><MessageCirclePlus size={16} /> New message</button></div></div>
     {error && <p className="error" role="alert">{error}<button className="text-button" onClick={() => setError('')}>Dismiss</button></p>}
     <div className="messages-layout">
       <nav className="panel conversation-list" aria-label="Conversations">

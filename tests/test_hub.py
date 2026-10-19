@@ -136,6 +136,25 @@ class HubTests(unittest.TestCase):
         host.delete(f"{root}/{lst['id']}", headers=H)
         self.assertEqual(host.get(root).json(), [])
 
+    def test_a_persons_list_is_theirs_to_keep(self):
+        host, member, sid = self.host_and_member()
+        root = f'/api/community/spaces/{sid}/entries'
+        member_id = next(m['id'] for m in host.get(f'/api/community/spaces/{sid}/members').json() if m['role'] == 'member')
+        theirs = host.post(root, headers=H, json={'kind':'list','title':'Errands','assigned_to':member_id}).json()
+        grove = host.post(root, headers=H, json={'kind':'list','title':'Supplies'}).json()
+        tape = host.post(root, headers=H, json={'kind':'item','title':'Tape','parent_id':theirs['id']}).json()
+        rope = host.post(root, headers=H, json={'kind':'item','title':'Rope','parent_id':grove['id']}).json()
+        # The person a list is for renames it and clears items others added; not so on a list that isn't theirs.
+        renamed = member.put(f"{root}/{theirs['id']}", headers=H, json={**theirs, 'title':'My errands'})
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(member.delete(f"{root}/{tape['id']}", headers=H).status_code, 200)
+        self.assertEqual(member.put(f"{root}/{grove['id']}", headers=H, json={**grove, 'title':'Mine'}).status_code, 403)
+        self.assertEqual(member.delete(f"{root}/{rope['id']}", headers=H).status_code, 403)
+        # Handing it to the Grove takes it out of their keeping.
+        moved = member.put(f"{root}/{theirs['id']}", headers=H, json={**renamed.json(), 'assigned_to': None}).json()
+        self.assertEqual(member.put(f"{root}/{theirs['id']}", headers=H, json={**moved, 'title':'Back'}).status_code, 403)
+        self.assertEqual(member.delete(f"{root}/{theirs['id']}", headers=H).status_code, 403)
+
     def test_assignment_must_be_a_member(self):
         host, member, sid = self.host_and_member()
         r = host.post(f'/api/community/spaces/{sid}/entries', headers=H, json={'kind':'task','title':'X','assigned_to':'nobody'})

@@ -270,8 +270,10 @@ class WebsiteTests(unittest.TestCase):
                                        'GROVE_BRAND_SURFACE': '#091C32', 'GROVE_BRAND_ACCENT': '#E2326F',
                                        'GROVE_PUBLIC_URL': 'https://roguefest.arynwood.com'}):
             r = host.post('/api/webmaster/starter', headers=H, json={'space_id': sid})
-            self.assertEqual(r.json(), {'space_id': sid, 'folder': 'Website/roguefest.arynwood.com'})
-            self.assertEqual(host.post('/api/webmaster/starter', headers=H, json={'space_id': sid}).status_code, 409)
+            self.assertEqual((r.status_code, r.json()), (201, {'space_id': sid, 'folder': 'Website/roguefest.arynwood.com', 'existed': False}))
+            # Asked again, it says where the one-page site already is, and leaves it be.
+            again = host.post('/api/webmaster/starter', headers=H, json={'space_id': sid})
+            self.assertEqual((again.status_code, again.json()), (200, {'space_id': sid, 'folder': 'Website/roguefest.arynwood.com', 'existed': True}))
         page = self.file(host, sid, 'Website/roguefest.arynwood.com', 'index.html')
         text = host.get(f"/api/community/spaces/{sid}/files/{page['id']}/content").text
         self.assertIn('<h1>RogueFest &lt;Community&gt;</h1>', text)

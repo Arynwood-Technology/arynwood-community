@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.0. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.1. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -66,8 +66,8 @@ Each person makes their own account on your Grove, from any computer or phone. E
 A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.0.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.1.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.1.tar.gz
 ```
 
 The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.
@@ -103,6 +103,7 @@ Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood
 | `GROVE_CHAT_CHANNEL` | Opens Public chat to every member, in this IRC room, e.g. `#RogueFest`. Unset: Public chat is only the host's IRC client. |
 | `GROVE_CHAT_NICK` | Each member's first nickname in Public chat; every `#` becomes a random digit. Default `Guest###`. Members can change theirs. |
 | `GROVE_CHAT_SERVER` | Public chat's IRC server, `host` or `host:port`. Default `irc.arynwood.com:6697` (TLS). Every member connects from the Grove's server address, so the IRC server must allow that many connections from it. |
+| `GROVE_CHAT_KEY` | The room's key, only when the IRC network's admin locked the room with one of their own. Unset: the Grove makes its own key and keeps the room private unless an owner opens it in Grove admin. |
 | `GROVE_LOG_NAME` | What each space's log of news is called. Default `Updates`; for example `Event journal` or `Log book`. |
 | `GROVE_WISH_EMAIL` | Where wishes from the lamp are emailed, using the `MAIL_SMTP_*` settings. Without it, wishes are kept for owners and managers in Grove admin. |
 | `GROVE_SPACE_STORAGE_MB`, `GROVE_FILE_MAX_MB` | Room for each space’s files (default 10240) and the largest single file (default 2048). Uploads also stop while the disk has under 2 GB free. |

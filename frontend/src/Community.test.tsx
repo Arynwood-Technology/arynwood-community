@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Community } from './Community'
@@ -78,8 +78,8 @@ it('gives the Grove admin page to owners and managers, the website to everyone, 
  mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,can_start_spaces:false}:[home])
  show();await screen.findByRole('option',{name:'Home'})
  expect(screen.queryByRole('link',{name:'Grove admin'})).toBeNull()
- expect(screen.queryByRole('link',{name:'Webmaster tools'})).toBeNull()
- expect(screen.getByRole('link',{name:'Website preview'})).toHaveAttribute('href','/community/website')
+ expect(screen.queryByRole('link',{name:/^Webmaster tools/})).toBeNull()
+ expect(screen.getByRole('link',{name:'Website preview See the website and leave notes'})).toHaveAttribute('href','/community/website')
  expect(screen.queryByRole('button',{name:'Create new space'})).toBeNull()
  expect(screen.getByRole('button',{name:'Make a wish'})).toBeInTheDocument()
  cleanup()
@@ -87,7 +87,7 @@ it('gives the Grove admin page to owners and managers, the website to everyone, 
  cleanup()
  mocked.mockImplementation(async(path)=>path==='/auth/me'?{...user,role:'manager',webmaster:true}:[home])
  show();expect(await screen.findByRole('link',{name:'Grove admin'})).toHaveAttribute('href','/community/admin')
- expect(screen.getByRole('link',{name:'Webmaster tools'})).toHaveAttribute('href','/community/website')
+ expect(screen.getByRole('link',{name:'Webmaster tools Edit and publish the website'})).toHaveAttribute('href','/community/website')
 })
 
 it('uses the Grove identity and external links in the signed-in header',async()=>{
@@ -115,4 +115,30 @@ it('opens Public chat to members only when the Grove has a room, and names the l
  expect(screen.getByRole('link',{name:'Public chat'})).toHaveAttribute('href','/community/irc')
  expect(screen.getByRole('link',{name:"Event journal"})).toHaveAttribute('href','/community/discussion')
  expect(screen.getByText(/Event journal is where news and updates for everyone in this space go\. For conversation, use Public chat\./)).toBeInTheDocument()
+})
+it('groups the menu into talking, organizing and settings, and slides it over the page from its button',async()=>{
+ const festival={...user,role:'owner',public_chat:{channel:'#RogueFest',nick:'RogueGuest###',server:'irc.arynwood.com'},log_name:'Event journal'}
+ mocked.mockImplementation(async(path)=>path==='/auth/me'?festival:[home])
+ const {container}=render(<MemoryRouter initialEntries={['/community/lists']}><Community/></MemoryRouter>)
+ await screen.findByRole('option',{name:'Home'})
+ const groups=[...screen.getByRole('navigation',{name:'Community sections'}).querySelectorAll('.nav-group')].map(g=>[g.querySelector('.nav-caption')!.textContent,[...g.querySelectorAll('a')].map(a=>a.textContent)])
+ expect(groups).toEqual([['Talk',['Public chat','Messages','Event journal','Board']],['Organize',['Overview','Calendar','Tasks','Lists','Notes','Files']],
+  ['Settings',['People & identity','Grove admin','Look & feel','Workspace setup']]])
+ expect(screen.getByRole('link',{name:'Lists'})).toHaveClass('active')
+ // On a phone the menu waits behind its button; picking a page or pressing Escape puts it away.
+ const shell=container.querySelector('.grove-shell')!
+ expect(within(container.querySelector('.shell-topbar') as HTMLElement).getByText('Lists')).toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Open menu'}))
+ expect(shell).toHaveClass('menu-open')
+ expect(screen.getByRole('button',{name:'Close menu'})).toHaveFocus()
+ fireEvent.click(screen.getByRole('link',{name:'Notes'}))
+ expect(shell).not.toHaveClass('menu-open')
+ fireEvent.click(screen.getByRole('button',{name:'Open menu'}))
+ fireEvent.keyDown(document,{key:'Escape'})
+ expect(shell).not.toHaveClass('menu-open')
+ cleanup()
+ // The site editor has the whole width; its menu is behind the button there too.
+ const editor=render(<MemoryRouter initialEntries={['/community/website?site=home&folder=Website%2Fsite&mode=edit']}><Community/></MemoryRouter>)
+ await screen.findByRole('option',{name:'Home'})
+ expect(editor.container.querySelector('.grove-shell')).toHaveClass('focus')
 })

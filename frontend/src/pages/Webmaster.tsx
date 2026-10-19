@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { Code, Eye, FileArchive, FolderOpen, Globe, LoaderCircle, Rocket, Sparkles } from 'lucide-react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { ChevronDown, CircleHelp, Code, Eye, FileArchive, FolderOpen, Globe, LoaderCircle, Rocket, Sparkles, Wrench } from 'lucide-react'
 import { api, stamp, type Space, type User } from '../lib/community'
 import { bytes, uploadFile, type Listing } from '../lib/files'
 import type { SiteTarget } from '../lib/site'
@@ -46,9 +46,13 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
   const [chosen, setSpace] = useState(''), [unpacked, setUnpacked] = useState<Unpacked | null>(null)
   const space = spaces.some(s => s.id === chosen) ? chosen : current ?? spaces[0]?.id ?? ''
   const [publishing, setPublishing] = useState<Site | null>(null), [takingDown, setTakingDown] = useState(false)
+  // Whether Bring in a website and Tools are open, once someone opens or closes them.
+  const [bringing, setBringing] = useState<boolean | null>(null), [tooling, setTooling] = useState<boolean | null>(null)
+  // The one-page site, once asked for; and which tool an error came from, so it shows beside that tool.
+  const [made, setMade] = useState<{ space_id: string; folder: string; existed: boolean } | null>(null), [errorAt, setErrorAt] = useState('')
   const running = imports?.some(i => i.status === 'running') ?? false
   const flash = (text: string) => { setMessage(text); setError('') }
-  const fail = (e: unknown) => { setError((e as Error).message); setMessage('') }
+  const fail = (e: unknown, at = '') => { setError((e as Error).message); setErrorAt(at); setMessage('') }
   useEffect(() => {
     let active = true
     api<SiteState>('/webmaster/site').then(value => { if (active) setState(value) }).catch(e => { if (active) setError(e.message) })
@@ -65,12 +69,12 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
   }, [running, editor])
   async function act(name: string, work: () => Promise<unknown>) {
     setBusy(name); setError('')
-    try { await work() } catch (e) { fail(e) } finally { setBusy('') }
+    try { await work() } catch (e) { fail(e, name) } finally { setBusy('') }
   }
-  const startImport = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const url = String(new FormData(event.currentTarget).get('url') ?? ''); void act('import', async () => {
+  const startImport = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const url = String(new FormData(event.currentTarget).get('url') ?? ''); setBringing(true); void act('import', async () => {
     const started = await api<SiteImport>('/webmaster/imports', 'POST', { url, space_id: space }); setImports(list => [started, ...(list ?? [])])
   }) }
-  const sendZip = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = event.currentTarget, file = (form.elements.namedItem('zip') as HTMLInputElement).files?.[0]; void act('zip', async () => {
+  const sendZip = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = event.currentTarget, file = (form.elements.namedItem('zip') as HTMLInputElement).files?.[0]; setBringing(true); void act('zip', async () => {
     if (!file || !/\.zip$/i.test(file.name)) throw new Error('Choose a .zip file.')
     await api(`/community/spaces/${space}/folders`, 'POST', { folder: '', name: 'Website' }).catch(() => {}) // already there
     const listing = await api<Listing>(`/community/spaces/${space}/files?` + new URLSearchParams({ folder: 'Website' }))
@@ -78,10 +82,9 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
     const saved = await uploadFile(space, file, { folder: 'Website', replaces: earlier?.id })
     setUnpacked(await api<Unpacked>('/webmaster/unpack', 'POST', { space_id: space, file_id: saved.id })); form.reset(); setMessage(''); setReload(n => n + 1)
   }) }
-  const startPage = () => void act('starter', async () => {
-    const made = await api<{ folder: string }>('/webmaster/starter', 'POST', { space_id: space })
-    flash(`Your one-page site is in ${made.folder}. Open it in the site editor below to change it, and publish it when it’s ready.`); setReload(n => n + 1)
-  })
+  const startPage = () => { setTooling(true); setMade(null); void act('starter', async () => {
+    setMade(await api<{ space_id: string; folder: string; existed: boolean }>('/webmaster/starter', 'POST', { space_id: space })); setReload(n => n + 1)
+  }) }
   const show = (site: Site, mode: SiteTarget['mode']) => onShow({ space: site.space_id, folder: site.folder, mode })
   const publish = (site: Site) => { setPublishing(null); void act('publish', async () => {
     const release = await api<Release>('/webmaster/publish', 'POST', { space_id: site.space_id, folder: site.folder })
@@ -95,12 +98,23 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
   }) }
 
   const live = state?.live, sites = state?.sites ?? []
+  // A site is brought in once: this folds away when there's a site to work on, unless someone opens it.
+  const bringOpen = bringing ?? (!!state && !sites.length), toolsOpen = tooling ?? (!!state && !sites.length)
+  // Errors from bringing a site in or from a tool show beside it; the rest, here at the top.
+  const inline = ['import', 'zip', 'starter'].includes(errorAt)
   const where = <label className="keep-in">Keep it in<select value={space} onChange={e => setSpace(e.target.value)}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+  const isLive = (site: Site) => !!live && live.space_id === site.space_id && live.folder === site.folder
   return <div className="workspace webmaster">
     <div className="page-heading"><div><span className="eyebrow">This Grove</span><h1>{editor ? 'Webmaster tools' : 'Website'}</h1>
-      <p>{editor ? `Bring your website in, change it together, preview it, and publish it at ${address}.` : `This Grove’s website, and what its webmasters are working on. Preview it before it’s published, and leave notes on anything that should change.`}</p></div></div>
-    {error && <p className="error" role="alert">{error}</p>}
+      <p>{editor ? `Preview your website, change it together, and publish it at ${address}.` : `This Grove’s website, and what its webmasters are working on. Preview it before it’s published, and leave notes on anything that should change.`}</p></div></div>
+    {error && !inline && <p className="error" role="alert">{error}</p>}
     {message && <p className="notice" role="status">{message}</p>}
+
+    <section className="site-section" aria-labelledby="sites-heading">
+      <h2 id="sites-heading">{editor ? 'Your websites' : 'Preview and notes'}</h2>
+      {!state ? <p>Loading…</p> : sites.length ? <ul className="site-tiles">{sites.map(site => <SiteTile key={site.space_id + site.folder} site={site} live={isLive(site)} editor={editor} busy={busy} onShow={show} onPublish={setPublishing} onOpen={onOpen} />)}</ul>
+        : <p className="muted-text">{editor ? 'No websites yet. Bring yours in below, from its address or a .zip, or make a one-page site in Tools.' : 'There’s no website to preview yet.'}</p>}
+    </section>
 
     <section className="panel live-site" aria-labelledby="live-heading">
       <h2 id="live-heading"><Globe size={18} aria-hidden="true" /> Live at {address}</h2>
@@ -115,17 +129,10 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
       </ul></details>}
     </section>
 
-    {!editor && <section className="panel" aria-labelledby="sites-heading"><h2 id="sites-heading">Preview and notes</h2>
-      <p>See the site as it will look on a computer, a tablet or a phone. Choose <strong>Add a note</strong> and click anything that should change: a date, a picture, some wording. You can suggest the new wording yourself.</p>
-      <SiteList sites={sites} editor={false} busy={busy} onShow={show} onPublish={setPublishing} onOpen={onOpen} />
-      {state && !sites.length && <p className="muted-text">There’s no website to preview yet.</p>}
-      <p className="muted-text">Only this Grove’s owners, and the webmasters they choose, change and publish its website. They see your notes straight away.</p>
-    </section>}
-
-    {editor && <ol className="webmaster-steps">
-      <li className="panel">
-        <h2><span className="step" aria-hidden="true">1</span> Bring your website in</h2>
-        <p>Your site’s files go in a space’s <strong>Website</strong> folder. Everyone in that space can see them, and everyone in the Grove can preview the site. Only owners and webmasters change them.</p>
+    {editor && <details className="panel fold" open={bringOpen} onToggle={e => setBringing(e.currentTarget.open)}>
+      <summary><h2>Bring in a website</h2>{running && <span className="pill">Importing…</span>}<ChevronDown size={20} className="fold-chevron" aria-hidden="true" /></summary>
+      <div className="fold-body">
+        <p>Your site’s files go in a space’s <strong>Website</strong> folder. Everyone in that space can see them, and everyone in the Grove can preview the site. Only owners and webmasters change them. You only need to do this once: after that, change the site in the editor.</p>
         {spaces.length ? where : <p className="muted-text">Join or start a space to keep your website in.</p>}
         <div className="bring-in">
           <form onSubmit={startImport}>
@@ -140,12 +147,8 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
             <label>Website .zip<input name="zip" type="file" accept=".zip,application/zip" required /></label>
             <div className="action-row"><button className="primary" disabled={!!busy || !space}><FileArchive size={15} /> {busy === 'zip' ? 'Unpacking…' : 'Upload and unpack'}</button></div>
           </form>
-          <div>
-            <h3>Start with one page</h3>
-            <p>No website yet? Start with a page made from this Grove’s name, tagline and colours, with a way in for members. Change anything before you publish it.</p>
-            <div className="action-row"><button className="secondary" disabled={!!busy || !space} onClick={startPage}><Sparkles size={15} /> Make a one-page site</button></div>
-          </div>
         </div>
+        {error && (errorAt === 'import' || errorAt === 'zip') && <p className="error" role="alert">{error}</p>}
         {unpacked && <div className="import-result">
           <p><strong>{unpacked.folder}</strong>: {count(unpacked.added, 'new file')}, {unpacked.changed} changed, {unpacked.unchanged} the same · {bytes(unpacked.bytes)}</p>
           {unpacked.message && <p className="muted-text">{unpacked.message}</p>}
@@ -159,29 +162,56 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
           <li>Pages only signed-in visitors see, and pages nothing links to.</li>
           <li>Files kept on other sites, such as a video on Vimeo. They stay where they are, and the import lists them.</li>
         </ul></details>
-      </li>
-      <li className="panel">
-        <h2><span className="step" aria-hidden="true">2</span> Change what you need</h2>
-        <ul>
-          <li>Choose <strong>Open editor</strong>: the site’s files, its code and a preview, side by side. Every page, stylesheet, script and picture is there, laid out as on your domain.</li>
-          <li>The preview follows what you type, on every page, before you save. Your changes are kept as a draft as you go, so nothing is lost if the page closes. Only you see them until you save.</li>
-          <li>Click the target in the preview, then anything on the page, to find it in the code. Add pages, folders and pictures from the file list.</li>
-          <li>Save makes a new version; earlier versions stay in Files. Nothing you change is live until you publish it.</li>
-        </ul>
-      </li>
-      <li className="panel">
-        <h2><span className="step" aria-hidden="true">3</span> Gather notes, then publish</h2>
-        <p>Everyone in the Grove can open <strong>Preview & notes</strong>: the whole site as visitors will see it, at computer, tablet and phone sizes. They point at anything that should change and leave a note or suggest new wording. Notes show up in the editor as they’re left, where you can use the suggested wording, reply, and mark them done.</p>
-        <p>Publishing puts the saved site at {address} straight away; the members’ page stays at {address}/community.</p>
-        <SiteList sites={sites} editor busy={busy} onShow={show} onPublish={setPublishing} onOpen={onOpen} />
-        {state && !sites.length && <p className="muted-text">No websites yet. A folder in Website with an index.html at its top shows up here.</p>}
-        <details><summary>Your own domain, or another host</summary><ul>
-          <li>To show your site at your own domain, ask this Grove’s host to move the Grove there. Your site and the members’ page move together.</li>
-          <li>To publish it somewhere else, use <strong>Download as a .zip</strong> on the site’s folder in Files, and send it to whoever runs that host.</li>
-          <li>Published pages run their scripts apart from the Grove: they can’t see members’ sign-ins, cookies or browser storage.</li>
-        </ul></details>
-      </li>
-    </ol>}
+      </div>
+    </details>}
+
+    {editor && <details className="panel fold" open={toolsOpen} onToggle={e => setTooling(e.currentTarget.open)}>
+      <summary><h2><Wrench size={18} aria-hidden="true" /> Tools</h2><ChevronDown size={20} className="fold-chevron" aria-hidden="true" /></summary>
+      <div className="fold-body tools">
+        <div>
+          <h3>Make a one-page site</h3>
+          <p>A front page made from this Grove’s name, tagline and colours, with a way in for members. A good start when there’s no website yet. Change anything before you publish it.</p>
+          {spaces.length > 1 && <label className="keep-in">Make it in<select value={space} onChange={e => setSpace(e.target.value)}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+          <div className="action-row"><button className="secondary" disabled={!!busy || !space} onClick={startPage}><Sparkles size={15} /> {busy === 'starter' ? 'Making…' : 'Make a one-page site'}</button></div>
+          {error && errorAt === 'starter' && <p className="error" role="alert">{error}</p>}
+          {made && <div className="import-result" role="status">
+            <p>{made.existed ? `Your one-page site is already in ${made.folder}, just as it was.` : `Your one-page site is in ${made.folder}.`} Open it in the editor to change it, and publish it when it’s ready.</p>
+            <div className="action-row"><button className="primary" onClick={() => onShow({ space: made.space_id, folder: made.folder, mode: 'edit' })}><Code size={15} /> Open editor</button>
+              <button className="secondary" onClick={() => onShow({ space: made.space_id, folder: made.folder, mode: 'review' })}><Eye size={15} /> Preview & notes</button></div>
+          </div>}
+        </div>
+        <div>
+          <h3>The Website folder</h3>
+          <p>Every site’s files are kept in a space’s Website folder in Files, with their earlier versions and the trash.</p>
+          <div className="action-row"><button className="secondary" disabled={!space} onClick={() => onOpen(space, 'Website')}><FolderOpen size={15} /> Open Website in Files</button></div>
+        </div>
+      </div>
+    </details>}
+
+    <details className="panel fold">
+      <summary><h2><CircleHelp size={18} aria-hidden="true" /> Help</h2><ChevronDown size={20} className="fold-chevron" aria-hidden="true" /></summary>
+      <div className="fold-body">
+        <h3>Preview & notes</h3>
+        <p>Everyone in the Grove can open <strong>Preview & notes</strong>: the whole site as visitors will see it, at computer, tablet and phone sizes. Choose <strong>Add a note</strong> and click anything that should change, such as a date, a picture or some wording, and suggest the new wording if you like. {editor ? 'Notes show up in the editor as they’re left, where you can use the suggested wording, reply, and mark them done.' : 'Only this Grove’s owners, and the webmasters they choose, change and publish its website. They see your notes straight away.'}</p>
+        {editor && <>
+          <h3>The editor</h3>
+          <ul>
+            <li>Choose <strong>Open editor</strong>: the site’s files, its code and a preview, side by side. Every page, stylesheet, script and picture is there, laid out as on your domain.</li>
+            <li>The preview follows what you type, on every page, before you save. Your changes are kept as a draft as you go, so nothing is lost if the page closes. Only you see them until you save.</li>
+            <li>Click the target in the preview, then anything on the page, to find it in the code. Add pages, folders and pictures from the file list.</li>
+            <li>Save makes a new version; earlier versions stay in Files. Nothing you change is live until you publish it.</li>
+          </ul>
+          <h3>Publishing</h3>
+          <p>Publishing puts the saved site at {address} straight away; the members’ page stays at {address}/community. An earlier version can be put back from <strong>Live at {address}</strong>.</p>
+          <h3>Your own domain, or another host</h3>
+          <ul>
+            <li>To show your site at your own domain, ask this Grove’s host to move the Grove there. Your site and the members’ page move together.</li>
+            <li>To publish it somewhere else, use <strong>Download as a .zip</strong> on the site’s folder in Files, and send it to whoever runs that host.</li>
+            <li>Published pages run their scripts apart from the Grove: they can’t see members’ sign-ins, cookies or browser storage.</li>
+          </ul>
+        </>}
+      </div>
+    </details>
 
     {publishing && <Modal title={`Publish ${publishing.name}?`} onClose={() => setPublishing(null)}>
       <p>Visitors to {address} see it straight away{live ? ', in place of what’s live now. You can put that back afterwards' : ''}.</p>
@@ -194,17 +224,44 @@ function SiteTools({ user, spaces, current, onOpen, onShow }: { user: User; spac
   </div>
 }
 
-function SiteList({ sites, editor, busy, onShow, onPublish, onOpen }: { sites: Site[]; editor: boolean; busy: string; onShow: (site: Site, mode: SiteTarget['mode']) => void; onPublish: (site: Site) => void; onOpen: (spaceId: string, folder: string) => void }) {
-  if (!sites.length) return null
-  return <ul className="site-list">{sites.map(site => <li key={site.space_id + site.folder}>
-    <span className="who"><strong>{site.name}</strong><small>{site.space_name} · {count(site.files, 'file')}, {bytes(site.bytes)}{site.updated ? ` · changed ${stamp(site.updated)}` : ''}{site.notes ? ` · ${count(site.notes, 'open note')}` : ''}</small></span>
-    <span className="action-row">
-      <button className="secondary" onClick={() => onShow(site, 'review')}><Eye size={15} /> Preview & notes</button>
-      {editor && site.member && <button className="secondary" onClick={() => onShow(site, 'edit')}><Code size={15} /> Open editor</button>}
-      {!editor && site.member && <button className="secondary" onClick={() => onOpen(site.space_id, site.folder)}><FolderOpen size={15} /> Open in Files</button>}
-      {editor && site.member && <button className="primary" disabled={!!busy} onClick={() => onPublish(site)}><Rocket size={15} /> Publish</button>}
-    </span>
-  </li>)}</ul>
+// The width a site is pictured at: a computer's, scaled down to the tile.
+const WIDE = 1280
+
+/** A website, pictured as visitors see it, with what can be done with it. */
+function SiteTile({ site, live, editor, busy, onShow, onPublish, onOpen }: { site: Site; live: boolean; editor: boolean; busy: string; onShow: (site: Site, mode: SiteTarget['mode']) => void; onPublish: (site: Site) => void; onOpen: (spaceId: string, folder: string) => void }) {
+  const works = editor && site.member
+  return <li className="panel site-tile">
+    <Glimpse site={site} onClick={() => onShow(site, 'review')} />
+    <div className="site-tile-body">
+      <span className="who"><strong>{site.name}{live && <span className="pill">Live</span>}</strong><small>{site.space_name} · {count(site.files, 'file')}, {bytes(site.bytes)}{site.updated ? ` · changed ${stamp(site.updated)}` : ''}{site.notes ? ` · ${count(site.notes, 'open note')}` : ''}</small></span>
+      <span className="action-row">
+        <button className={works ? 'secondary' : 'primary'} onClick={() => onShow(site, 'review')}><Eye size={15} /> Preview & notes</button>
+        {works && <button className="primary" onClick={() => onShow(site, 'edit')}><Code size={15} /> Open editor</button>}
+        {!editor && site.member && <button className="secondary" onClick={() => onOpen(site.space_id, site.folder)}><FolderOpen size={15} /> Open in Files</button>}
+        {works && <button className="secondary" disabled={!!busy} onClick={() => onPublish(site)}><Rocket size={15} /> Publish</button>}
+      </span>
+    </div>
+  </li>
+}
+
+/** The site's front page, live and scaled down. A picture only: the buttons beside it are the way in. */
+function Glimpse({ site, onClick }: { site: Site; onClick: () => void }) {
+  const [url, setUrl] = useState(''), [scale, setScale] = useState(0.3), box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let active = true
+    api<{ url: string }>('/webmaster/previews', 'POST', { space_id: site.space_id, folder: site.folder, bridge: false, drafts: false }).then(r => { if (active && r?.url) setUrl(r.url) }).catch(() => {})
+    return () => { active = false }
+  }, [site.space_id, site.folder, site.updated])
+  useEffect(() => {
+    const frame = box.current
+    if (!frame || typeof ResizeObserver === 'undefined') return
+    const watch = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / WIDE))
+    watch.observe(frame)
+    return () => watch.disconnect()
+  }, [])
+  return <div ref={box} className="site-glimpse" aria-hidden="true" onClick={onClick}>
+    {url && <iframe src={url} title={`${site.name}, as visitors see it`} tabIndex={-1} sandbox="allow-scripts" loading="lazy" scrolling="no" style={{ transform: `scale(${scale})` }} />}
+  </div>
 }
 
 function ImportResult({ job, onOpen }: { job: SiteImport; onOpen: (spaceId: string, folder: string) => void }) {

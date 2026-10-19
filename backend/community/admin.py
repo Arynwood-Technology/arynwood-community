@@ -1,5 +1,5 @@
 """Running the Grove: its people, their Grove-wide roles and who looks after the website, who
-may start spaces, and the activity log. Owners and managers see all of it; only owners change
+may start spaces, who can find Public chat's room, and the activity log. Owners and managers see all of it; only owners change
 roles and settings."""
 import json
 from typing import Literal
@@ -19,7 +19,11 @@ class WebmasterBody(BaseModel):
     webmaster: bool
 
 class SettingsBody(BaseModel):
-    space_creation: Literal['everyone','managers']
+    space_creation: Literal['everyone','managers']|None=None
+    # Public chat's room: private to this Grove on the IRC network, or open to anyone on it.
+    chat_privacy: Literal['private','open']|None=None
+
+DEFAULTS={'space_creation':'everyone','chat_privacy':'private'}
 
 @router.get('/people')
 def people(current=Depends(grove_manager)):
@@ -58,16 +62,18 @@ def set_webmaster(uid:str,body:WebmasterBody,current=Depends(grove_owner)):
 
 @router.get('/settings')
 def settings(current=Depends(grove_manager)):
-    with db() as c: return {'space_creation':grove_setting(c,'space_creation','everyone')}
+    with db() as c: return {k:grove_setting(c,k,v) for k,v in DEFAULTS.items()}
 
 @router.put('/settings')
 def save_settings(body:SettingsBody,current=Depends(grove_owner)):
+    """Changes the settings sent; the others stay as they are."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
-        if grove_setting(c,'space_creation','everyone')!=body.space_creation:
-            c.execute('INSERT OR REPLACE INTO grove_settings VALUES (?,?)',('space_creation',body.space_creation))
-            record(c,'grove_setting_changed',actor=current['id'],space_creation=body.space_creation)
-    return body.model_dump()
+        for key,value in body.model_dump(exclude_none=True).items():
+            if grove_setting(c,key,DEFAULTS[key])!=value:
+                c.execute('INSERT OR REPLACE INTO grove_settings VALUES (?,?)',(key,value))
+                record(c,'grove_setting_changed',actor=current['id'],**{key:value})
+        return {k:grove_setting(c,k,v) for k,v in DEFAULTS.items()}
 
 @router.get('/spaces')
 def spaces(current=Depends(grove_manager)):

@@ -1,8 +1,32 @@
 # Arynwood Grove release notes
 
-Version: `0.7.0`
+Version: `0.7.1`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.7.1
+
+Finding your way
+
+- **A menu down the side.** The header and its rows of buttons are now one menu on the left, behind **Menu** on a phone. The space and **Invite members** are at its top, then the website card (**Webmaster tools**, or **Website preview**), then the pages in three groups: **Talk** (Public chat, Messages, Updates, Board, and Mail for the host), **Organize** (Overview, Calendar, Tasks, Lists, Notes, Files) and **Settings** (People & identity, Grove admin, Look & feel, Workspace setup). Your name and **Sign out** are at the bottom. In the site editor the menu waits behind its button, so the editor has the whole width.
+
+Websites
+
+- **Websites first.** Webmaster tools lead with a card for each site, showing its front page live, with **Preview & notes**, **Open editor** and **Publish**. Members see the same cards. Bringing a site in is done once, so **Bring in a website** is folded behind its arrow, open only while there's no website yet; **Tools** and **Help** fold the same way.
+- **Make a one-page site** is in **Tools**, and answers beside its button. A space that already has one is told where it is, with buttons to open it, instead of a refusal shown at the top of the page.
+
+Lists
+
+- **Tabs for whose lists.** **Grove** for the shared lists, **You**, and a tab for each person with lists; **Someone else** opens anyone's. Each tab's lists are down the side with how much is left, and one list is open: tick things off, add to it, and click an item's words to change them. Done items fold away. The pencil renames a list, describes it, or hands it to someone or to the Grove; the person a list is for can do that too, and clear items others added to it. The Calendar shows lists the same way, in place of every list at once.
+
+Public chat
+
+- **It stays in the Grove's room**, for everyone, the host included: it doesn't join, list or message other rooms, or reach ChanServ. The host's full IRC client is only on a Grove without a room.
+- **Private on the IRC network.** Unless an owner opens it in Grove admin (**Who can find and join**), the room is left off the network's channel list and locked with a key only the Grove knows, so nobody wanders in from another IRC app. The Grove puts this in place whenever a member in the room is a channel operator. `GROVE_CHAT_KEY` takes a key the network's admin set.
+
+Notifications
+
+- **For new messages and Public chat**, chosen by each person on each device: in People & identity, with **Notify me** on Messages, or beside Public chat. Public chat can notify when you're mentioned (your nickname, or a message to you alone) or for every message. They come while the Grove is open in a tab, and not for what you're already reading.
 
 ## 0.7.0
 

@@ -13,6 +13,7 @@ interface Wish { id: string; created: string; author_name: string; author_email:
 interface Page { items: Activity[]; next: number | null }
 type Filter = { person: string; space: string }
 type SpaceCreation = 'everyone' | 'managers'
+type ChatPrivacy = 'private' | 'open'
 
 const roleNames: Record<GroveRole, string> = { owner: 'Owner', manager: 'Manager', member: 'Member' }
 const delivery: Record<Wish['delivery'], string> = { kept: 'Kept here; email is not set up', sending: 'Sending', sent: 'Emailed', failed: 'Kept here; the email failed' }
@@ -29,7 +30,7 @@ function logPath({ person, space }: Filter, before?: number) {
 export function Admin({ user, onChanged }: { user: User; onChanged: () => void }) {
   const owner = user.role === 'owner'
   const [people, setPeople] = useState<Person[]>([]), [spaces, setSpaces] = useState<GroveSpace[]>([]), [wishes, setWishes] = useState<Wish[]>([])
-  const [creation, setCreation] = useState<SpaceCreation | null>(null)
+  const [creation, setCreation] = useState<SpaceCreation | null>(null), [privacy, setPrivacy] = useState<ChatPrivacy | null>(null)
   const [log, setLog] = useState<Page | null>(null), [filter, setFilter] = useState<Filter>({ person: '', space: '' })
   const [reload, setReload] = useState(0), [loadingMore, setLoadingMore] = useState(false)
   const [message, setMessage] = useState(''), [error, setError] = useState('')
@@ -41,7 +42,7 @@ export function Admin({ user, onChanged }: { user: User; onChanged: () => void }
     api<Person[]>('/admin/people').then(setPeople).catch(e => setError(e.message))
     api<GroveSpace[]>('/admin/spaces').then(setSpaces).catch(e => setError(e.message))
     api<Wish[]>('/admin/wishes').then(setWishes).catch(e => setError(e.message))
-    api<{ space_creation: SpaceCreation }>('/admin/settings').then(s => setCreation(s.space_creation)).catch(e => setError(e.message))
+    api<{ space_creation: SpaceCreation; chat_privacy: ChatPrivacy }>('/admin/settings').then(s => { setCreation(s.space_creation); setPrivacy(s.chat_privacy) }).catch(e => setError(e.message))
   }, [reload])
   useEffect(() => {
     let active = true
@@ -77,6 +78,11 @@ export function Admin({ user, onChanged }: { user: User; onChanged: () => void }
     try { await api('/admin/settings', 'PUT', { space_creation: value }); setCreation(value); flash(value === 'managers' ? 'Only owners and managers can start spaces now.' : 'Everyone can start spaces now.'); setReload(n => n + 1) }
     catch (e) { fail(e) }
   }
+  async function savePrivacy(value: ChatPrivacy) {
+    try { await api('/admin/settings', 'PUT', { chat_privacy: value }); setPrivacy(value); flash(value === 'open' ? `Anyone on ${chat?.server} can now find and join ${chat?.channel}.` : `${chat?.channel} is now private to this Grove.`); setReload(n => n + 1); onChanged() }
+    catch (e) { fail(e) }
+  }
+  const chat = user.public_chat
   const me = people.find(p => p.id === user.id)
   const show = (next: Filter) => { setFilter(next); document.getElementById('grove-activity')?.scrollIntoView?.({ behavior: 'smooth' }) }
 
@@ -114,6 +120,14 @@ export function Admin({ user, onChanged }: { user: User; onChanged: () => void }
         </li>)}</ul>
         <p className="muted-text">Every space is listed, whoever started it.</p>
       </section>
+      {chat && <section className="panel">
+        <h2>Public chat</h2>
+        {owner ? <label className="admin-field">Who can find and join {chat.channel}<select value={privacy ?? 'private'} disabled={privacy === null} onChange={e => void savePrivacy(e.target.value as ChatPrivacy)}>
+          <option value="private">Only this Grove’s members</option><option value="open">Anyone on {chat.server}</option></select></label>
+          : <p>{privacy === 'open' ? `Anyone on ${chat.server} can find and join ${chat.channel}.` : `${chat.channel} is private to this Grove.`}</p>}
+        <p className="muted-text">Private: the room is left off {chat.server}’s channel list and locked with a key only this Grove knows, so nobody can find it or wander in from KVIrc, The Lounge or any other IRC app. The Grove puts this in place, or takes it off, the next time a member in the room is a channel operator; the first person into an empty room is.</p>
+        <p className="muted-text">Either way, members stay in {chat.channel}: Public chat doesn’t join, list or message other rooms. Each member chatting is one connection from this Grove’s server, so {chat.server}’s limit on connections from one address is how many can chat at once.</p>
+      </section>}
       <section className="panel admin-wide">
         <h2><GenieLamp size={20} /> Wishes</h2>
         {wishes.length ? <ul className="wish-list">{wishes.map(w => <li key={w.id}>

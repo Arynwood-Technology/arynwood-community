@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { DayPlanner } from './DayPlanner'
@@ -25,10 +25,11 @@ it('shows who a task is assigned to and assigns a new one', async () => {
 it('offers only you for a private task', async () => {
   show()
   fireEvent.click(await screen.findByRole('button', { name: 'Add daily goal' }))
-  expect(screen.getByRole('option', { name: 'Sam' })).toBeInTheDocument()
-  fireEvent.change(screen.getByLabelText('Visibility'), { target: { value: 'private' } })
-  expect(screen.queryByRole('option', { name: 'Sam' })).toBeNull()
-  expect(screen.getByRole('option', { name: 'Rowan (you)' })).toBeInTheDocument()
+  const form = screen.getByRole('dialog')
+  expect(within(form).getByRole('option', { name: 'Sam' })).toBeInTheDocument()
+  fireEvent.change(within(form).getByLabelText('Visibility'), { target: { value: 'private' } })
+  expect(within(form).queryByRole('option', { name: 'Sam' })).toBeNull()
+  expect(within(form).getByRole('option', { name: 'Rowan (you)' })).toBeInTheDocument()
 })
 
 it('opens on the month, with the chosen day beside it', async () => {
@@ -40,7 +41,7 @@ it('opens on the month, with the chosen day beside it', async () => {
   show()
   const title = new Date(year, month, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })
   expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /Gaffer tape/ })).toBeInTheDocument()
+  expect(within(screen.getByRole('region', { name: 'Packing' })).getByRole('button', { name: 'Complete Gaffer tape' })).toBeInTheDocument()
   const twentieth = new Date(year, month, 20)
   const cell = screen.getByRole('button', { name: `${twentieth.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}, 1 scheduled` })
   expect(cell).toHaveTextContent('Opening night')

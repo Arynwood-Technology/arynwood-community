@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { TopBar } from '../components/layout/TopBar'
 import { useAppStore } from '../store/useAppStore'
 import type { PublicChat } from '../lib/community'
+import { NotifyChat } from '../components/NotifySettings'
 import type { IRCMsg, WhoisInfo } from '../store/useAppStore'
 import {
   ircConnect, ircDisconnect, ircSwitchChannel,
-  ircProcess, IRC_COMMANDS, publicNick, rememberNick,
+  ircProcess, IRC_COMMANDS, OTHER_ROOMS, publicNick, rememberNick,
 } from '../lib/irc-manager'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const inp: React.CSSProperties = {
   color: 'var(--text)', borderRadius: 6, padding: '7px 10px', fontSize: 13,
   outline: 'none', width: '100%', boxSizing: 'border-box',
 }
+const alerts: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--text-muted)' }
 
 // ── WHOIS Modal ────────────────────────────────────────────────────────────────
 
@@ -171,9 +173,9 @@ function MsgRow({ m }: { m: IRCMsg }) {
 
 // ── Main IRC page ──────────────────────────────────────────────────────────────
 
-/** The host's IRC client (`full`), or, for everyone else, Public chat: one room on the Grove's server. */
-export function IRC({ chat = null, full = true }: { chat?: PublicChat | null; full?: boolean }) {
-  const locked = !full && !!chat
+/** Public chat: one room on the Grove's server, for everyone, the host too. Only a Grove without a room gives the host a full IRC client. */
+export function IRC({ chat = null }: { chat?: PublicChat | null }) {
+  const locked = !!chat
   const connected      = useAppStore(s => s.ircConnected)
   const connecting     = useAppStore(s => s.ircConnecting)
   const channelList    = useAppStore(s => s.ircChannelList)
@@ -243,7 +245,7 @@ export function IRC({ chat = null, full = true }: { chat?: PublicChat | null; fu
 
   // Autocomplete candidates
   const completions = input.startsWith('/')
-    ? IRC_COMMANDS.filter(c => c.cmd.startsWith(input.split(' ')[0]))
+    ? IRC_COMMANDS.filter(c => c.cmd.startsWith(input.split(' ')[0]) && !(locked && OTHER_ROOMS.includes(c.cmd)))
     : []
   const showComplete = input.startsWith('/') && completions.length > 0 && !input.includes(' ') && dismissedFor !== input
   const typed = (value: string) => { setInput(value); setCompleteIdx(0) }
@@ -334,7 +336,9 @@ export function IRC({ chat = null, full = true }: { chat?: PublicChat | null; fu
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{locked ? 'Public chat' : 'Server'}</div>
             {locked ? <>
             <div style={{ fontSize: 12 }}><strong>{chat.channel}</strong> <span style={{ color: 'var(--text-muted)' }}>on {chat.server}</span></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{chat.private ? 'Private to this Grove' : `Open to anyone on ${chat.server}`}</div>
             <input aria-label="Nickname" value={nick} onChange={e => setNick(e.target.value.replace(/\s/g, ''))} maxLength={30} placeholder="nickname" style={{ ...inp, fontSize: 12 }} disabled={connected} />
+            <NotifyChat style={alerts} selectStyle={{ ...inp, fontSize: 12 }} />
             </> : <>
             <input aria-label="Server" value={host} onChange={e => { setHost(e.target.value); saveCfg(e.target.value) }} placeholder="host" style={{ ...inp, fontSize: 12 }} disabled={connected} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px', gap: 6 }}>
@@ -343,6 +347,7 @@ export function IRC({ chat = null, full = true }: { chat?: PublicChat | null; fu
             </div>
             <input aria-label="NickServ password" autoComplete="off" value={nickPassword} onChange={e => { setNickPassword(e.target.value); saveCfg(host, port, nick, channels, e.target.value) }} placeholder="nickserv password" type="password" style={{ ...inp, fontSize: 12 }} disabled={connected} />
             <input aria-label="Channels" value={channels} onChange={e => { setChannels(e.target.value); saveCfg(host, port, nick, e.target.value) }} placeholder="#channel" style={{ ...inp, fontSize: 12 }} disabled={connected} />
+            <NotifyChat style={alerts} selectStyle={{ ...inp, fontSize: 12 }} />
             </>}
             <button onClick={connected ? ircDisconnect : connect} disabled={connecting} style={{
               background: connected ? 'var(--danger-fill)' : 'var(--accent)',
@@ -470,7 +475,7 @@ export function IRC({ chat = null, full = true }: { chat?: PublicChat | null; fu
               maxLength={450}
               placeholder={
                 !connected ? 'Connect first…'
-                : (!activeChannel || activeChannel === 'server') ? 'Type /join #channel to enter a room'
+                : (!activeChannel || activeChannel === 'server') ? (locked ? `Choose ${chat.channel} to talk there` : 'Type /join #channel to enter a room')
                 : `Message ${activeChannel}  —  type / for commands`
               }
               disabled={!connected}

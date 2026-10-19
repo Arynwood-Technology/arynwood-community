@@ -23,15 +23,29 @@ function serve(current: () => SiteState, more: (path: string, method?: string, b
 beforeEach(() => { mocked.mockReset(); vi.mocked(uploadFile).mockReset() })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
-it('walks owners and webmasters through bringing a site in, changing it, and publishing it', async () => {
-  serve(() => state())
-  render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} />)
-  for (const step of ['Bring your website in', 'Change what you need', 'Gather notes, then publish']) expect(screen.getByRole('heading', { name: new RegExp(step) })).toBeInTheDocument()
-  for (const way of ['From its address', 'From a .zip', 'Start with one page']) expect(screen.getByRole('heading', { name: way })).toBeInTheDocument()
+it('puts the websites first, with bringing one in, Tools and Help folded away', async () => {
+  serve(() => state(), path => path === '/webmaster/previews' ? { url: '/api/community/preview/tok/' } : undefined)
+  const { container } = render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} />)
+  const tile = (await screen.findByText('roguefest-site')).closest('li')!
+  for (const action of [/Preview & notes/, /Open editor/, /Publish/]) expect(within(tile).getByRole('button', { name: action })).toBeInTheDocument()
+  // The site, pictured as visitors see it, with no drafts and none of the preview pane's pins.
+  expect(await within(tile).findByTitle('roguefest-site, as visitors see it')).toHaveAttribute('src', '/api/community/preview/tok/')
+  expect(mocked).toHaveBeenCalledWith('/webmaster/previews', 'POST', { space_id: 'web', folder: 'Website/roguefest-site', bridge: false, drafts: false })
+  for (const fold of ['Bring in a website', 'Tools', 'Help']) expect(screen.getByRole('heading', { name: fold })).toBeInTheDocument()
+  for (const way of ['From its address', 'From a .zip', 'Make a one-page site']) expect(screen.getByRole('heading', { name: way })).toBeInTheDocument()
+  // With a site to work on, bringing one in is folded away; it opens with its arrow.
+  const folds = [...container.querySelectorAll('details.fold')] as HTMLDetailsElement[]
+  expect(folds.map(d => d.open)).toEqual([false, false, false])
   expect(screen.getByLabelText('Keep it in')).toHaveValue('crew')
-  expect(await screen.findByText('Nothing is published yet. Visitors to localhost:3000 go to the members’ page.')).toBeInTheDocument()
-  expect(await screen.findByRole('button', { name: /Publish/ })).toBeInTheDocument()
+  expect(screen.getByText('Nothing is published yet. Visitors to localhost:3000 go to the members’ page.')).toBeInTheDocument()
   expect(screen.queryByText(/Workers Scripts/)).toBeNull()
+})
+
+it('opens bringing a site in, and Tools, while there is no website yet', async () => {
+  serve(() => state({ sites: [] }))
+  const { container } = render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} />)
+  expect(await screen.findByText(/No websites yet/)).toBeInTheDocument()
+  expect(([...container.querySelectorAll('details.fold')] as HTMLDetailsElement[]).map(d => d.open)).toEqual([true, true, false])
 })
 
 it('starts an import into the chosen space and shows what came in', async () => {
@@ -78,12 +92,20 @@ it('uploads a .zip into Website, as a new version when it was sent before, and u
   expect(onOpen).toHaveBeenCalledWith('crew', 'Website/roguefest-site')
 })
 
-it('makes a one-page starter site', async () => {
-  serve(() => state(), path => path === '/webmaster/starter' ? { space_id: 'crew', folder: 'Website/roguefest.arynwood.com' } : undefined)
-  render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} />)
-  fireEvent.click(screen.getByRole('button', { name: /Make a one-page site/ }))
-  expect(await screen.findByText(/Your one-page site is in Website\/roguefest.arynwood.com/)).toBeInTheDocument()
+it('makes a one-page starter site, or says where it already is, right by the button', async () => {
+  let existed = false
+  serve(() => state(), path => path === '/webmaster/starter' ? { space_id: 'crew', folder: 'Website/roguefest.arynwood.com', existed } : undefined)
+  const onShow = vi.fn()
+  render(<Webmaster user={owner} spaces={spaces} current="crew" onOpen={vi.fn()} onShow={onShow} />)
+  const tool = screen.getByRole('heading', { name: 'Make a one-page site' }).parentElement!
+  fireEvent.click(within(tool).getByRole('button', { name: /Make a one-page site/ }))
+  expect(await within(tool).findByText(/Your one-page site is in Website\/roguefest.arynwood.com\./)).toBeInTheDocument()
   expect(mocked).toHaveBeenCalledWith('/webmaster/starter', 'POST', { space_id: 'crew' })
+  fireEvent.click(within(tool).getByRole('button', { name: /Open editor/ }))
+  expect(onShow).toHaveBeenCalledWith({ space: 'crew', folder: 'Website/roguefest.arynwood.com', mode: 'edit' })
+  existed = true
+  fireEvent.click(within(tool).getByRole('button', { name: /Make a one-page site/ }))
+  expect(await within(tool).findByText(/Your one-page site is already in Website\/roguefest.arynwood.com, just as it was\./)).toBeInTheDocument()
 })
 
 it('publishes after asking, then puts an earlier version back or takes the site down', async () => {
@@ -115,7 +137,7 @@ it('lets every member preview and leave notes, but not change or publish', async
   render(<Webmaster user={member} spaces={spaces} current="crew" onOpen={vi.fn()} onShow={onShow} />)
   expect(screen.getByRole('heading', { name: 'Website' })).toBeInTheDocument()
   expect(await screen.findByRole('link', { name: 'Visit the site' })).toBeInTheDocument()
-  for (const hidden of [/Bring your website in/, /Publish/, /Take it down/, /Import website/, /Open editor/]) expect(screen.queryByRole('button', { name: hidden }) ?? screen.queryByRole('heading', { name: hidden })).toBeNull()
+  for (const hidden of [/Bring in a website/, /Tools/, /Publish/, /Take it down/, /Import website/, /Open editor/]) expect(screen.queryByRole('button', { name: hidden }) ?? screen.queryByRole('heading', { name: hidden })).toBeNull()
   expect(screen.getAllByRole('button', { name: /Open in Files/ })).toHaveLength(1)
   expect(screen.getByText(/Board · 75 files, 1.7 MB .* · 2 open notes/)).toBeInTheDocument()
   expect(mocked).not.toHaveBeenCalledWith('/webmaster/imports')

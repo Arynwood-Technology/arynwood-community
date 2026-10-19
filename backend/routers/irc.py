@@ -117,9 +117,10 @@ async def irc_ws(ws: WebSocket):
     await relay(ws, host, port, use_ssl, socks5, nick, nick_password, channels, realname)
 
 
-async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password, channels, realname):
+async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password, channels, realname, room=None):
     """Connects to the IRC server and pumps lines both ways until either side leaves.
-    The WebSocket is already accepted; nothing here comes from the browser except the commands it relays."""
+    The WebSocket is already accepted; nothing here comes from the browser except the commands it relays.
+    `room` (Public chat's chat.Room) vets each command first, and keeps its room private."""
     irc_writer = None
     irc_reader = None
 
@@ -186,6 +187,8 @@ async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password,
                         break
 
                     text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+                    if room:
+                        text = room.hide(text)
                     if not text:
                         continue
 
@@ -252,6 +255,11 @@ async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password,
                                 irc_writer.write(f"JOIN {ch}\r\n".encode())
                             await irc_writer.drain()
 
+                    if room:
+                        for reply in room.from_server(msg):
+                            irc_writer.write(f"{reply}\r\n".encode())
+                        await irc_writer.drain()
+
                     await send({"type": "irc", "msg": msg})
             finally:
                 stop_event.set()
@@ -265,6 +273,10 @@ async def relay(ws: WebSocket, host, port, use_ssl, socks5, nick, nick_password,
                     except asyncio.TimeoutError:
                         continue
                     raw_cmd = one_line(data.get("cmd", ""))
+                    if raw_cmd and room:
+                        raw_cmd, refused = room.to_server(raw_cmd)
+                        if refused:
+                            await send({"type": "status", "message": refused})
                     if raw_cmd and irc_writer and not irc_writer.is_closing():
                         irc_writer.write(f"{raw_cmd}\r\n".encode())
                         await irc_writer.drain()

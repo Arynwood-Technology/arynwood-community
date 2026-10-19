@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from .auth import webmaster, identifier, now
 from .store import db, public_origin, VERSION
@@ -399,15 +399,17 @@ class StarterBody(BaseModel):
     space_id: str = Field(min_length=1, max_length=64)
 
 @router.post('/starter', status_code=201)
-def starter(body: StarterBody, current=Depends(webmaster)):
-    """A one-page website for a Grove that has none yet, in Website/<the Grove's address>."""
+def starter(body: StarterBody, response: Response, current=Depends(webmaster)):
+    """A one-page website for a Grove that has none yet, in Website/<the Grove's address>. When the
+    space already has one, says where it is (existed) and leaves it as it is."""
     from backend.brand import read_brand
     brand = read_brand()
     folder = files.joined('Website', files.clean_name(urlsplit(public_origin()).hostname or 'home'))
     with db() as c:
         membership(c, body.space_id, current['id'])
         if c.execute("SELECT 1 FROM files WHERE space_id=? AND folder=? AND name='index.html' AND deleted IS NULL", (body.space_id, folder)).fetchone():
-            raise HTTPException(409, f'{folder} already has a front page. Open it in Files to change it.')
+            response.status_code = 200
+            return {'space_id': body.space_id, 'folder': folder, 'existed': True}
     logo = brand['_logo'] and LOGO_NAMES[brand['_logo'][1]]
     try:
         if logo: store_file(body.space_id, current['id'], folder, logo, brand['_logo'][0])
@@ -416,4 +418,4 @@ def starter(body: StarterBody, current=Depends(webmaster)):
         raise HTTPException(409, str(reason))
     with db() as c: record(c, 'site_started', actor=current['id'], space=body.space_id, target_name=folder)
     files.announce(body.space_id, folder)
-    return {'space_id': body.space_id, 'folder': folder}
+    return {'space_id': body.space_id, 'folder': folder, 'existed': False}

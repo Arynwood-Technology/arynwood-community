@@ -14,7 +14,7 @@ beforeEach(() => { mocked.mockReset() })
 afterEach(() => cleanup())
 function show(user = rowan) {
   mocked.mockImplementation(async (path, method) => path === '/admin/people' ? people : path === '/admin/spaces' ? [{ id: 'crew', name: 'Crew', created: '2026-10-02T09:00:00Z', used: 5 * 1024 * 1024 }]
-    : path === '/admin/wishes' ? wishes : path === '/admin/settings' ? { space_creation: 'everyone' }
+    : path === '/admin/wishes' ? wishes : path === '/admin/settings' ? { space_creation: 'everyone', chat_privacy: 'private' }
     : path.includes('before=') ? { items: [row(1, 'signed_in', { space_name: '' })], next: null }
     : path.startsWith('/admin/activity') ? firstPage : method === 'PUT' ? { ok: true } : [])
   const onChanged = vi.fn()
@@ -58,6 +58,23 @@ it('lets an owner keep space-starting to owners and managers', async () => {
   fireEvent.change(setting, { target: { value: 'managers' } })
   await screen.findByText('Only owners and managers can start spaces now.')
   expect(mocked).toHaveBeenCalledWith('/admin/settings', 'PUT', { space_creation: 'managers' })
+})
+
+it('lets an owner open Public chat’s room to the IRC network, or keep it private', async () => {
+  const { onChanged } = show({ ...rowan, public_chat: { channel: '#RogueFest', nick: 'Guest###', server: 'irc.arynwood.com', private: true } })
+  const setting = await screen.findByLabelText('Who can find and join #RogueFest')
+  await waitFor(() => expect(setting).toBeEnabled())
+  expect(setting).toHaveValue('private')
+  fireEvent.change(setting, { target: { value: 'open' } })
+  await screen.findByText('Anyone on irc.arynwood.com can now find and join #RogueFest.')
+  expect(mocked).toHaveBeenCalledWith('/admin/settings', 'PUT', { chat_privacy: 'open' })
+  expect(onChanged).toHaveBeenCalled()
+})
+
+it('shows no Public chat setting on a Grove without a room', async () => {
+  show()
+  await screen.findByLabelText('Who can start new spaces')
+  expect(screen.queryByRole('heading', { name: 'Public chat' })).toBeNull()
 })
 
 it('filters the log by person or space, and pages back through it', async () => {

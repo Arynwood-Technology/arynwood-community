@@ -69,7 +69,8 @@ def profile(c, uid):
     row['webmaster'] = looks_after_website(row)
     chat = public_chat()
     return {**row, 'can_start_spaces': may_start_spaces(c, row['role']), 'host_tools': bool(row['admin']) and host_tools(),
-            'public_chat': chat and {'channel': chat['channel'], 'nick': chat['nick'], 'server': chat['server']}, 'log_name': log_name()}
+            'public_chat': chat and {'channel': chat['channel'], 'nick': chat['nick'], 'server': chat['server'],
+                                     'private': grove_setting(c, 'chat_privacy', 'private') == 'private'}, 'log_name': log_name()}
 
 def session(request, response, uid):
     token = secrets.token_urlsafe(32)

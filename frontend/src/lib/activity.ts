@@ -83,7 +83,8 @@ export function describeActivity(a: Activity): string {
     case 'look_reset': return `${who} put the Grove’s look back as its host set it up`
     case 'look_picture_changed': return `${who} ${d.removed ? 'removed' : 'changed'} the Grove’s ${d.picture === 'logo' ? 'logo' : 'login page picture'}`
     case 'wish_made': return `${who} made a wish${here}`
-    case 'grove_setting_changed': return d.space_creation === 'managers' ? `${who} let only owners and managers start spaces` : `${who} let everyone start spaces`
+    case 'grove_setting_changed': return d.chat_privacy ? (d.chat_privacy === 'open' ? `${who} opened Public chat’s room to the IRC network` : `${who} made Public chat’s room private to this Grove`)
+      : d.space_creation === 'managers' ? `${who} let only owners and managers start spaces` : `${who} let everyone start spaces`
     default: return `${who}: ${a.action.replaceAll('_', ' ')}`
   }
 }

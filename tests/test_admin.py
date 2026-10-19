@@ -59,7 +59,7 @@ class AdminTests(unittest.TestCase):
 
     def test_owners_can_keep_space_starting_to_owners_and_managers(self):
         host, member, sid = self.host_and_member()
-        self.assertEqual(host.get('/api/admin/settings').json(), {'space_creation': 'everyone'})
+        self.assertEqual(host.get('/api/admin/settings').json(), {'space_creation': 'everyone', 'chat_privacy': 'private'})
         self.assertEqual(member.post('/api/community/spaces', headers=H, json={'name': 'Volunteers'}).status_code, 201)
         self.assertEqual(host.put('/api/admin/settings', headers=H, json={'space_creation': 'nobody'}).status_code, 422)
         self.assertEqual(host.put('/api/admin/settings', headers=H, json={'space_creation': 'managers'}).status_code, 200)
