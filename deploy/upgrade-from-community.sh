@@ -63,6 +63,8 @@ tar -xzf "$FROM" -C "$NEXT" --strip-components=1
 NEW=$(cat "$NEXT/VERSION" 2>/dev/null || true)
 cp -p "$DIR/.env" "$NEXT/.env"
 [[ -d $DIR/config ]] && { rm -rf "$NEXT/config"; cp -rp "$DIR/config" "$NEXT/config"; }
+# Community's service still names nkn/ in ReadWritePaths, and systemd won't start it while that folder is missing.
+[[ -d $DIR/nkn ]] && mkdir -p "$NEXT/nkn"
 # The environment is copied, not rebuilt: it ends up at the same path once the folders swap.
 cp -a "$DIR/.venv" "$NEXT/.venv"
 "$NEXT/.venv/bin/python" -m pip install -q --disable-pip-version-check -r "$NEXT/requirements.txt"
