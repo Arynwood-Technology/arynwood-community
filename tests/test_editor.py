@@ -120,12 +120,16 @@ class EditorTests(unittest.TestCase):
             response = client.get(url+path)
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(response.text, text)
-            self.assertEqual(response.headers['content-security-policy'], editor.PREVIEW_CSP)
+            self.assertEqual(response.headers['content-security-policy'], editor.preview_csp('http://testserver' + url))
             self.assertEqual(response.headers['x-frame-options'], 'SAMEORIGIN')
             self.assertEqual(response.headers['cache-control'], 'no-store')
             self.assertEqual(response.headers['x-content-type-options'], 'nosniff')
             self.assertNotIn('set-cookie', response.headers)
         self.assertEqual(client.get(url+'style.css').headers['content-type'], 'text/css; charset=utf-8')
+        # The page's files are named by the preview's own address: WebKit matches 'self' in a sandboxed frame to nothing.
+        policy = client.get(url).headers['content-security-policy']
+        self.assertIn(f"style-src http://testserver{url} 'unsafe-inline'", policy)
+        self.assertNotIn("'self'", policy.split('frame-ancestors')[0])
         self.assertEqual(client.get('/api/health').headers['x-frame-options'], 'DENY')
         self.assertIn("script-src 'self'", client.get('/api/health').headers['content-security-policy'])
         self.assertEqual(client.get('/api/auth/me').status_code, 401)

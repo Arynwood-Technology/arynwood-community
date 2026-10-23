@@ -1,8 +1,15 @@
 # Arynwood Grove release notes
 
-Version: `0.7.1`
+Version: `0.7.2`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.7.2
+
+Fixes
+
+- **Website previews in Safari.** In Safari and other WebKit browsers, previews of a website (the site editor, Preview & notes, and each site's card in Webmaster tools) showed the pages without their stylesheets or pictures. A preview's pages are now allowed their own files by the preview's address, which WebKit honours in a sandboxed frame, and they still can't load anything else. Checked in WebKit and Chrome.
+- **Upgrading a Community 0.3 server to 0.7.** Its service still names the `nkn/` folder, which 0.7 doesn't ship, so systemd refused to start the new version and `upgrade-from-community.sh` rolled back. The script now keeps an empty `nkn/` folder when the old install had one.
 
 ## 0.7.1
 

@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path, PurePosixPath
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from . import files
@@ -24,9 +24,13 @@ TEXT_MAX = 2 * files.MB
 SECRET = secrets.token_bytes(32)
 PREVIEW_SECONDS = 60 * 60
 # The site's scripts run, as a page from nowhere: no cookies, no Grove APIs, nothing from other sites.
-PREVIEW_CSP = ("sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'self' 'unsafe-inline'; "
-               "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; form-action 'none'; frame-ancestors 'self'")
-PREVIEW_HEADERS = {'Content-Security-Policy': PREVIEW_CSP, 'X-Frame-Options': 'SAMEORIGIN', 'Access-Control-Allow-Origin': '*'}
+# Its own files are named by the preview's address (`own`) rather than 'self': in a sandboxed frame, as in the
+# preview panes, WebKit matches 'self' against the frame's opaque origin, so Safari showed previews without their
+# stylesheets or pictures. Naming the address also keeps a preview to its own files.
+def preview_csp(own):
+    return (f"sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src {own} 'unsafe-inline'; "
+            f"style-src {own} 'unsafe-inline'; img-src {own} data:; font-src {own}; media-src {own}; form-action 'none'; frame-ancestors 'self'")
+def preview_headers(own): return {'Content-Security-Policy': preview_csp(own), 'X-Frame-Options': 'SAMEORIGIN', 'Access-Control-Allow-Origin': '*'}
 STALE = 'Someone saved a newer version. Copy your changes, reload, and try again.'
 
 class TextBody(BaseModel):
@@ -177,8 +181,9 @@ def preview_row(c, sid, full):
     return c.execute("SELECT id,name,blob FROM files WHERE space_id=? AND folder=? AND name=? AND kind='file' AND deleted IS NULL", (sid, parent, name)).fetchone()
 
 @router.get('/preview/{token}/{path:path}')
-def preview_file(token: str, path: str):
+def preview_file(token: str, path: str, request: Request):
     sid, folder, options = unpack(token)
+    headers = preview_headers(f'{request.url.scheme}://{request.url.netloc}/api/community/preview/{token}/')
     parts = path.rstrip('/').split('/') if path else []
     if len(path) > 4200 or any(not part or part in ('.', '..') or files.BAD.search(part) for part in parts):
         raise HTTPException(404, 'File not found.')
@@ -202,5 +207,5 @@ def preview_file(token: str, path: str):
         if kind in ('.html', '.htm', '.css'): text = rebased(text, kind[1:], base)
         if kind in ('.html', '.htm') and options.get('b'): text = bridged(text, base)
         return Response(text.encode('utf-8', 'surrogateescape'), status_code=status,
-                        media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)
-    return FileResponse(files.blob_path(f['blob']), status_code=status, media_type=files.media_type(f['name']), headers=PREVIEW_HEADERS)
+                        media_type=files.media_type(f['name']), headers=headers)
+    return FileResponse(files.blob_path(f['blob']), status_code=status, media_type=files.media_type(f['name']), headers=headers)

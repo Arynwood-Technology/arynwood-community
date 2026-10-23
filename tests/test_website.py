@@ -226,9 +226,10 @@ class WebsiteTests(unittest.TestCase):
         url = member.post('/api/webmaster/previews', headers=H, json={'space_id': sid, 'folder': 'Website/roguefest-site'}).json()['url']
         base = url.rstrip('/')
         page = member.get(url)
-        self.assertEqual(page.headers['content-security-policy'], editor.PREVIEW_CSP)
-        self.assertIn('allow-scripts', editor.PREVIEW_CSP)
-        self.assertNotIn('allow-same-origin', editor.PREVIEW_CSP)
+        policy = page.headers['content-security-policy']
+        self.assertEqual(policy, editor.preview_csp('http://testserver' + url))
+        self.assertIn('allow-scripts', policy)
+        self.assertNotIn('allow-same-origin', policy)
         for expected in (f'href="{base}/styles.css?v=1"', f'href="{base}/filmmakers"', 'href="/community"', f'src="{base}/site.js"',
                          f'srcset="{base}/img/badge-320.webp 320w, {base}/img/badge-640.webp 640w"'):
             self.assertIn(expected, page.text)
