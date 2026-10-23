@@ -32,6 +32,7 @@ def preview_csp(own):
             f"style-src {own} 'unsafe-inline'; img-src {own} data:; font-src {own}; media-src {own}; form-action 'none'; frame-ancestors 'self'")
 def preview_headers(own): return {'Content-Security-Policy': preview_csp(own), 'X-Frame-Options': 'SAMEORIGIN', 'Access-Control-Allow-Origin': '*'}
 STALE = 'Someone saved a newer version. Copy your changes, reload, and try again.'
+FULL = 'This space is full. Delete something, or ask the host for more room.'
 
 class TextBody(BaseModel):
     text: str = Field(max_length=TEXT_MAX)
@@ -59,7 +60,8 @@ def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
             raise HTTPException(415, 'The editor needs UTF-8 text.')
         if '\x00' in previous or '\x00' in body.text: raise HTTPException(415, 'Only text files can be edited.')
         if len(data) > min(TEXT_MAX, files.file_limit()): raise HTTPException(413, 'The editor saves files up to 2 MB.')
-        if len(data) + files.used(c, sid) > files.space_limit(): raise HTTPException(413, 'This space is full. Delete something, or ask the host for more room.')
+        # Saving ends this person's draft, so its room is theirs to use.
+        if len(data) + files.used(c, sid) - draft_size(c, fid, current['id']) > files.space_limit(): raise HTTPException(413, FULL)
         if shutil.disk_usage(files.storage()).free - len(data) < files.MIN_FREE: raise HTTPException(507, 'The server is nearly out of space. Tell the host.')
         blob = hashlib.sha256(data).hexdigest()
         target = files.blob_path(blob)
@@ -84,7 +86,12 @@ def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
 
 # Drafts: what someone has typed and not saved. Only they see it, in the editor and in their own
 # previews. A draft remembers the version it started from, so saving it later can't overwrite
-# someone else's newer save.
+# someone else's newer save. Drafts count against the space's room like files (files.used), so
+# many small files can't hold large drafts; one that shrinks is always kept, even in a full space.
+def draft_size(c, fid, uid):
+    row = c.execute('SELECT LENGTH(CAST(text AS BLOB)) FROM file_drafts WHERE file_id=? AND user_id=?', (fid, uid)).fetchone()
+    return row[0] if row else 0
+
 @router.put('/spaces/{sid}/files/{fid}/draft')
 def save_draft(sid: str, fid: str, body: TextBody, current=Depends(user)):
     try: size = len(body.text.encode('utf-8'))
@@ -92,7 +99,11 @@ def save_draft(sid: str, fid: str, body: TextBody, current=Depends(user)):
     if '\x00' in body.text: raise HTTPException(415, 'Only text files can be edited.')
     if size > TEXT_MAX: raise HTTPException(413, 'The editor saves files up to 2 MB.')
     with db() as c:
+        c.execute('BEGIN IMMEDIATE')
         editable(c, sid, fid, current)
+        grows = size - draft_size(c, fid, current['id'])
+        if grows > 0 and files.used(c, sid) + grows > files.space_limit(): raise HTTPException(413, FULL)
+        if grows > 0 and shutil.disk_usage(files.storage()).free - grows < files.MIN_FREE: raise HTTPException(507, 'The server is nearly out of space. Tell the host.')
         stamp = now()
         c.execute('INSERT OR REPLACE INTO file_drafts VALUES (?,?,?,?,?)', (fid, current['id'], body.version, body.text, stamp))
     return {'version': body.version, 'updated': stamp}

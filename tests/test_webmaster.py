@@ -1,6 +1,7 @@
 """Webmaster tools: a website comes in from its own address, and leaves again as a .zip."""
 import io
 import threading
+import time
 import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -38,6 +39,8 @@ class Site(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/filmmakers.html': return self.answer(307, b'', {'Location': '/filmmakers'})
         if path == '/away.html': return self.answer(302, b'', {'Location': 'https://elsewhere.example/'})
+        if path == '/slow': return self.drip(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 60\r\n\r\n', b'x' * 60)
+        if path == '/slow-headers': return self.drip(b'HTTP/1.1 200 OK\r\n', b'X-Pad: ' + b'x' * 60 + b'\r\n\r\n')
         if path not in PAGES: return self.answer(404, b'')
         kind, body = PAGES[path]
         self.answer(200, body, {'Content-Type': kind})
@@ -45,6 +48,12 @@ class Site(BaseHTTPRequestHandler):
         self.send_response(status)
         for k, v in {'Content-Length': str(len(body)), **(headers or {})}.items(): self.send_header(k, v)
         self.end_headers(); self.wfile.write(body)
+    def drip(self, head, rest):
+        # A server that keeps sending, a byte at a time, so no single wait ever runs out.
+        try:
+            self.wfile.write(head)
+            for byte in rest: self.wfile.write(bytes([byte])); time.sleep(0.05)
+        except OSError: pass
     def version_string(self): return 'cloudflare'
     def log_message(self, *args): pass
 
@@ -108,6 +117,18 @@ class WebmasterTests(unittest.TestCase):
         self.assertNotIn('/private/plans.html', Site.requested)
         log = next(a for a in host.get('/api/admin/activity').json()['items'] if a['action'] == 'site_imported')
         self.assertEqual([log['target_name'], log['details']['added'], log['details']['status']], [root, 9, 'done'])
+
+    def test_a_slow_site_cannot_outlast_the_import(self):
+        # Every byte arrives well inside the socket's 20-second wait, in the body or in the headers;
+        # only the import's own deadline ends it.
+        host, member, sid = self.host_and_member()
+        base = self.serve()
+        for path in ('/slow', '/slow-headers'):
+            with self.subTest(path), patch.object(webmaster, 'SECONDS', 0.5):
+                started = time.monotonic()
+                done = self.run_import(host, base + path, sid)
+                self.assertLess(time.monotonic() - started, 2)
+                self.assertEqual([done['status'], done['message']], ['failed', webmaster.TOO_LONG])
 
     def test_importing_again_adds_versions_of_what_changed(self):
         host, member, sid = self.host_and_member()

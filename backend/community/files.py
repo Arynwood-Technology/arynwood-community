@@ -108,10 +108,13 @@ def may_change(c, role, uid, item):
             raise HTTPException(403, 'Others added things to this folder, so only a space owner can change it.')
 
 def used(c, sid):
-    """Bytes a space holds: files and their earlier versions, in the trash too, and uploads under way."""
+    """Bytes a space holds: files and their earlier versions, in the trash too, uploads under way, and
+    the editor's unsaved drafts (kept in the database, but room all the same)."""
     return c.execute('''SELECT (SELECT COALESCE(SUM(size),0) FROM files WHERE space_id=?)
         + (SELECT COALESCE(SUM(v.size),0) FROM file_versions v JOIN files f ON f.id=v.file_id WHERE f.space_id=?)
-        + (SELECT COALESCE(SUM(size),0) FROM uploads WHERE space_id=?)''', (sid, sid, sid)).fetchone()[0]
+        + (SELECT COALESCE(SUM(size),0) FROM uploads WHERE space_id=?)
+        + (SELECT COALESCE(SUM(LENGTH(CAST(d.text AS BLOB))),0) FROM file_drafts d JOIN files f ON f.id=d.file_id WHERE f.space_id=?)''',
+        (sid, sid, sid, sid)).fetchone()[0]
 
 ITEM = '''SELECT f.id,f.folder,f.name,f.kind,f.size,f.version,f.created,f.updated,f.deleted,f.author_id,
           COALESCE(a.name,'') AS author,COALESCE(b.name,'') AS updated_by FROM files f

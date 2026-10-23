@@ -19,6 +19,7 @@ import socket
 import ssl
 import stat
 import logging
+import threading
 import time
 import zipfile
 import zlib
@@ -43,6 +44,7 @@ MAX_FILES = 400
 MAX_FILE = 50 * files.MB
 MAX_TOTAL = 300 * files.MB
 SECONDS = 600
+TOO_LONG = 'The import took too long; what arrived is kept.'
 STALE = 900  # an import still "running" after this was cut short by a restart
 # Cloudflare adds its analytics script to each page as it serves it, at a versioned path, unlike the
 # snippet a site's owners paste in themselves. Kept, it would be added a second time once published.
@@ -67,20 +69,38 @@ def public_address(host, port):
     if not found or not all(reachable(ip) for ip in found): raise Refused(f'{host} is not a public address.')
     return found[0]
 
-class PinnedHTTPS(http.client.HTTPSConnection):
+class Pinned:
+    """Connects to the address that was checked, and can be cut off from another thread at the import's
+    deadline. A socket's timeout limits each wait, not the whole download, so a server sending a byte every
+    few seconds could otherwise keep a download, or even its TLS handshake, going long past it."""
+    late = False
+    def dial(self):
+        self.sock = socket.create_connection((self.ip, self.port), self.timeout)
+        if self.late: raise TimeoutError('the import ran out of time')
+    def cut(self):
+        self.late = True
+        # The plain socket's shutdown, TLS or not: it ends a read under way, and the connection closes as usual.
+        if self.sock:
+            try: socket.socket.shutdown(self.sock, socket.SHUT_RDWR)
+            except OSError: pass
+
+class PinnedHTTPS(Pinned, http.client.HTTPSConnection):
     """Connects to the address that was checked, while checking the certificate for the name."""
     def __init__(self, host, port, ip, timeout):
         super().__init__(host, port, timeout=timeout, context=ssl.create_default_context())
         self.ip = ip
     def connect(self):
-        self.sock = self._context.wrap_socket(socket.create_connection((self.ip, self.port), self.timeout), server_hostname=self.host)
+        self.dial()
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host, do_handshake_on_connect=False)
+        if self.late: raise TimeoutError('the import ran out of time')
+        self.sock.do_handshake()
 
-class PinnedHTTP(http.client.HTTPConnection):
+class PinnedHTTP(Pinned, http.client.HTTPConnection):
     def __init__(self, host, port, ip, timeout):
         super().__init__(host, port, timeout=timeout)
         self.ip = ip
     def connect(self):
-        self.sock = socket.create_connection((self.ip, self.port), self.timeout)
+        self.dial()
 
 def origin(url):
     parts = urlsplit(url)
@@ -95,13 +115,20 @@ def start_url(value):
         raise HTTPException(422, 'Enter a web address like https://example.com.')
     return urlunsplit((parts.scheme, parts.netloc.lower(), parts.path or '/', parts.query, ''))
 
-def fetch(url, site, limit):
-    """GET a URL on the site, following redirects that stay on it: (url, type, server, body), or a reason it was skipped."""
+def fetch(url, site, limit, deadline):
+    """GET a URL on the site, following redirects that stay on it: (url, type, server, body), or a reason it was skipped.
+    At `deadline` (time.monotonic()) the import ends, even halfway through a download."""
     for _ in range(6):
         scheme, host, port = origin(url)
         if (scheme, host, port) != site: return 'it moved to another site'
         parts = urlsplit(url)
-        connection = (PinnedHTTPS if scheme == 'https' else PinnedHTTP)(host, port, public_address(host, port), 20)
+        ip = public_address(host, port)
+        left = deadline - time.monotonic()
+        if left <= 0: raise Refused(TOO_LONG)
+        connection = (PinnedHTTPS if scheme == 'https' else PinnedHTTP)(host, port, ip, min(20, left))
+        cutoff = threading.Timer(left, connection.cut)
+        cutoff.daemon = True
+        cutoff.start()
         try:
             connection.request('GET', (parts.path or '/') + (f'?{parts.query}' if parts.query else ''), headers={'User-Agent': USER_AGENT, 'Accept-Encoding': 'identity'})
             response = connection.getresponse()
@@ -110,9 +137,14 @@ def fetch(url, site, limit):
             if response.status != 200: return f'the site answered {response.status}'
             if int(response.getheader('Content-Length') or 0) > limit: return 'it is too large'
             body = response.read(limit + 1)
+            if connection.late: raise Refused(TOO_LONG)
             if len(body) > limit: return 'it is too large'
             return url, (response.getheader('Content-Type') or '').split(';')[0].strip().lower(), response.getheader('Server') or '', body
+        except (OSError, http.client.HTTPException):
+            if connection.late: raise Refused(TOO_LONG) from None
+            raise
         finally:
+            cutoff.cancel(); cutoff.join()
             connection.close()
     return 'it redirects too many times'
 
@@ -196,9 +228,9 @@ def store_file(sid, uid, folder, path, body):
                   (identifier(), sid, where, name, 'file', blob, len(body), uid, uid, stamp, stamp))
         return 'added'
 
-def robots(url, site):
+def robots(url, site, deadline):
     rules = RobotFileParser()
-    got = fetch(urljoin(url, '/robots.txt'), site, files.MB)
+    got = fetch(urljoin(url, '/robots.txt'), site, files.MB, deadline)
     rules.parse(got[3].decode('utf-8', 'replace').splitlines() if isinstance(got, tuple) else [])
     return rules
 
@@ -216,14 +248,14 @@ def run_import(job):
         counts['skipped'] += 1
         if len(notes['skipped']) < 50: notes['skipped'].append([urlsplit(url).path or '/', reason])
     try:
-        rules = robots(start, site)
+        rules = robots(start, site, deadline)
         while queue:
-            if time.monotonic() > deadline: raise Refused('The import took too long; what arrived is kept.')
+            if time.monotonic() > deadline: raise Refused(TOO_LONG)
             if len(saved) >= MAX_FILES: raise Refused(f'The site has more than {MAX_FILES} files; the first {MAX_FILES} are kept.')
             url = queue.popleft()
             if not rules.can_fetch(AGENT, url): skip(url, 'its robots.txt asks visitors like the Grove not to'); continue
             if urlsplit(url).path.startswith('/cdn-cgi/'): skip(url, 'Cloudflare adds it as the site is served'); continue
-            got = fetch(url, site, min(MAX_FILE, MAX_TOTAL - total))
+            got = fetch(url, site, min(MAX_FILE, MAX_TOTAL - total), deadline)
             if isinstance(got, str): skip(url, got); continue
             final, kind, server, body = got
             notes['server'] = notes['server'] or server

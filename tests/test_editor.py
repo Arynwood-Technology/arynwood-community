@@ -100,6 +100,29 @@ class EditorTests(unittest.TestCase):
             self.assertEqual(pending.status_code, 201)
             self.assertEqual(self.save(host, sid, f['id'], '1', version=2).status_code, 413)
 
+    def test_drafts_count_against_the_space(self):
+        # A one-byte file could hold a 2 MB draft that the space never counted.
+        host, member, sid = self.host_and_member()
+        f = self.upload(member, sid, 'a.txt', b'1').json()
+        draft = lambda client, text: client.put(f"/api/community/spaces/{sid}/files/{f['id']}/draft", headers=H, json={'text': text, 'version': 1})
+        with patch.object(files, 'space_limit', return_value=10):
+            full = draft(member, 'x' * 10)
+            self.assertEqual(full.status_code, 413)
+            self.assertEqual(full.json()['detail'], editor.FULL)
+            self.assertEqual(draft(member, 'x' * 6).status_code, 200)
+            with store.db() as c: self.assertEqual(files.used(c, sid), 7)
+            # Each person's draft is room of its own; one that shrinks is kept even in a full space.
+            self.assertEqual(draft(host, 'x' * 4).status_code, 413)
+            self.assertEqual(draft(host, 'x' * 3).status_code, 200)
+            self.assertEqual(draft(member, 'x' * 7).status_code, 413)
+            self.assertEqual(draft(member, 'x' * 2).status_code, 200)
+            # Saving ends the saver's draft, so its room counts toward the save.
+            self.assertEqual(self.save(member, sid, f['id'], 'x' * 5).status_code, 200)
+            with store.db() as c: self.assertEqual(files.used(c, sid), 1 + 5 + 3)
+        with patch.object(files, 'MIN_FREE', 10 ** 18):
+            self.assertEqual(draft(host, 'x' * 4).status_code, 507)
+            self.assertEqual(draft(host, 'x').status_code, 200)
+
     def website(self):
         host, sid = self.host()
         for name in ('Site','Other'):
