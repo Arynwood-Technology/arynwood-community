@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with: { node-version: '22.23.4' }
       - name: Version matches the tag
         run: |
           version=$(sed -n "s/^VERSION = '\(.*\)'/\1/p" backend/community/store.py)
