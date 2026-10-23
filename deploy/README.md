@@ -41,6 +41,8 @@ What it sets up:
 | `arynwood-grove-domain.path`, `.service` | When the host asks for a new address in Settings, the service writes `requests/domain.json`; this root helper re-checks the name, publishes it with nginx and Certbot, and writes back the result. The service itself never runs anything as root. |
 
 Releases are downloaded from GitHub and checked against their published SHA-256 checksum before anything changes.
+Releases after 0.7.3 also carry a GitHub build attestation for the tarball and `install.sh`. To check one by hand, with the
+[GitHub CLI](https://cli.github.com/): `gh attestation verify arynwood-grove-<version>.tar.gz -R Arynwood-Technology/arynwood-community`.
 
 ## Managing it
 

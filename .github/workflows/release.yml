@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write      # the attestation is signed with this run's GitHub identity
+  attestations: write
 
 jobs:
   release:
@@ -35,6 +37,14 @@ jobs:
         run: bash -n deploy/install.sh deploy/arynwood-grove deploy/upgrade-from-community.sh
       - name: Package
         run: scripts/package.sh
+      # Free provenance in place of a signing key: anyone can check that a file was built here
+      # from the tag with `gh attestation verify <file> -R Arynwood-Technology/arynwood-community`.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            release/install.sh
+            release/arynwood-grove*.tar.gz
       - name: Publish
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
