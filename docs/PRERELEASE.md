@@ -1,8 +1,16 @@
 # Arynwood Grove release notes
 
-Version: `0.7.2`
+Version: `0.7.3`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.7.3
+
+Fixes
+
+- **Drafts count toward a space's room.** What someone types in the editor is kept as a draft until they save it, and drafts weren't counted: a member could keep a large draft of each small file, past the space's storage limit and the server's free-space reserve. Drafts now count like files. A draft that would go past the limit is refused with the usual "This space is full" message, and what was typed stays in the editor; a draft that gets smaller is always kept.
+- **Website imports end on time.** A site that answered very slowly, a little at a time, could keep an import going long past its ten-minute limit. The limit now holds while a page is still arriving.
+- **Built with Node.js 22.23.4**, the October 21 security release. Node only builds the members' page; a Grove server doesn't run it.
 
 ## 0.7.2
 

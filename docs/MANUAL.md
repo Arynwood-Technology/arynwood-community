@@ -1,7 +1,7 @@
 # Arynwood Grove manual
 
 A guide for members, Grove owners and the people who operate their servers.
-This manual describes version **0.7.2**. A server running an older release may
+This manual describes version **0.7.3**. A server running an older release may
 lack some of what is described here: `sudo arynwood-grove status` shows the
 version a Grove runs.
 
@@ -232,7 +232,9 @@ from your working copy.
 their code and a preview side by side. The preview follows what you type, on
 any page and in any file, styles included, before you save. Unsaved changes are
 kept on the server as a draft as you type, so closing the page loses nothing;
-only you see them, and **Save** makes a new version for everyone. If someone
+only you see them, and **Save** makes a new version for everyone. Drafts take
+room in the space like files do, so in a full space a draft that grows is
+refused (what you typed stays in the editor). If someone
 saved the file after your draft began, the editor says so: use their version,
 or save yours over it (theirs stays in the file's versions). Click the target
 in the preview, then anything on the page, to find it in the code. New pages,

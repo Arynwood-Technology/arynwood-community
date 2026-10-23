@@ -47,7 +47,7 @@ Releases are downloaded from GitHub and checked against their published SHA-256 
 ```bash
 sudo arynwood-grove status                   # service, version, address, data, last backup, certificate
 sudo arynwood-grove update                   # newest release; a backup is taken first
-sudo arynwood-grove update --version 0.7.2   # a particular release
+sudo arynwood-grove update --version 0.7.3   # a particular release
 sudo arynwood-grove rollback                 # the previous release
 sudo arynwood-grove backup                   # a copy now (one is made every day)
 sudo arynwood-grove restore /var/lib/arynwood-grove/backups/grove-….sqlite3
@@ -145,8 +145,8 @@ Named Groves have `GROVE_HOST_TOOLS=off`: Mail and IRC use the server owner's ow
 `upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, Python environment, systemd service and nginx site. Run it as the account that owns the install:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.2.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.2.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz
 ```
 
 The first run backs up the database, `.env`, IRC settings and wallet, stages the release in `<dir>.next`, and starts it on a spare port against a copy of the data to prove it reads it. The service is not touched. The second run does the same, then stops the service (with `sudo`), moves the live data into the new release, starts it, and checks it. If the Grove does not start, it puts Community 0.3 back by itself. It prints the command to go back later.
