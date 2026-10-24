@@ -148,7 +148,7 @@ Tests use mocked mail and IRC services; they never contact live accounts.
 
 ## Security
 
-Found a vulnerability? Report it privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
+Found a security problem? Please report it privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
 
 - Passwords: PBKDF2-SHA256 (600,000 rounds). Sessions: HTTP-only, SameSite=Strict cookies, stored hashed.
 - Sign-in, sign-up, password changes and public-link sign-ups are rate-limited. The host account needs the installer's setup code.
