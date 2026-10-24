@@ -1,6 +1,6 @@
 # Arynwood Grove
 
-[![Release (tags only)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/release.yml/badge.svg)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/release.yml)
+[![CI](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml/badge.svg)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Arynwood-Technology/arynwood-community)](https://github.com/Arynwood-Technology/arynwood-community/releases)
 
 **The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
@@ -148,6 +148,8 @@ Tests use mocked mail and IRC services; they never contact live accounts.
 
 ## Security
 
+Found a vulnerability? Report it privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
+
 - Passwords: PBKDF2-SHA256 (600,000 rounds). Sessions: HTTP-only, SameSite=Strict cookies, stored hashed.
 - Sign-in, sign-up, password changes and public-link sign-ups are rate-limited. The host account needs the installer's setup code.
 - Every state-changing request needs a custom header and an allowed `Origin`; WebSocket handshakes check the origin too.
@@ -174,9 +176,9 @@ The Arynwood tree logo (`frontend/public/arynwood-tree.png`, `icon.png`, `favico
 
 I decide the scope and architecture, review changes, run the checks and ship releases.
 Claude Code and Codex work with me as pair programmers; some assisted commits carry
-co-author trailers, and others do not. Every release tag runs the backend tests, the frontend
-lint and tests and an installer check before it packages and publishes; there is no CI on
-pushes or pull requests yet. [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
+co-author trailers, and others do not. Every push to `main` and every pull request runs the
+backend tests, the frontend lint, tests and build, and an installer check; each release tag runs
+the same checks again before it packages and publishes. [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
 ## History
 
@@ -184,4 +186,4 @@ Grove started as Arynwood Community. This repository's first commit, `8aa6fbd` o
 is "Initial Arynwood Community release" (Community 0.3). Grove 0.4.0 renamed it and added the
 one-command server install; v0.4.0 was tagged on 2026-10-08. The latest release is v0.7.3
 (2026-10-23). Each version is described in the [release notes](docs/PRERELEASE.md).
-TODO(Lorelei): when Community development began, before this repository opened.
+Community began as a companion to Arynwood MCP, which shows a Grove on its Community page.
