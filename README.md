@@ -3,7 +3,7 @@
 [![Release (tags only)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/release.yml/badge.svg)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/release.yml)
 [![Latest release](https://img.shields.io/github/v/release/Arynwood-Technology/arynwood-community)](https://github.com/Arynwood-Technology/arynwood-community/releases)
 
-Private community software for families, friends and teams, on a server you control. Shared calendars, plans, boards, chat, household tasks, lists and notes. Version 0.7.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
+**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
 **Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
 
@@ -172,16 +172,16 @@ The Arynwood tree logo (`frontend/public/arynwood-tree.png`, `icon.png`, `favico
 
 ## How this is built
 
-I decide the scope and architecture, review changes, run the available checks and ship releases.
+I decide the scope and architecture, review changes, run the checks and ship releases.
 Claude Code and Codex work with me as pair programmers; some assisted commits carry
-co-author trailers, and others do not. [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
+co-author trailers, and others do not. Every release tag runs the backend tests, the frontend
+lint and tests and an installer check before it packages and publishes; there is no CI on
+pushes or pull requests yet. [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
 ## History
 
-The first public commit was `8aa6fbd` on 2026-09-23, “Initial Arynwood Community release”.
-Community 0.3 installs upgrade in place to Arynwood Grove. The v0.4.0 tag dates to
-2026-10-08; the latest release is v0.7.3 (2026-10-23). [Prerelease notes](docs/PRERELEASE.md)
-cover 0.3.0 through 0.7.3, including 0.3.0, 0.5.0 and 0.7.0 without corresponding tags.
-TODO(Lorelei): history before 2026-09-10.
-
-Release checks run on tags only; there is no push or pull-request CI.
+Grove started as Arynwood Community. This repository's first commit, `8aa6fbd` on 2026-09-23,
+is "Initial Arynwood Community release" (Community 0.3). Grove 0.4.0 renamed it and added the
+one-command server install; v0.4.0 was tagged on 2026-10-08. The latest release is v0.7.3
+(2026-10-23). Each version is described in the [release notes](docs/PRERELEASE.md).
+TODO(Lorelei): when Community development began, before this repository opened.
