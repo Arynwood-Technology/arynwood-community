@@ -53,6 +53,8 @@ pip-audit -r requirements.txt -r requirements-dev.txt   # pip install pip-audit,
 
 Every push to `main` and every pull request runs the tests, lint, build and installer check
 above (`.github/workflows/ci.yml`).
+Every push and pull request to `main` also runs CodeQL, and the repository is scored weekly by
+OpenSSF Scorecard. Both report under the repository's Security tab.
 
 ## Releases
 
