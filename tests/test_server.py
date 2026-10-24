@@ -73,6 +73,14 @@ class ServerSettingsTests(unittest.TestCase):
             r = plain.post('/api/auth/login', headers=H, json={'email': 'host@example.test', 'password': PASSWORD})
             self.assertNotIn('secure', r.headers['set-cookie'].lower())
 
+    def test_https_responses_ask_browsers_to_stay_on_https(self):
+        with TestClient(app, base_url='https://testserver') as secure:
+            for path in ('/api/health', '/community', '/no-such-page'):
+                self.assertEqual(secure.get(path).headers['strict-transport-security'], 'max-age=31536000', path)
+        # Over plain HTTP (a Grove on this computer) there is nothing to keep to.
+        with TestClient(app) as plain:
+            self.assertNotIn('strict-transport-security', plain.get('/api/health').headers)
+
 
 class Events:
     """Reads one server-sent event stream on a thread; events arrive on a queue."""
