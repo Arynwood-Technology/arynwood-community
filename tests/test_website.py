@@ -1,6 +1,7 @@
 """The Grove's website: owners and webmasters bring a site in, everyone previews it, and a
 publish puts it at the Grove's address, apart from members' sign-ins."""
 import io
+import signal
 import stat
 import time
 import unittest
@@ -237,6 +238,19 @@ class WebsiteTests(unittest.TestCase):
         self.assertEqual(member.get(url + 'site.js').content, SITE['site.js'])
         missing = member.get(url + 'nowhere')
         self.assertEqual([missing.status_code, missing.text], [404, '<h1>Not here</h1>'])
+
+    def test_a_page_built_to_stall_previews_is_read_in_one_pass(self):
+        # Before the patterns were made linear, each of these took over ten seconds at 40 KB.
+        def stalled(*_): raise TimeoutError('the preview rewriter is reading the page again from each tag')
+        signal.signal(signal.SIGALRM, stalled)
+        self.addCleanup(signal.signal, signal.SIGALRM, signal.SIG_DFL)
+        for page in ('<A' * 100_000, '<a "' * 50_000, '<style>' * 30_000, '<style' * 30_000,
+                     '<img' + ' srcset="' * 20_000 + ' srcset=' * 20_000 + '>'):
+            signal.alarm(10)
+            try: editor.rebased(page, 'html', '/preview')
+            finally: signal.alarm(0)
+        self.assertEqual(editor.rebased('<style>a{background:url(/x.png)}</style><style>b{}', 'html', '/p'),
+                         '<style>a{background:url(/p/x.png)}</style><style>b{}')
 
     def test_website_files_are_for_owners_and_webmasters_to_change(self):
         host, member, sid = self.host_and_member()

@@ -14,6 +14,24 @@ let room = ''
 function store() { return useAppStore.getState() }
 function set(p: Partial<ReturnType<typeof useAppStore.getState>>) { useAppStore.setState(p) }
 
+// Channel names and nicknames come from the IRC server and from other people, and names such as
+// `constructor` or `__proto__` are valid there. Every record keyed by them is built here with no
+// prototype and read only through own(), so a name reaches its own entry and nothing else.
+type Named<T> = Record<string, T>
+export function named<T>(from?: Named<T> | null): Named<T> {
+  const out = Object.create(null) as Named<T>
+  if (from) for (const k of Object.keys(from)) out[k] = from[k]
+  return out
+}
+function withName<T>(from: Named<T>, name: string, value: T): Named<T> {
+  const out = named(from)
+  out[name] = value
+  return out
+}
+function own<T>(from: Named<T> | undefined, name: string): T | undefined {
+  return from && Object.prototype.hasOwnProperty.call(from, name) ? from[name] : undefined
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getSelfNick() { return selfNick }
@@ -44,14 +62,14 @@ function pushMsg(channel: string, m: IRCMsg) {
   if (m.nick && store().ircIgnored.includes(m.nick)) return
 
   const prev = store().ircMessages
-  set({ ircMessages: { ...prev, [channel]: [...(prev[channel] ?? []).slice(-800), m] } })
+  set({ ircMessages: withName(prev, channel, [...(own(prev, channel) ?? []).slice(-800), m]) })
 
   // Unread: fire when page isn't open OR message is on a non-active channel
   if ((m.type === 'chat' || m.type === 'action' || m.type === 'mention') &&
       (!store().ircPageVisible || channel !== store().ircActiveChannel)) {
     const byChannel = store().ircUnreadByChannel
     set({
-      ircUnreadByChannel: { ...byChannel, [channel]: (byChannel[channel] ?? 0) + 1 },
+      ircUnreadByChannel: withName(byChannel, channel, (own(byChannel, channel) ?? 0) + 1),
       ircUnread: store().ircUnread + 1,
     })
   }
@@ -75,12 +93,12 @@ function addUser(channel: string, rawNick: string) {
   const prefix = getPrefix(rawNick)
   const prev = store().ircUsers
   const prevPfx = store().ircUserPrefixes
-  if ((prev[channel] ?? []).includes(n)) return
-  const sorted = [...(prev[channel] ?? []), n]
+  if ((own(prev, channel) ?? []).includes(n)) return
+  const sorted = [...(own(prev, channel) ?? []), n]
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   set({
-    ircUsers: { ...prev, [channel]: sorted },
-    ircUserPrefixes: { ...prevPfx, [channel]: { ...(prevPfx[channel] ?? {}), [n]: prefix } },
+    ircUsers: withName(prev, channel, sorted),
+    ircUserPrefixes: withName(prevPfx, channel, withName(own(prevPfx, channel) ?? named(), n, prefix)),
   })
 }
 
@@ -88,11 +106,11 @@ function removeUser(channel: string, rawNick: string) {
   const n = stripPrefix(rawNick)
   const prev = store().ircUsers
   const prevPfx = store().ircUserPrefixes
-  const pfxCh = { ...(prevPfx[channel] ?? {}) }
+  const pfxCh = named(own(prevPfx, channel))
   delete pfxCh[n]
   set({
-    ircUsers: { ...prev, [channel]: (prev[channel] ?? []).filter(u => u !== n) },
-    ircUserPrefixes: { ...prevPfx, [channel]: pfxCh },
+    ircUsers: withName(prev, channel, (own(prev, channel) ?? []).filter(u => u !== n)),
+    ircUserPrefixes: withName(prevPfx, channel, pfxCh),
   })
 }
 
@@ -100,11 +118,11 @@ function removeUserAll(rawNick: string) {
   const n = stripPrefix(rawNick)
   const prevU = store().ircUsers
   const prevP = store().ircUserPrefixes
-  const nextU: Record<string, string[]> = {}
-  const nextP: Record<string, Record<string, string>> = {}
+  const nextU = named<string[]>()
+  const nextP = named<Named<string>>()
   for (const ch of Object.keys(prevU)) {
-    nextU[ch] = prevU[ch].filter(u => u !== n)
-    nextP[ch] = { ...(prevP[ch] ?? {}) }
+    nextU[ch] = (own(prevU, ch) ?? []).filter(u => u !== n)
+    nextP[ch] = named(own(prevP, ch))
     delete nextP[ch][n]
   }
   set({ ircUsers: nextU, ircUserPrefixes: nextP })
@@ -113,14 +131,14 @@ function removeUserAll(rawNick: string) {
 function renameUserAll(oldNick: string, newNick: string) {
   const prevU = store().ircUsers
   const prevP = store().ircUserPrefixes
-  const nextU: Record<string, string[]> = {}
-  const nextP: Record<string, Record<string, string>> = {}
+  const nextU = named<string[]>()
+  const nextP = named<Named<string>>()
   for (const ch of Object.keys(prevU)) {
-    nextU[ch] = prevU[ch]
+    nextU[ch] = (own(prevU, ch) ?? [])
       .map(u => u === oldNick ? newNick : u)
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-    const pfx = prevP[ch]?.[oldNick] ?? ''
-    nextP[ch] = { ...(prevP[ch] ?? {}) }
+    const pfx = own(own(prevP, ch), oldNick) ?? ''
+    nextP[ch] = named(own(prevP, ch))
     delete nextP[ch][oldNick]
     nextP[ch][newNick] = pfx
   }
@@ -130,8 +148,8 @@ function renameUserAll(oldNick: string, newNick: string) {
 function mergeChannelUsers(channel: string, rawNicks: string[]) {
   const prev = store().ircUsers
   const prevPfx = store().ircUserPrefixes
-  const chPfx = { ...(prevPfx[channel] ?? {}) }
-  const existing = prev[channel] ?? []
+  const chPfx = named(own(prevPfx, channel))
+  const existing = own(prev, channel) ?? []
   const toAdd: string[] = []
   for (const raw of rawNicks) {
     const n = stripPrefix(raw)
@@ -142,8 +160,8 @@ function mergeChannelUsers(channel: string, rawNicks: string[]) {
   const merged = [...existing, ...toAdd]
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   set({
-    ircUsers: { ...prev, [channel]: merged },
-    ircUserPrefixes: { ...prevPfx, [channel]: chPfx },
+    ircUsers: withName(prev, channel, merged),
+    ircUserPrefixes: withName(prevPfx, channel, chPfx),
   })
 }
 
@@ -216,13 +234,13 @@ function handleIRCLine(raw: string) {
   // ── Topic ─────────────────────────────────────────────────────────────────
   if (command === '332') {
     const ch = params[1]; const topic = params[2] ?? ''
-    if (ch) set({ ircTopics: { ...store().ircTopics, [ch]: stripIRC(topic) } })
+    if (ch) set({ ircTopics: withName(store().ircTopics, ch, stripIRC(topic)) })
     pushMsg(ch ?? 'server', sysMsg(`Topic: ${topic}`, ch))
     return
   }
   if (command === 'TOPIC') {
     const ch = params[0]; const topic = params[1] ?? ''
-    if (ch) set({ ircTopics: { ...store().ircTopics, [ch]: stripIRC(topic) } })
+    if (ch) set({ ircTopics: withName(store().ircTopics, ch, stripIRC(topic)) })
     pushMsg(ch ?? 'server', { ...sysMsg(`${nick} changed topic to: ${topic}`, ch), nick })
     return
   }
@@ -319,7 +337,7 @@ function handleIRCLine(raw: string) {
       text: `← ${params[1]} was kicked by ${nick}${params[2] ? ` (${params[2]})` : ''}`, ts: now }
   } else if (command === 'QUIT') {
     // Show in all channels the user was in
-    const channels = Object.keys(store().ircUsers).filter(ch => (store().ircUsers[ch] ?? []).includes(nick))
+    const channels = Object.keys(store().ircUsers).filter(ch => (own(store().ircUsers, ch) ?? []).includes(nick))
     for (const ch of channels) {
       pushMsg(ch, { id: Date.now() + Math.random(), type: 'quit', nick, channel: ch,
         text: `⟵ ${nick} quit${params[0] ? ` (${params[0]})` : ''}`, ts: now })
@@ -470,7 +488,7 @@ export function ircProcess(input: string) {
       break
 
     case 'clear':
-      set({ ircMessages: { ...store().ircMessages, [active]: [] } })
+      set({ ircMessages: withName<IRCMsg[]>(store().ircMessages, active, []) })
       break
 
     case 'names':
@@ -523,8 +541,8 @@ export function ircConnect(config: {
 
   set({
     ircConnecting: true, ircConnected: false, ircNick: config.nick, ircAway: false,
-    ircMessages: {}, ircUsers: {}, ircUserPrefixes: {}, ircTopics: {},
-    ircUnreadByChannel: {}, ircWhois: null,
+    ircMessages: named(), ircUsers: named(), ircUserPrefixes: named(), ircTopics: named(),
+    ircUnreadByChannel: named(), ircWhois: null,
     ircChannelList: ['server', ...config.channels],
     ircActiveChannel: config.channels[0] ?? 'server',
   })
@@ -570,10 +588,10 @@ export function ircSendMsg(channel: string, text: string) {
 
 export function ircSwitchChannel(ch: string) {
   const { ircUnreadByChannel, ircUnread } = store()
-  const cleared = ircUnreadByChannel[ch] ?? 0
+  const cleared = own(ircUnreadByChannel, ch) ?? 0
   set({
     ircActiveChannel: ch,
-    ircUnreadByChannel: { ...ircUnreadByChannel, [ch]: 0 },
+    ircUnreadByChannel: withName(ircUnreadByChannel, ch, 0),
     ircUnread: Math.max(0, ircUnread - cleared),
   })
 }
