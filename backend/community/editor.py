@@ -161,12 +161,23 @@ def unpack(token):
 # A site's own addresses, such as /styles.css, start at its top folder: the preview's folder. In a
 # preview they point under the preview's address. /community and /api stay the Grove's.
 ROOTED = r'''(?=/(?!/|(?:community|api)(?![^/?#"'\s)>])))'''
-TAG = re.compile(r'''<[a-zA-Z](?:[^>"']|"[^"]*"|'[^']*')*>''')
-STYLE = re.compile(r'(<style\b[^>]*>)(.*?)(</style\s*>)', re.I | re.S)
+# Every pattern here reads a page in one pass, whatever a member puts in it: an unquoted < ends a tag
+# attempt, and <style> blocks are found one at a time, so unclosed tags can't make it read the rest of the
+# page again from each one.
+TAG = re.compile(r'''<[a-zA-Z](?:[^<>"']|"[^"]*"|'[^']*')*>''')
+STYLE_OPEN, STYLE_CLOSE = re.compile(r'<style\b[^<>]*>', re.I), re.compile(r'</style\s*>', re.I)
 ATTRIBUTE = re.compile(r'''(\s(?:href|src|poster|action|formaction|data|background)\s*=\s*["']?)''' + ROOTED, re.I)
 SRCSET = re.compile(r'''(\s(?:srcset|imagesrcset)\s*=\s*(["']))(.*?)(\2)''', re.I | re.S)
 CANDIDATE = re.compile(r'((?:^|,)\s*)' + ROOTED)
 CSS = re.compile(r'''((?:url\(\s*|@import\s+)["']?)''' + ROOTED, re.I)
+
+def styles(text, change):
+    """`text` with what's inside each <style> block passed through `change`."""
+    out, at = [], 0
+    while (opening := STYLE_OPEN.search(text, at)) and (closing := STYLE_CLOSE.search(text, opening.end())):
+        out += (text[at:opening.end()], change(text[opening.end():closing.start()]), closing[0])
+        at = closing.end()
+    return ''.join(out) + text[at:]
 
 def rebased(text, kind, base):
     """A page or stylesheet with its site-rooted addresses moved under `base`. Scripts are left as they are."""
@@ -176,7 +187,7 @@ def rebased(text, kind, base):
         value = ATTRIBUTE.sub(lambda a: a[1] + base, m[0])
         value = SRCSET.sub(lambda s: s[1] + CANDIDATE.sub(lambda c: c[1] + base, s[3]) + s[4], value)
         return css(value)
-    return STYLE.sub(lambda s: s[1] + css(s[2]) + s[3], TAG.sub(tag, text))
+    return styles(TAG.sub(tag, text), css)
 
 # Added to a page in the Grove's own preview pane, at the top of its <head>, without its opening comments.
 BRIDGE = '(() =>' + (Path(__file__).parent / 'preview_bridge.js').read_text().partition('\n(() =>')[2]
