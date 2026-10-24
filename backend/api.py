@@ -43,6 +43,9 @@ async def protections(request, call_next):
     response.headers['X-Content-Type-Options']='nosniff'
     if 'x-frame-options' not in response.headers: response.headers['X-Frame-Options']='DENY'
     response.headers['Referrer-Policy']='same-origin'
+    # Reached over HTTPS (on a server, through its proxy), browsers keep this address on HTTPS for a
+    # year. Only this host: a Grove's domain may have other sites under it.
+    if request.url.scheme=='https': response.headers['Strict-Transport-Security']='max-age=31536000'
     path=request.url.path
     # Vite fingerprints everything under /assets, so it can be cached indefinitely.
     # Live notices must pass through proxies (Cloudflare, nginx) unaltered and unbuffered.

@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml/badge.svg)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Arynwood-Technology/arynwood-community)](https://github.com/Arynwood-Technology/arynwood-community/releases)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Arynwood-Technology/arynwood-community/badge)](https://scorecard.dev/viewer/?uri=github.com/Arynwood-Technology/arynwood-community)
 
 **The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
 
