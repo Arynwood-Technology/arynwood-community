@@ -69,7 +69,7 @@ Each person makes their own account on your Grove, from any computer or phone. E
 
 ## Upgrading from Arynwood Community 0.3
 
-A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
+A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. With the release's `.tar.gz` and its `.sha256` file in the same folder (the script checks one against the other first), as the account that owns the install:
 
 ```bash
 bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz --prepare-only
