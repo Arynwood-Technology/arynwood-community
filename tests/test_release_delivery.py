@@ -70,14 +70,20 @@ class ReleaseDeliveryTests(unittest.TestCase):
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '1',
                         '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'], check=True, capture_output=True)
         www = cls.base / 'www'
+        # The redirects it makes: only to the two files the tests ask for, never built from the request.
+        names = (cls.release.name, cls.release.name + '.sha256')
+        redirects = {f'/redirect/{name}': name for name in names}
 
         class Handler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *a, **kw): super().__init__(*a, directory=str(www), **kw)
             def log_message(self, *a): pass
             def do_GET(self):
                 if self.path.startswith('/redirect/'):
+                    target = redirects.get(self.path)
+                    if target is None:
+                        self.send_error(404); return
                     self.send_response(302)
-                    self.send_header('Location', f'http://127.0.0.1:{cls.plain.server_address[1]}/' + self.path[len('/redirect/'):])
+                    self.send_header('Location', f'http://127.0.0.1:{cls.plain.server_address[1]}/{target}')
                     self.end_headers()
                     return
                 super().do_GET()
@@ -86,6 +92,7 @@ class ReleaseDeliveryTests(unittest.TestCase):
         threading.Thread(target=cls.plain.serve_forever, daemon=True).start()
         cls.server = Server(('127.0.0.1', 0), Handler)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(cert, key)
         cls.server.socket = context.wrap_socket(cls.server.socket, server_side=True)
         threading.Thread(target=cls.server.serve_forever, daemon=True).start()
