@@ -1,3 +1,5 @@
+"""The host's own IRC: the connection settings and a WebSocket relay between the IRC page and the IRC server
+(host only, and only while the host's tools are on)."""
 import asyncio
 import json
 import os

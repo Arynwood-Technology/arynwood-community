@@ -4,6 +4,7 @@
 #
 #   bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz
 #
+# The release's .sha256 file must be beside the tarball; nothing changes unless the two match.
 # Run it as the account that owns the install, not as root. It keeps the install's folder,
 # .env, data, IRC settings and Python environment, so the existing systemd service
 # and nginx site keep working unchanged. Accounts, spaces and signed-in sessions carry over.
@@ -20,16 +21,40 @@ while [[ $# -gt 0 ]]; do
     --service) SERVICE=$2; shift 2 ;;
     --port) PORT=$2; shift 2 ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# --- Release delivery: the same lines are in deploy/install.sh, deploy/arynwood-grove and
+# deploy/upgrade-from-community.sh (tests/test_release_delivery.py keeps them identical).
+# A release is a tarball with a .sha256 file beside it, as scripts/package.sh writes them. Nothing is
+# installed from a tarball that doesn't match it: a missing, malformed or different checksum stops here.
+verify_release() {  # verify_release FILE: FILE must match the checksum in FILE.sha256
+  local file=$1 name sums line actual
+  name=$(basename "$file") sums=$1.sha256
+  [[ -s $sums ]] || { echo "No checksum for $name: $name.sha256, from the same release, must be beside it." >&2; return 1; }
+  line=$(<"$sums")
+  [[ $line =~ ^([0-9a-f]{64})\ [\ *]([^[:space:]/]+)$ ]] || { echo "$name.sha256 is not a SHA-256 checksum file." >&2; return 1; }
+  [[ ${BASH_REMATCH[2]} == "$name" ]] || { echo "$name.sha256 is the checksum of ${BASH_REMATCH[2]}, not of $name." >&2; return 1; }
+  actual=$(sha256sum "$file" | cut -d' ' -f1)
+  [[ $actual == "${BASH_REMATCH[1]}" ]] || { echo "$name does not match its checksum: it is damaged, or not the published release." >&2; return 1; }
+}
+fetch_release() {  # fetch_release BASE FILE DIR: FILE and FILE.sha256 from BASE, over HTTPS only, then verified
+  local base=${1%/} file=$2 dir=$3 get=(curl -fsSL --proto =https --proto-redir =https --tlsv1.2 --retry 3)
+  [[ $base == https://* ]] || { echo "Releases are downloaded over HTTPS only, and $base isn't an https:// address." >&2; return 1; }
+  "${get[@]}" -o "$dir/$file" "$base/$file" || { echo "Could not download $base/$file" >&2; return 1; }
+  "${get[@]}" -o "$dir/$file.sha256" "$base/$file.sha256" || { echo "Could not download the checksum, $base/$file.sha256." >&2; return 1; }
+  verify_release "$dir/$file"
+}
+# --- end of release delivery
+
 [[ $EUID -ne 0 ]] || die "Run this as the account that owns the install, not as root."
 [[ -n $DIR && -f $DIR/backend/community/store.py && -f $DIR/.env ]] || die "--dir must be a Community install folder (with backend/ and .env)."
 [[ -f $FROM ]] || die "--from must be a Grove release file (arynwood-grove-<version>.tar.gz)."
+verify_release "$FROM" || die "Nothing was changed."
 DIR=$(cd "$DIR" && pwd)
 NEXT=$DIR.next
 env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -n1 | tr -d "\"'"; }

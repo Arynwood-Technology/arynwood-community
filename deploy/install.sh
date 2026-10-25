@@ -47,6 +47,29 @@ ask()  {  # ask VAR "question" — reads from the terminal even when this script
 }
 env_value() { [[ -f $ENV_FILE ]] && sed -n "s/^$1=//p" "$ENV_FILE" | tail -n1 || true; }
 
+# --- Release delivery: the same lines are in deploy/install.sh, deploy/arynwood-grove and
+# deploy/upgrade-from-community.sh (tests/test_release_delivery.py keeps them identical).
+# A release is a tarball with a .sha256 file beside it, as scripts/package.sh writes them. Nothing is
+# installed from a tarball that doesn't match it: a missing, malformed or different checksum stops here.
+verify_release() {  # verify_release FILE: FILE must match the checksum in FILE.sha256
+  local file=$1 name sums line actual
+  name=$(basename "$file") sums=$1.sha256
+  [[ -s $sums ]] || { echo "No checksum for $name: $name.sha256, from the same release, must be beside it." >&2; return 1; }
+  line=$(<"$sums")
+  [[ $line =~ ^([0-9a-f]{64})\ [\ *]([^[:space:]/]+)$ ]] || { echo "$name.sha256 is not a SHA-256 checksum file." >&2; return 1; }
+  [[ ${BASH_REMATCH[2]} == "$name" ]] || { echo "$name.sha256 is the checksum of ${BASH_REMATCH[2]}, not of $name." >&2; return 1; }
+  actual=$(sha256sum "$file" | cut -d' ' -f1)
+  [[ $actual == "${BASH_REMATCH[1]}" ]] || { echo "$name does not match its checksum: it is damaged, or not the published release." >&2; return 1; }
+}
+fetch_release() {  # fetch_release BASE FILE DIR: FILE and FILE.sha256 from BASE, over HTTPS only, then verified
+  local base=${1%/} file=$2 dir=$3 get=(curl -fsSL --proto =https --proto-redir =https --tlsv1.2 --retry 3)
+  [[ $base == https://* ]] || { echo "Releases are downloaded over HTTPS only, and $base isn't an https:// address." >&2; return 1; }
+  "${get[@]}" -o "$dir/$file" "$base/$file" || { echo "Could not download $base/$file" >&2; return 1; }
+  "${get[@]}" -o "$dir/$file.sha256" "$base/$file.sha256" || { echo "Could not download the checksum, $base/$file.sha256." >&2; return 1; }
+  verify_release "$dir/$file"
+}
+# --- end of release delivery
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --domain) DOMAIN=${2:-}; shift 2 ;;
@@ -128,6 +151,30 @@ if [[ $UPDATE_ONLY == 0 ]]; then
   fi
 fi
 
+# Before anything on this server changes: get the release and check it against its checksum.
+say "Fetching Arynwood Grove (${FROM:-$VERSION})"
+work=$(mktemp -d); staging="" reuse=0
+trap 'rm -rf "$work"; [[ -n $staging ]] && rm -rf "$staging"' EXIT
+if [[ -n $FROM && -d $FROM && $(readlink -f "$FROM") == "$PREFIX/releases/"* && -x $FROM/.venv/bin/python ]]; then
+  # A release already on this server (arynwood-grove create): checked when it was installed, used as it is.
+  reuse=1
+elif [[ -n $FROM && -d $FROM ]]; then
+  warn "Installing the folder $FROM as it is: a folder has no checksum to check it against."
+  cp -a "$FROM" "$work/src"
+elif [[ -n $FROM ]]; then
+  verify_release "$FROM" || die "Nothing was installed."
+  mkdir "$work/src"; tar -xzf "$FROM" -C "$work/src" --strip-components=1
+else
+  # GROVE_RELEASE_BASE points at a mirror or a test server instead of GitHub (https:// only).
+  # A server that got this script some other way may not have curl yet (the distribution's own, signed package).
+  command -v curl >/dev/null || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates >/dev/null; } \
+    || die "Could not install curl, which downloads the release."
+  if [[ $VERSION == latest ]]; then base=${GROVE_RELEASE_BASE:-https://github.com/$REPO/releases/latest/download}; file=arynwood-grove.tar.gz
+  else base=${GROVE_RELEASE_BASE:-https://github.com/$REPO/releases/download/v${VERSION#v}}; file="arynwood-grove-${VERSION#v}.tar.gz"; fi
+  fetch_release "$base" "$file" "$work" || die "Nothing was installed."
+  mkdir "$work/src"; tar -xzf "$work/$file" -C "$work/src" --strip-components=1
+fi
+
 say "Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -153,24 +200,6 @@ install_cli() {
   install -m 0755 "$PREFIX/releases/$newest/deploy/arynwood-grove" /usr/local/bin/arynwood-grove
 }
 
-say "Fetching Arynwood Grove (${FROM:-$VERSION})"
-work=$(mktemp -d); staging="" reuse=0
-trap 'rm -rf "$work"; [[ -n $staging ]] && rm -rf "$staging"' EXIT
-if [[ -n $FROM && -d $FROM && $(readlink -f "$FROM") == "$PREFIX/releases/"* && -x $FROM/.venv/bin/python ]]; then
-  # A release already on this server (arynwood-grove create): used as it is.
-  reuse=1
-elif [[ -n $FROM ]]; then
-  if [[ -d $FROM ]]; then cp -a "$FROM" "$work/src"
-  else mkdir "$work/src"; tar -xzf "$FROM" -C "$work/src" --strip-components=1; fi
-else
-  # GROVE_RELEASE_BASE points at a mirror or a test server instead of GitHub.
-  if [[ $VERSION == latest ]]; then base=${GROVE_RELEASE_BASE:-https://github.com/$REPO/releases/latest/download}; file=arynwood-grove.tar.gz
-  else base=${GROVE_RELEASE_BASE:-https://github.com/$REPO/releases/download/v${VERSION#v}}; file="arynwood-grove-${VERSION#v}.tar.gz"; fi
-  curl -fsSL --retry 3 -o "$work/$file" "$base/$file" || die "Could not download $base/$file"
-  curl -fsSL --retry 3 -o "$work/$file.sha256" "$base/$file.sha256" || die "Could not download the checksum for $file"
-  (cd "$work" && echo "$(cut -d' ' -f1 "$file.sha256")  $file" | sha256sum -c --quiet) || die "The download is damaged (checksum mismatch). Try again."
-  mkdir "$work/src"; tar -xzf "$work/$file" -C "$work/src" --strip-components=1
-fi
 if [[ $reuse == 1 ]]; then release=$(basename "$(readlink -f "$FROM")")
 else
   [[ -f $work/src/backend/api.py && -f $work/src/frontend/dist/index.html ]] || die "That is not a Grove release (no backend/ or built frontend/dist/)."

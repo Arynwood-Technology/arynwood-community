@@ -62,6 +62,7 @@ def summary(body):
 
 @router.get('/spaces/{sid}/workspace-setup')
 def catalog(sid: str, current=Depends(user)):
+    """The workspace kits a space owner can stage, and those already staged in the space."""
     with db() as c:
         membership(c, sid, current['id'], owner=True)
         installed = [dict(r) for r in c.execute('SELECT kit,client,opening_date,created FROM workspace_setups WHERE space_id=?', (sid,))]
@@ -69,11 +70,13 @@ def catalog(sid: str, current=Depends(user)):
 
 @router.post('/spaces/{sid}/workspace-setup/preview')
 def preview(sid: str, body: SetupBody, current=Depends(user)):
+    """What a kit would add, without adding it (space owners)."""
     with db() as c: membership(c, sid, current['id'], owner=True)
     return summary(body)
 
 @router.post('/spaces/{sid}/workspace-setup', status_code=201)
 def apply(sid: str, body: SetupBody, current=Depends(user)):
+    """Stages a kit's folders, files and items in the space, once per kit (space owners)."""
     content = plan(body)
     stamp = now()
     with db() as c:

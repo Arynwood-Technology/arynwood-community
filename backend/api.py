@@ -102,11 +102,13 @@ app.include_router(brand.router,prefix='/api/brand')
 
 @app.get('/api/source')
 def source_offer():
+    """The source code of this Grove (AGPL-3.0 section 13), as a zip. Needs no sign-in."""
     from backend.source import archive
     return archive()
 
 @app.get('/api/health')
 def health():
+    """Whether the Grove is up, with its name and version. Needs no sign-in."""
     return {'status':'ok','name':'Arynwood Grove','version':store.VERSION}
 
 MEMBER_PAGE = ROOT/'frontend'/'dist'
@@ -119,6 +121,7 @@ def web_dir():
 
 @app.api_route('/{path:path}',methods=['GET','HEAD'],include_in_schema=False)
 def frontend(path:str,request:Request):
+    """The members' page and its files; every other address is the Grove's published website, if it has one."""
     if path=='api' or path.startswith('api/'): raise HTTPException(404)
     dist=web_dir()
     target=(dist/path).resolve()

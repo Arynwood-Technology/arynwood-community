@@ -25,7 +25,7 @@ host's browser   ─┘                                                     └ 
 
 No domain yet? Use `--no-domain` in step 3 and skip step 2. Later, in **People & identity → Your Grove's address**, the host enters the domain, sees the DNS record to add, and switches; or run `sudo arynwood-grove set-domain grove.example.com`.
 
-Options: `--no-domain` (a temporary `<ip>.sslip.io` address, for trying it out), `--version X.Y.Z`, `--from release.tar.gz` (offline install), `--port N`, `--yes`. Run with `--help` for all of them. If the domain does not reach the server yet, the installer says which DNS record to add and stops before asking for a certificate; run it again once DNS has updated.
+Options: `--no-domain` (a temporary `<ip>.sslip.io` address, for trying it out), `--version X.Y.Z`, `--from release.tar.gz` (offline install; the release's `.sha256` file must be beside it), `--port N`, `--yes`. Run with `--help` for all of them. If the domain does not reach the server yet, the installer says which DNS record to add and stops before asking for a certificate; run it again once DNS has updated.
 
 What it sets up:
 
@@ -40,9 +40,25 @@ What it sets up:
 | `/usr/local/bin/arynwood-grove` | The management command (below). |
 | `arynwood-grove-domain.path`, `.service` | When the host asks for a new address in Settings, the service writes `requests/domain.json`; this root helper re-checks the name, publishes it with nginx and Certbot, and writes back the result. The service itself never runs anything as root. |
 
-Releases are downloaded from GitHub and checked against their published SHA-256 checksum before anything changes.
-Releases after 0.7.3 also carry a GitHub build attestation for the tarball and `install.sh`. To check one by hand, with the
-[GitHub CLI](https://cli.github.com/): `gh attestation verify arynwood-grove-<version>.tar.gz -R Arynwood-Technology/arynwood-community`.
+Every release the installer or `arynwood-grove update` installs is checked against its SHA-256 checksum before anything
+on the server changes. The tarball and its `.sha256` file are downloaded over HTTPS only: from GitHub, or from
+`GROVE_RELEASE_BASE`, which must be an `https://` address, and a redirect to plain HTTP is not followed. A missing,
+malformed or different checksum stops there, and nothing is installed or changed. With `--from`, the `.sha256` file from
+the same release must be beside the tarball; a folder (a release already on the server, or a source checkout) is installed
+as it is, with a warning.
+
+The checksum shows that the file arrived whole and is the one the release lists. It is published next to the file, so it
+can't show that the release itself is genuine; the build attestation does. Releases after 0.7.3 carry a GitHub build
+attestation for the tarball and `install.sh`, made by the release workflow. To check `install.sh` before running it, with
+the [GitHub CLI](https://cli.github.com/):
+
+```bash
+curl -fsSLO https://github.com/Arynwood-Technology/arynwood-community/releases/latest/download/install.sh
+gh attestation verify install.sh -R Arynwood-Technology/arynwood-community
+sudo bash install.sh --domain grove.example.com --email you@example.com
+```
+
+A tarball is checked the same way: `gh attestation verify arynwood-grove-<version>.tar.gz -R Arynwood-Technology/arynwood-community`.
 
 ## Managing it
 
@@ -144,7 +160,7 @@ Named Groves have `GROVE_HOST_TOOLS=off`: Mail and IRC use the server owner's ow
 
 ## Upgrading a Community 0.3 server
 
-`upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, Python environment, systemd service and nginx site. Run it as the account that owns the install:
+`upgrade-from-community.sh` upgrades an existing Arynwood Community 0.3 install in place, keeping its folder, `.env`, database, IRC settings, Python environment, systemd service and nginx site. Download the release's `.tar.gz` and its `.tar.gz.sha256` into the same folder: the script checks one against the other before it changes anything. Run it as the account that owns the install:
 
 ```bash
 bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz --prepare-only

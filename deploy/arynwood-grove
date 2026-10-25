@@ -49,6 +49,29 @@ wait_healthy() {
 admin() { (cd "$CURRENT" && runuser -u "$RUN_USER" -- env GROVE_ENV_FILE="$ENV_FILE" .venv/bin/python deploy/grove_admin.py "$@"); }
 newest_release() { ls -1 "$PREFIX/releases" 2>/dev/null | grep -vE '\.(new|old)$' | sort -V | tail -n1; }
 
+# --- Release delivery: the same lines are in deploy/install.sh, deploy/arynwood-grove and
+# deploy/upgrade-from-community.sh (tests/test_release_delivery.py keeps them identical).
+# A release is a tarball with a .sha256 file beside it, as scripts/package.sh writes them. Nothing is
+# installed from a tarball that doesn't match it: a missing, malformed or different checksum stops here.
+verify_release() {  # verify_release FILE: FILE must match the checksum in FILE.sha256
+  local file=$1 name sums line actual
+  name=$(basename "$file") sums=$1.sha256
+  [[ -s $sums ]] || { echo "No checksum for $name: $name.sha256, from the same release, must be beside it." >&2; return 1; }
+  line=$(<"$sums")
+  [[ $line =~ ^([0-9a-f]{64})\ [\ *]([^[:space:]/]+)$ ]] || { echo "$name.sha256 is not a SHA-256 checksum file." >&2; return 1; }
+  [[ ${BASH_REMATCH[2]} == "$name" ]] || { echo "$name.sha256 is the checksum of ${BASH_REMATCH[2]}, not of $name." >&2; return 1; }
+  actual=$(sha256sum "$file" | cut -d' ' -f1)
+  [[ $actual == "${BASH_REMATCH[1]}" ]] || { echo "$name does not match its checksum: it is damaged, or not the published release." >&2; return 1; }
+}
+fetch_release() {  # fetch_release BASE FILE DIR: FILE and FILE.sha256 from BASE, over HTTPS only, then verified
+  local base=${1%/} file=$2 dir=$3 get=(curl -fsSL --proto =https --proto-redir =https --tlsv1.2 --retry 3)
+  [[ $base == https://* ]] || { echo "Releases are downloaded over HTTPS only, and $base isn't an https:// address." >&2; return 1; }
+  "${get[@]}" -o "$dir/$file" "$base/$file" || { echo "Could not download $base/$file" >&2; return 1; }
+  "${get[@]}" -o "$dir/$file.sha256" "$base/$file.sha256" || { echo "Could not download the checksum, $base/$file.sha256." >&2; return 1; }
+  verify_release "$dir/$file"
+}
+# --- end of release delivery
+
 # Off-server copies of every Grove, made with restic. The settings are server-wide and root's alone.
 OFFSITE_ENV=/etc/arynwood-grove-offsite.env OFFSITE_STATE=/var/lib/arynwood-grove-offsite
 # restic with the repository, its password and any provider keys, read literally from the settings.
@@ -125,7 +148,9 @@ Without --grove, commands act on the server's own Grove; with it, on the Grove o
                        Put this Grove's data back from an off-server copy (by default the latest)
   update [--version X | --from FILE] [--all [--canary NAME]]
                        Install the latest release, keeping all data and settings. With --all,
-                       every Grove: the first (or the canary) alone, and the rest only if it works
+                       every Grove: the first (or the canary) alone, and the rest only if it works.
+                       A release is installed only if it matches its .sha256 (with --from, the
+                       file of that name beside FILE), downloaded over HTTPS only
   rollback             Go back to the previous release
   logs                 The service's recent log
   restart              Restart the service
@@ -289,11 +314,10 @@ case $command in
       if [[ $version == latest ]]; then base=${GROVE_RELEASE_BASE:-$repo/latest/download}; file=arynwood-grove.tar.gz
       else base=${GROVE_RELEASE_BASE:-$repo/download/v$version}; file=arynwood-grove-$version.tar.gz; fi
       echo "Downloading $base/$file"
-      curl -fsSL --retry 3 -o "$tmp/$file" "$base/$file" && curl -fsSL --retry 3 -o "$tmp/$file.sha256" "$base/$file.sha256" \
-        || { echo "Could not download the release." >&2; exit 1; }
-      (cd "$tmp" && echo "$(cut -d' ' -f1 "$file.sha256")  $file" | sha256sum -c --quiet) \
-        || { echo "The download is damaged (checksum mismatch). Nothing was changed." >&2; exit 1; }
+      fetch_release "$base" "$file" "$tmp" || { echo "Nothing was changed." >&2; exit 1; }
       from=$tmp/$file
+    else
+      verify_release "$from" || { echo "Nothing was changed." >&2; exit 1; }
     fi
     # Run the new release's own installer, so an update can also fix the updater.
     mkdir "$tmp/new"; tar -xzf "$from" -C "$tmp/new" --strip-components=1 --wildcards '*/deploy/install.sh' \

@@ -32,6 +32,8 @@ def recipient():
 
 @router.post('', status_code=201)
 def make_wish(body: Wish, tasks: BackgroundTasks, current=Depends(user)):
+    """Sends the host a wish: emailed when the Grove has an address for wishes and can send mail, otherwise kept
+    for the host."""
     throttle('wish:' + current['id'], WISHES)
     wid, emailing = identifier(), bool(recipient()) and mail.sending_configured()
     with db() as c:

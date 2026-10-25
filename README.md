@@ -10,6 +10,8 @@
 
 **User and operator manual:** [Using Grove, architecture and build diagrams](docs/MANUAL.md).
 
+**API reference:** [every HTTP route and WebSocket, and who may call it](docs/API.md), generated from the Grove itself.
+
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15881/badge)](https://www.bestpractices.dev/projects/15881)
 
 ## Put a Grove on your server
@@ -69,7 +71,7 @@ Each person makes their own account on your Grove, from any computer or phone. E
 
 ## Upgrading from Arynwood Community 0.3
 
-A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. As the account that owns the install:
+A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. With the release's `.tar.gz` and its `.sha256` file in the same folder (the script checks one against the other first), as the account that owns the install:
 
 ```bash
 bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz --prepare-only
@@ -145,6 +147,7 @@ In **Look & feel**, owners may also choose a light background: the same rules th
 .venv/bin/python -m unittest discover -s tests
 npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
 scripts/package.sh         # builds release/arynwood-grove-<version>.tar.gz
+.venv/bin/python scripts/gen_api_reference.py   # after changing a route: rewrites docs/api/
 ```
 
 Tests use mocked mail and IRC services; they never contact live accounts.

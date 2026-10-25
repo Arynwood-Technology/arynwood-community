@@ -1,3 +1,6 @@
+"""Accounts and sign-in: the host's first account (with the installer's setup code), joining by invitation,
+sessions kept in a cookie, password changes and host-given reset codes, and the Grove-wide roles the other
+routers check: the host, Grove owners and managers, webmasters, and members."""
 import hashlib
 import hmac
 import secrets
@@ -129,6 +132,8 @@ class Signup(Credentials):
 
 @router.get('/status')
 def status():
+    """Whether the Grove still needs its host account (and a setup code), how passwords are recovered, and its
+    public address. Needs no sign-in."""
     with db() as c: setup = c.execute('SELECT count(*) FROM users').fetchone()[0] == 0
     return {'setup': setup, 'setup_code': setup and bool(setup_code()), 'recovery': 'host-code', 'public_url': public_origin() or None}
 
@@ -146,6 +151,8 @@ def joined_through(c, one_use, inviter):
 
 @router.post('/signup')
 def signup(body: Signup, request: Request, response: Response):
+    """Creates an account and signs in. The first account is the host's and needs the setup code; any other needs
+    an invitation or a space's public link."""
     rate_limit(request, body.email)
     hashed=password_hash(body.password)
     uid=identifier()
@@ -177,6 +184,7 @@ def signup(body: Signup, request: Request, response: Response):
 
 @router.post('/login')
 def login(body: Credentials, request: Request, response: Response):
+    """Signs in with email and password, setting the session cookie."""
     rate_limit(request, body.email)
     with db() as c: row=c.execute('SELECT * FROM users WHERE email=?',(body.email,)).fetchone()
     # Spend the same hashing work for unknown accounts.
@@ -193,10 +201,12 @@ def login(body: Credentials, request: Request, response: Response):
 
 @router.get('/me')
 def me(current=Depends(user)):
+    """The signed-in person: name, email, roles, what they may do, and Public chat's settings."""
     with db() as c: return profile(c,current['id'])
 
 @router.post('/logout')
 def logout(request: Request, response: Response):
+    """Signs out: ends this session and clears its cookie."""
     with db() as c: c.execute('DELETE FROM sessions WHERE token=?',(digest(session_token(request)),))
     response.delete_cookie(COOKIE, path='/'); response.delete_cookie(LEGACY_COOKIE, path='/')
     return {'ok':True}
@@ -207,6 +217,7 @@ class PasswordChange(BaseModel):
 
 @router.post('/password')
 def change_password(body: PasswordChange, request: Request, response: Response, current=Depends(user)):
+    """Changes the password. Every other session ends; this one is renewed."""
     rate_limit(request, 'password:' + current['id'])
     with db() as c:
         row=c.execute('SELECT password FROM users WHERE id=?',(current['id'],)).fetchone()
@@ -225,6 +236,7 @@ class PasswordReset(BaseModel):
 
 @router.post('/password/reset')
 def reset_password(body: PasswordReset, request: Request, response: Response):
+    """Sets a new password with a reset code from the host. Every session ends."""
     # Rate limiting is per client, not per supplied token, to bound guessing attempts.
     rate_limit(request, 'password-reset')
     hashed = password_hash(body.password)

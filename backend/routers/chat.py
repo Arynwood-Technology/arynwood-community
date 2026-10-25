@@ -99,6 +99,8 @@ class Room:
 
 @router.websocket('/ws')
 async def chat_ws(ws: WebSocket, current=Depends(user)):
+    """Public chat. The first message names the nickname; then messages go both ways. Off unless the Grove has a
+    room; at most two windows per member."""
     settings = public_chat()
     await ws.accept()
     if not settings:

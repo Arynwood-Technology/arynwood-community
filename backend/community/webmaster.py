@@ -298,6 +298,8 @@ def job(row):
 
 @router.post('/imports', status_code=202)
 def start_import(body: ImportBody, tasks: BackgroundTasks, current=Depends(webmaster)):
+    """Starts copying a public website into a space's Website folder (webmasters who are members of the space; one
+    import at a time)."""
     url = start_url(body.url)
     _, host, port = origin(url)
     try: public_address(host, port)
@@ -317,6 +319,7 @@ def start_import(body: ImportBody, tasks: BackgroundTasks, current=Depends(webma
 
 @router.get('/imports')
 def imports(current=Depends(webmaster)):
+    """The last 10 website imports and how they went (webmasters)."""
     with db() as c:
         return [job(r) for r in c.execute('''SELECT i.*,COALESCE(s.name,'') AS space_name FROM site_imports i
                                               LEFT JOIN spaces s ON s.id=i.space_id ORDER BY i.started DESC LIMIT 10''')]
