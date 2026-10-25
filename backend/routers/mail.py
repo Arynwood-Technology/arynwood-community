@@ -1,3 +1,5 @@
+"""The host's mail: their mailbox over IMAP and SMTP, or a local Thunderbird profile, for the Mail page (host
+only, and only while the host's tools are on)."""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from pathlib import Path
@@ -355,6 +357,7 @@ def deliver(to: str, subject: str, body: str, reply_to: str = ""):
 
 @router.post("/send")
 def send_email(req: SendRequest):
+    """Sends an email from the host's mailbox (host only)."""
     if not sending_configured():
         raise HTTPException(400, "Sending is not configured. Set MAIL_SMTP_HOST and MAIL_SMTP_USER in .env.")
     try:

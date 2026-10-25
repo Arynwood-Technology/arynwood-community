@@ -49,6 +49,7 @@ def editable(c, sid, fid, current):
 
 @router.put('/spaces/{sid}/files/{fid}/text')
 def save_text(sid: str, fid: str, body: TextBody, current=Depends(user)):
+    """Saves a text file from the editor as a new version. Sends the version it read; a stale one gets 409."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         f = editable(c, sid, fid, current)
@@ -94,6 +95,7 @@ def draft_size(c, fid, uid):
 
 @router.put('/spaces/{sid}/files/{fid}/draft')
 def save_draft(sid: str, fid: str, body: TextBody, current=Depends(user)):
+    """Keeps the person's unsaved edits to a text file as their draft."""
     try: size = len(body.text.encode('utf-8'))
     except UnicodeError: raise HTTPException(415, 'The editor needs UTF-8 text.')
     if '\x00' in body.text: raise HTTPException(415, 'Only text files can be edited.')
@@ -110,6 +112,7 @@ def save_draft(sid: str, fid: str, body: TextBody, current=Depends(user)):
 
 @router.get('/spaces/{sid}/files/{fid}/draft')
 def draft(sid: str, fid: str, current=Depends(user)):
+    """The person's draft of a text file."""
     with db() as c:
         membership(c, sid, current['id'])
         files.live_item(c, sid, fid, 'file')
@@ -119,6 +122,7 @@ def draft(sid: str, fid: str, current=Depends(user)):
 
 @router.delete('/spaces/{sid}/files/{fid}/draft')
 def discard_draft(sid: str, fid: str, current=Depends(user)):
+    """Throws away the person's draft of a text file."""
     with db() as c:
         membership(c, sid, current['id'])
         c.execute('DELETE FROM file_drafts WHERE file_id=? AND user_id=?', (fid, current['id']))
@@ -131,6 +135,7 @@ def sign(payload): return hmac.new(SECRET, payload.encode(), hashlib.sha256).hex
 
 @router.post('/spaces/{sid}/previews')
 def preview_token(sid: str, body: PreviewBody, current=Depends(user)):
+    """A signed address for previewing a folder of the space as a website."""
     with db() as c:
         membership(c, sid, current['id'])
         folder = files.clean_folder(body.folder)
@@ -204,6 +209,8 @@ def preview_row(c, sid, full):
 
 @router.get('/preview/{token}/{path:path}')
 def preview_file(token: str, path: str, request: Request):
+    """A file of a website preview at the signed address preview_token gave. Needs no sign-in: the signature is the
+    permission."""
     sid, folder, options = unpack(token)
     headers = preview_headers(f'{request.url.scheme}://{request.url.netloc}/api/community/preview/{token}/')
     parts = path.rstrip('/').split('/') if path else []

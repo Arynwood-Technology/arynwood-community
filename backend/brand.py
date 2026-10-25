@@ -251,16 +251,20 @@ def read_brand():
 
 @router.get('')
 def brand():
+    """The Grove's name, tagline, colours, links and picture addresses, for the sign-in and members' pages. Needs
+    no sign-in."""
     return {key: value for key, value in read_brand().items() if key != '_logo'}
 
 @router.get('/logo')
 def brand_logo():
+    """The Grove's logo. Needs no sign-in."""
     asset = read_brand()['_logo']
     if not asset: raise HTTPException(404)
     return Response(asset[0], media_type=asset[1])
 
 @router.get('/picture')
 def brand_picture():
+    """The Grove's sign-in picture. Needs no sign-in."""
     asset = image(current()['picture'], IMAGES['picture'])
     if not asset: raise HTTPException(404)
     return Response(asset[0], media_type=asset[1])
@@ -307,15 +311,18 @@ def described(look):
 
 @router.get('/look')
 def look_settings(current_user=Depends(grove_owner)):
+    """The Grove's look as saved, with each setting described (Grove owners)."""
     return described(current())
 
 @router.post('/look/preview')
 def preview(body: Look, current_user=Depends(grove_owner)):
+    """The theme a changed look would give, without saving it (Grove owners)."""
     look = current() | checked(body)
     return {'theme': theme(look, picture_address(look, 'picture', image(look['picture'], IMAGES['picture'])), complete=True)}
 
 @router.put('/look')
 def save_look(body: Look, current_user=Depends(grove_owner)):
+    """Saves the Grove's look (Grove owners)."""
     before, look = current(), checked(body)
     keep(saved() | look)
     with store.db() as c:
@@ -351,6 +358,7 @@ def use_image(kind, data, actor):
 
 @router.put('/look/{kind}')
 async def upload_image(kind: Literal['logo', 'picture'], request: Request, current_user=Depends(grove_owner)):
+    """Replaces the Grove's logo or sign-in picture (Grove owners); the request body is the image itself."""
     if int(request.headers.get('content-length') or 0) > IMAGES[kind]: raise HTTPException(413, f'Use a picture of up to {IMAGES[kind] // 1024} KB.')
     data = bytearray()
     async for piece in request.stream():

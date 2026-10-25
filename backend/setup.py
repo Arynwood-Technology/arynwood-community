@@ -69,6 +69,8 @@ class DomainBody(BaseModel):
 
 @router.get('/address')
 def address():
+    """The Grove's address, whether it's temporary, the server's IP, and any change of address in progress (host
+    only)."""
     origin = public_origin()
     host = origin.split('://', 1)[1].split(':')[0] if origin else ''
     request = read_json(requests_dir() / 'domain.json')
@@ -84,6 +86,7 @@ def lookup(domain):
 
 @router.post('/check-domain')
 async def check_domain(body: DomainBody):
+    """Where a domain points now, and the DNS record to add (host only)."""
     domain = clean_domain(body.domain)
     addresses = await run_in_threadpool(lookup, domain)
     ip = server_ip()
@@ -97,6 +100,7 @@ async def check_domain(body: DomainBody):
 
 @router.post('/domain', status_code=202)
 def request_domain(body: DomainBody):
+    """Asks the server's root helper to move the Grove to a domain (host only; servers set up with the installer)."""
     if not helper_installed():
         raise HTTPException(409, 'This Grove was not installed with the server installer, so its address is set on the server (GROVE_PUBLIC_URL).')
     domain = clean_domain(body.domain)

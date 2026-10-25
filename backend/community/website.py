@@ -54,6 +54,7 @@ def sites(c, uid):
 
 @router.get('/site')
 def site(current=Depends(user)):
+    """The published website, every space's sites, and, for owners and webmasters, the kept releases."""
     with db() as c:
         releases = [release(c, r['id']) for r in c.execute('SELECT id FROM site_releases ORDER BY created DESC')]
         return {'live': next((r for r in releases if r['live']), None), 'sites': sites(c, current['id']),
@@ -108,6 +109,7 @@ def go_live(c, rid):
 
 @router.post('/publish', status_code=201)
 def publish(body: SiteBody, current=Depends(webmaster)):
+    """Publishes a site folder of a space as the Grove's website (webmasters who are members of the space)."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         membership(c, body.space_id, current['id'])
@@ -126,6 +128,7 @@ def publish(body: SiteBody, current=Depends(webmaster)):
 
 @router.post('/releases/{rid}/live')
 def put_back(rid: str, current=Depends(webmaster)):
+    """Makes a kept release the live website again (webmasters)."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         row = release(c, rid)
@@ -136,6 +139,7 @@ def put_back(rid: str, current=Depends(webmaster)):
 
 @router.delete('/live')
 def take_down(current=Depends(webmaster)):
+    """Takes the published website down (webmasters)."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         row = release(c, grove_setting(c, LIVE, ''))

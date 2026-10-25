@@ -60,10 +60,12 @@ def summary(c, row, uid):
 
 @router.get('/people')
 def people(current=Depends(user)):
+    """Everyone who shares a space with the person: who they can write to."""
     with db() as c: return [dict(r) for r in neighbours(c, current['id'])]
 
 @router.get('/conversations')
 def conversations(current=Depends(user)):
+    """The person's conversations, most recent first."""
     with db() as c:
         rows = c.execute('''SELECT c.* FROM conversations c JOIN conversation_members m ON m.conversation_id=c.id
                             WHERE m.user_id=? ORDER BY c.updated DESC''', (current['id'],)).fetchall()
@@ -99,6 +101,7 @@ def message(c, row):
 
 @router.get('/conversations/{cid}')
 def read(cid: str, current=Depends(user)):
+    """One conversation with its latest messages, and whether the person can still write in it."""
     with db() as c:
         row = conversation(c, cid, current['id'])
         latest = c.execute('SELECT * FROM messages WHERE conversation_id=? ORDER BY created DESC LIMIT ?', (cid, PAGE)).fetchall()[::-1]
@@ -108,6 +111,7 @@ def read(cid: str, current=Depends(user)):
 
 @router.post('/conversations/{cid}/read')
 def seen(cid: str, current=Depends(user)):
+    """Marks a conversation read."""
     with db() as c:
         conversation(c, cid, current['id'])
         c.execute('UPDATE conversation_members SET read_at=? WHERE conversation_id=? AND user_id=?', (now(), cid, current['id']))
@@ -124,6 +128,7 @@ class MessageBody(BaseModel):
 
 @router.post('/conversations/{cid}/messages', status_code=201)
 def send(cid: str, body: MessageBody, current=Depends(user)):
+    """Sends a message (text, photos, files) to someone the person still shares a space with."""
     uid = current['id']
     if not body.body and not body.photos and not body.files: raise HTTPException(422, 'Write something, or add a photo or a file.')
     with db() as c:
@@ -193,6 +198,7 @@ async def upload_photo(request: Request, current=Depends(user)):
 
 @router.get('/photos/{pid}')
 def photo(pid: str, current=Depends(user)):
+    """A photo from Messages, for the people in its conversation, or its uploader before it is sent."""
     with db() as c:
         row = c.execute('''SELECT p.* FROM message_photos p LEFT JOIN messages m ON m.id=p.message_id
                            LEFT JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=?
@@ -208,6 +214,7 @@ class FileStart(BaseModel):
 
 @router.post('/uploads', status_code=201)
 def start_file(body: FileStart, current=Depends(user)):
+    """Starts uploading a file for Messages, up to the Messages size limit."""
     name = files.clean_name(body.name)
     if body.size > FILE_MAX: raise HTTPException(413, f'Files in Messages can be up to {FILE_MAX // files.MB} MB. Put bigger ones in a space’s Files.')
     files.storage().mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -225,6 +232,7 @@ def unfinished(c, fid, uid):
 
 @router.get('/uploads/{fid}')
 def file_status(fid: str, current=Depends(user)):
+    """How much of a Messages upload has arrived."""
     with db() as c: row = unfinished(c, fid, current['id'])
     return {'received': row['received'], 'size': row['size']}
 
@@ -241,6 +249,7 @@ def write_file_piece(fid, uid, offset, data):
 
 @router.put('/uploads/{fid}')
 async def file_piece(fid: str, offset: int, request: Request, current=Depends(user)):
+    """One piece of a Messages upload, at most 8 MB, at the given offset."""
     if int(request.headers.get('content-length') or 0) > files.CHUNK_MAX: raise HTTPException(413, 'Send at most 8 MB at a time.')
     data = bytearray()
     async for piece in request.stream():
@@ -250,6 +259,7 @@ async def file_piece(fid: str, offset: int, request: Request, current=Depends(us
 
 @router.post('/uploads/{fid}/finish', status_code=201)
 def finish_file(fid: str, current=Depends(user)):
+    """Completes a Messages upload once every byte has arrived."""
     with db() as c: row = unfinished(c, fid, current['id'])
     if row['received'] != row['size']: raise HTTPException(409, 'The upload is not complete yet.')
     blob = files.sha256(files.part_path(fid))
@@ -277,6 +287,7 @@ def attachment(fid: str, current=Depends(user)):
 
 @router.get('/unread')
 def unread(current=Depends(user)):
+    """How many messages the person hasn't read."""
     with db() as c:
         return {'unread': c.execute('''SELECT COUNT(*) FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.user_id=?
                                        WHERE m.deleted IS NULL AND m.sender_id<>? AND m.created>cm.read_at''', (current['id'], current['id'])).fetchone()[0]}

@@ -10,6 +10,8 @@
 
 **User and operator manual:** [Using Grove, architecture and build diagrams](docs/MANUAL.md).
 
+**API reference:** [every HTTP route and WebSocket, and who may call it](docs/API.md), generated from the Grove itself.
+
 ## Put a Grove on your server
 
 You need a VPS running Ubuntu 22.04+ or Debian 12+, and ideally a domain name. Point the domain's DNS record (an `A` record, e.g. `grove` → your server's IP address) at the server, then run:
@@ -143,6 +145,7 @@ In **Look & feel**, owners may also choose a light background: the same rules th
 .venv/bin/python -m unittest discover -s tests
 npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
 scripts/package.sh         # builds release/arynwood-grove-<version>.tar.gz
+.venv/bin/python scripts/gen_api_reference.py   # after changing a route: rewrites docs/api/
 ```
 
 Tests use mocked mail and IRC services; they never contact live accounts.

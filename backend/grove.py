@@ -42,10 +42,12 @@ def ollama(path, body=None):
 
 @router.get('/projects')
 def projects():
+    """The host's projects (host only)."""
     with db() as c: return [dict(r) for r in c.execute('SELECT * FROM grove_projects ORDER BY created DESC')]
 
 @router.post('/projects',status_code=201)
 def create_project(project:Project):
+    """Adds a project (host only)."""
     record={'id':identifier(),'name':project.name.strip(),'description':project.description,'created':now()}
     if not record['name']: raise HTTPException(422,'Enter a project name.')
     with db() as c: c.execute('INSERT INTO grove_projects VALUES (:id,:name,:description,:created)',record)
@@ -53,17 +55,20 @@ def create_project(project:Project):
 
 @router.get('/server')
 def server():
+    """Disk use of the Grove's data folder and the workspace mode (host only)."""
     usage=shutil.disk_usage(str(database_path().parent))
     return {'storage':{'total':usage.total,'used':usage.used,'free':usage.free},
         'execution_enabled':False,'publishing_enabled':False,'mode':'CPU-compatible workspace'}
 
 @router.get('/models')
 def models():
+    """The models on the Ollama server the Grove uses (host only)."""
     data=ollama('tags')
     return [{'name':m['name'],'size':m.get('size',0)} for m in data.get('models',[])]
 
 @router.post('/chat')
 def chat(message:Chat):
+    """One prompt to an Ollama model, answered whole (host only)."""
     data=ollama('chat',{'model':message.model,'messages':[{'role':'user','content':message.prompt}],
         'stream':False,'options':{'num_predict':1024,'num_ctx':4096},'keep_alive':'2m'})
     return {'text':data.get('message',{}).get('content','')}

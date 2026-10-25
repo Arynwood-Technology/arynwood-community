@@ -70,6 +70,7 @@ class NoteBody(BaseModel):
 
 @router.post('/notes', status_code=201)
 def add_note(body: NoteBody, current=Depends(user)):
+    """Leaves a note, or suggested wording, on a page of a space's website."""
     suggestion = body.suggestion if body.suggestion is not None and body.suggestion.strip() and body.suggestion.strip() != body.quote else None
     if not body.body and suggestion is None: raise HTTPException(422, 'Say what should change, or suggest new wording.')
     with db() as c:
@@ -99,6 +100,7 @@ class ReplyBody(BaseModel):
 
 @router.post('/notes/{nid}/replies', status_code=201)
 def reply(nid: str, body: ReplyBody, current=Depends(user)):
+    """Replies to a website note."""
     if not body.body.strip(): raise HTTPException(422, 'Write a reply first.')
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
@@ -113,6 +115,7 @@ class StatusBody(BaseModel):
 
 @router.put('/notes/{nid}')
 def set_status(nid: str, body: StatusBody, current=Depends(user)):
+    """Marks a website note done, or open again: whoever left it, or the website's owners and webmasters."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         note = a_note(c, nid)
@@ -128,6 +131,7 @@ def set_status(nid: str, body: StatusBody, current=Depends(user)):
 
 @router.delete('/notes/{nid}')
 def delete_note(nid: str, current=Depends(user)):
+    """Deletes a website note: whoever left it, or the website's owners and webmasters."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         note = a_note(c, nid)

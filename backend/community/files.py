@@ -124,6 +124,7 @@ def item(c, fid): return dict(c.execute(ITEM + ' WHERE f.id=?', (fid,)).fetchone
 
 @router.get('/spaces/{sid}/files')
 def files(sid: str, folder: str = '', trash: bool = False, current=Depends(user)):
+    """A folder of the space's files (or its trash), with the room used and the size limits."""
     with db() as c:
         membership(c, sid, current['id'])
         if trash:
@@ -141,6 +142,7 @@ class FolderBody(BaseModel):
 
 @router.post('/spaces/{sid}/folders', status_code=201)
 def new_folder(sid: str, body: FolderBody, current=Depends(user)):
+    """Creates a folder."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         membership(c, sid, current['id'])
@@ -165,6 +167,8 @@ class UploadBody(BaseModel):
 
 @router.post('/spaces/{sid}/uploads', status_code=201)
 def start_upload(sid: str, body: UploadBody, current=Depends(user)):
+    """Starts uploading a file, or a new version of one, after checking its size against the space's room and the
+    server's free space. The file then goes up in pieces."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         membership(c, sid, current['id'])
@@ -198,6 +202,7 @@ def upload_row(c, sid, uid, user_id):
 
 @router.get('/spaces/{sid}/uploads/{uid}')
 def upload_status(sid: str, uid: str, current=Depends(user)):
+    """How much of an upload has arrived, to resume it."""
     with db() as c: row = upload_row(c, sid, uid, current['id'])
     return {'received': row['received'], 'size': row['size']}
 
@@ -214,6 +219,7 @@ def write_piece(sid, uid, user_id, offset, data):
 
 @router.put('/spaces/{sid}/uploads/{uid}')
 async def upload_piece(sid: str, uid: str, offset: int, request: Request, current=Depends(user)):
+    """One piece of an upload, at most 8 MB, at the given offset; the request body is the bytes."""
     if int(request.headers.get('content-length') or 0) > CHUNK_MAX: raise HTTPException(413, 'Send at most 8 MB at a time.')
     data = bytearray()
     async for piece in request.stream():
@@ -229,6 +235,7 @@ def sha256(path):
 
 @router.post('/spaces/{sid}/uploads/{uid}/finish', status_code=201)
 def finish_upload(sid: str, uid: str, current=Depends(user)):
+    """Completes an upload once every byte has arrived, adding the file or its new version."""
     with db() as c: row = upload_row(c, sid, uid, current['id'])
     if row['received'] != row['size']: raise HTTPException(409, 'The upload is not complete yet.')
     # Hashing a large file takes a while, so it happens outside any transaction.
@@ -274,6 +281,8 @@ def is_text(name): return PurePosixPath(name.lower()).suffix in TEXT
 
 @router.get('/spaces/{sid}/files/{fid}/content')
 def content(sid: str, fid: str, version: int | None = None, inline: bool = False, current=Depends(user)):
+    """A file's content, or an older version's, to download or (inline) to view. Anything not shown inline is
+    sandboxed."""
     with db() as c:
         membership(c, sid, current['id'])
         f = c.execute("SELECT * FROM files WHERE id=? AND space_id=? AND kind='file'", (fid, sid)).fetchone()
@@ -311,6 +320,7 @@ def folder_zip(sid: str, fid: str, current=Depends(user)):
 
 @router.get('/spaces/{sid}/files/{fid}/versions')
 def versions(sid: str, fid: str, current=Depends(user)):
+    """A file's versions, newest first."""
     with db() as c:
         membership(c, sid, current['id'])
         f = live_item(c, sid, fid, 'file')
@@ -351,6 +361,7 @@ def move(sid: str, fid: str, body: MoveBody, current=Depends(user)):
 
 @router.delete('/spaces/{sid}/files/{fid}')
 def trash(sid: str, fid: str, current=Depends(user)):
+    """Moves a file, or a folder with everything in it, to the trash."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         role = membership(c, sid, current['id'])
@@ -372,6 +383,7 @@ def trashed(c, sid, fid):
 
 @router.post('/spaces/{sid}/files/{fid}/restore')
 def restore(sid: str, fid: str, current=Depends(user)):
+    """Restores something from the trash: whoever added it, or a space owner."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         role = membership(c, sid, current['id'])

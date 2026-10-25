@@ -27,6 +27,8 @@ DEFAULTS={'space_creation':'everyone','chat_privacy':'private'}
 
 @router.get('/people')
 def people(current=Depends(grove_manager)):
+    """Everyone with an account: Grove role, host and webmaster, how many spaces, and when last active (Grove
+    owners and managers)."""
     with db() as c:
         return [dict(r) for r in c.execute(f'''SELECT u.id,u.name,u.email,u.admin AS host,u.created,{GROVE_ROLE} AS role,{WEBMASTER} AS webmaster,
             (SELECT COUNT(*) FROM members m WHERE m.user_id=u.id) AS spaces,
@@ -35,6 +37,7 @@ def people(current=Depends(grove_manager)):
 
 @router.put('/people/{uid}/role')
 def set_role(uid:str,body:RoleBody,current=Depends(grove_owner)):
+    """Makes someone a Grove owner, manager or member (Grove owners). The host is always an owner."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         row=c.execute(f'SELECT u.admin,{GROVE_ROLE} AS role FROM users u LEFT JOIN grove_roles r ON r.user_id=u.id WHERE u.id=?',(uid,)).fetchone()
@@ -62,6 +65,7 @@ def set_webmaster(uid:str,body:WebmasterBody,current=Depends(grove_owner)):
 
 @router.get('/settings')
 def settings(current=Depends(grove_manager)):
+    """The Grove-wide settings (Grove owners and managers)."""
     with db() as c: return {k:grove_setting(c,k,v) for k,v in DEFAULTS.items()}
 
 @router.put('/settings')

@@ -1,0 +1,5407 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Arynwood Grove",
+  "version": "0.7.3"
+ },
+ "paths": {
+  "/api/grove/projects": {
+   "get": {
+    "summary": "Projects",
+    "description": "The host's projects (host only).",
+    "operationId": "projects_api_grove_projects_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create Project",
+    "description": "Adds a project (host only).",
+    "operationId": "create_project_api_grove_projects_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Project"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove/server": {
+   "get": {
+    "summary": "Server",
+    "description": "Disk use of the Grove's data folder and the workspace mode (host only).",
+    "operationId": "server_api_grove_server_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove/models": {
+   "get": {
+    "summary": "Models",
+    "description": "The models on the Ollama server the Grove uses (host only).",
+    "operationId": "models_api_grove_models_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove/chat": {
+   "post": {
+    "summary": "Chat",
+    "description": "One prompt to an Ollama model, answered whole (host only).",
+    "operationId": "chat_api_grove_chat_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Chat"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove-setup/address": {
+   "get": {
+    "summary": "Address",
+    "description": "The Grove's address, whether it's temporary, the server's IP, and any change of address in progress (host\nonly).",
+    "operationId": "address_api_grove_setup_address_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove-setup/check-domain": {
+   "post": {
+    "summary": "Check Domain",
+    "description": "Where a domain points now, and the DNS record to add (host only).",
+    "operationId": "check_domain_api_grove_setup_check_domain_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DomainBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/grove-setup/domain": {
+   "post": {
+    "summary": "Request Domain",
+    "description": "Asks the server's root helper to move the Grove to a domain (host only; servers set up with the installer).",
+    "operationId": "request_domain_api_grove_setup_domain_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DomainBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/status": {
+   "get": {
+    "summary": "Status",
+    "description": "Whether the Grove still needs its host account (and a setup code), how passwords are recovered, and its\npublic address. Needs no sign-in.",
+    "operationId": "status_api_auth_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/signup": {
+   "post": {
+    "summary": "Signup",
+    "description": "Creates an account and signs in. The first account is the host's and needs the setup code; any other needs\nan invitation or a space's public link.",
+    "operationId": "signup_api_auth_signup_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Signup"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/login": {
+   "post": {
+    "summary": "Login",
+    "description": "Signs in with email and password, setting the session cookie.",
+    "operationId": "login_api_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Credentials"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/me": {
+   "get": {
+    "summary": "Me",
+    "description": "The signed-in person: name, email, roles, what they may do, and Public chat's settings.",
+    "operationId": "me_api_auth_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/logout": {
+   "post": {
+    "summary": "Logout",
+    "description": "Signs out: ends this session and clears its cookie.",
+    "operationId": "logout_api_auth_logout_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/password": {
+   "post": {
+    "summary": "Change Password",
+    "description": "Changes the password. Every other session ends; this one is renewed.",
+    "operationId": "change_password_api_auth_password_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PasswordChange"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/password/reset": {
+   "post": {
+    "summary": "Reset Password",
+    "description": "Sets a new password with a reset code from the host. Every session ends.",
+    "operationId": "reset_password_api_auth_password_reset_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PasswordReset"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces": {
+   "get": {
+    "summary": "Spaces",
+    "description": "The spaces the person belongs to, oldest first, each with its topic and their role.",
+    "operationId": "spaces_api_community_spaces_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create Space",
+    "description": "Starts a space, with its creator as owner. Members may start spaces unless the Grove's owners turned that\noff.",
+    "operationId": "create_space_api_community_spaces_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SpaceBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}": {
+   "put": {
+    "summary": "Update Space",
+    "description": "Renames the space and sets its topic (space owners).",
+    "operationId": "update_space_api_community_spaces__sid__put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SpaceDetails"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Delete Space",
+    "description": "Deletes the space for everyone: its members, invitations and everything written in it.",
+    "operationId": "delete_space_api_community_spaces__sid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/members": {
+   "get": {
+    "summary": "Members",
+    "description": "The space's members and their roles.",
+    "operationId": "members_api_community_spaces__sid__members_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/members/{uid}": {
+   "put": {
+    "summary": "Set Role",
+    "description": "Makes a member an owner or a member of the space (space owners). A space keeps at least one owner.",
+    "operationId": "set_role_api_community_spaces__sid__members__uid__put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/backend__community__routes__RoleBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Remove Member",
+    "description": "Removes someone from the space (space owners), or lets a member leave it. The last owner can't leave.",
+    "operationId": "remove_member_api_community_spaces__sid__members__uid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/invites": {
+   "post": {
+    "summary": "Invite",
+    "description": "A one-use invitation to the space, valid for 7 days (space owners).",
+    "operationId": "invite_api_community_spaces__sid__invites_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/invite-link": {
+   "get": {
+    "summary": "Invite Link",
+    "description": "The space's public invite link, if it has one (space owners).",
+    "operationId": "invite_link_api_community_spaces__sid__invite_link_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create Invite Link",
+    "description": "Creates the space's public link, replacing any earlier one (which stops working).",
+    "operationId": "create_invite_link_api_community_spaces__sid__invite_link_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Delete Invite Link",
+    "description": "Turns off the space's public invite link (space owners).",
+    "operationId": "delete_invite_link_api_community_spaces__sid__invite_link_delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/join": {
+   "post": {
+    "summary": "Join",
+    "description": "Joins the space an invitation or public link is for.",
+    "operationId": "join_api_community_join_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/JoinBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/entries": {
+   "get": {
+    "summary": "Entries",
+    "description": "The space's items, newest first: shared ones and the person's own private ones, optionally of one kind or\nmatching a search.",
+    "operationId": "entries_api_community_spaces__sid__entries_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "board",
+          "note",
+          "task",
+          "event",
+          "chat",
+          "list",
+          "item",
+          "comment"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Q"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create Entry",
+    "description": "Adds an item: a board post, note, task, event, chat message, list, list item or comment.",
+    "operationId": "create_entry_api_community_spaces__sid__entries_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Entry"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/entries/{eid}": {
+   "put": {
+    "summary": "Update Entry",
+    "description": "Changes an item: its author or a space owner; tasks and list items are anyone's to edit. Sends the version\nit read; a stale one gets 409.",
+    "operationId": "update_entry_api_community_spaces__sid__entries__eid__put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "eid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Eid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Entry"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Delete Entry",
+    "description": "Deletes an item: its author, a space owner, or whoever keeps the list it is on.",
+    "operationId": "delete_entry_api_community_spaces__sid__entries__eid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "eid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Eid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/events": {
+   "get": {
+    "summary": "Space Events",
+    "description": "Server-sent events: a notice whenever something in the space changes, for open pages to refetch.",
+    "operationId": "space_events_api_community_spaces__sid__events_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/export": {
+   "get": {
+    "summary": "Export Space",
+    "description": "The space and every item the person can see, as a JSON download.",
+    "operationId": "export_space_api_community_spaces__sid__export_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/connections": {
+   "get": {
+    "summary": "Connections",
+    "description": "Whether the host's mailbox is configured for reading and sending, and the Grove's version (host only).",
+    "operationId": "connections_api_community_connections_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files": {
+   "get": {
+    "summary": "Files",
+    "description": "A folder of the space's files (or its trash), with the room used and the size limits.",
+    "operationId": "files_api_community_spaces__sid__files_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "folder",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Folder"
+      }
+     },
+     {
+      "name": "trash",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Trash"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/folders": {
+   "post": {
+    "summary": "New Folder",
+    "description": "Creates a folder.",
+    "operationId": "new_folder_api_community_spaces__sid__folders_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FolderBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/uploads": {
+   "post": {
+    "summary": "Start Upload",
+    "description": "Starts uploading a file, or a new version of one, after checking its size against the space's room and the\nserver's free space. The file then goes up in pieces.",
+    "operationId": "start_upload_api_community_spaces__sid__uploads_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UploadBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/uploads/{uid}": {
+   "get": {
+    "summary": "Upload Status",
+    "description": "How much of an upload has arrived, to resume it.",
+    "operationId": "upload_status_api_community_spaces__sid__uploads__uid__get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Upload Piece",
+    "description": "One piece of an upload, at most 8 MB, at the given offset; the request body is the bytes.",
+    "operationId": "upload_piece_api_community_spaces__sid__uploads__uid__put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/uploads/{uid}/finish": {
+   "post": {
+    "summary": "Finish Upload",
+    "description": "Completes an upload once every byte has arrived, adding the file or its new version.",
+    "operationId": "finish_upload_api_community_spaces__sid__uploads__uid__finish_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/content": {
+   "get": {
+    "summary": "Content",
+    "description": "A file's content, or an older version's, to download or (inline) to view. Anything not shown inline is\nsandboxed.",
+    "operationId": "content_api_community_spaces__sid__files__fid__content_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     },
+     {
+      "name": "version",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Version"
+      }
+     },
+     {
+      "name": "inline",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Inline"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/zip": {
+   "get": {
+    "summary": "Folder Zip",
+    "description": "A folder and everything in it, as one .zip: how a website leaves the Grove for its host.",
+    "operationId": "folder_zip_api_community_spaces__sid__files__fid__zip_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/versions": {
+   "get": {
+    "summary": "Versions",
+    "description": "A file's versions, newest first.",
+    "operationId": "versions_api_community_spaces__sid__files__fid__versions_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}": {
+   "put": {
+    "summary": "Move",
+    "description": "Renames, or moves to another folder; a folder takes everything in it along.",
+    "operationId": "move_api_community_spaces__sid__files__fid__put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MoveBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Trash",
+    "description": "Moves a file, or a folder with everything in it, to the trash.",
+    "operationId": "trash_api_community_spaces__sid__files__fid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/restore": {
+   "post": {
+    "summary": "Restore",
+    "description": "Restores something from the trash: whoever added it, or a space owner.",
+    "operationId": "restore_api_community_spaces__sid__files__fid__restore_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/trash/{fid}": {
+   "delete": {
+    "summary": "Purge",
+    "description": "Deletes something in the trash for good. Space owners only.",
+    "operationId": "purge_api_community_spaces__sid__trash__fid__delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/workspace-setup": {
+   "get": {
+    "summary": "Catalog",
+    "description": "The workspace kits a space owner can stage, and those already staged in the space.",
+    "operationId": "catalog_api_community_spaces__sid__workspace_setup_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Apply",
+    "description": "Stages a kit's folders, files and items in the space, once per kit (space owners).",
+    "operationId": "apply_api_community_spaces__sid__workspace_setup_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SetupBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/workspace-setup/preview": {
+   "post": {
+    "summary": "Preview",
+    "description": "What a kit would add, without adding it (space owners).",
+    "operationId": "preview_api_community_spaces__sid__workspace_setup_preview_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SetupBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/text": {
+   "put": {
+    "summary": "Save Text",
+    "description": "Saves a text file from the editor as a new version. Sends the version it read; a stale one gets 409.",
+    "operationId": "save_text_api_community_spaces__sid__files__fid__text_put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TextBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/files/{fid}/draft": {
+   "get": {
+    "summary": "Draft",
+    "description": "The person's draft of a text file.",
+    "operationId": "draft_api_community_spaces__sid__files__fid__draft_get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Save Draft",
+    "description": "Keeps the person's unsaved edits to a text file as their draft.",
+    "operationId": "save_draft_api_community_spaces__sid__files__fid__draft_put",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TextBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Discard Draft",
+    "description": "Throws away the person's draft of a text file.",
+    "operationId": "discard_draft_api_community_spaces__sid__files__fid__draft_delete",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/spaces/{sid}/previews": {
+   "post": {
+    "summary": "Preview Token",
+    "description": "A signed address for previewing a folder of the space as a website.",
+    "operationId": "preview_token_api_community_spaces__sid__previews_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Sid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/backend__community__editor__PreviewBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/community/preview/{token}/{path}": {
+   "get": {
+    "summary": "Preview File",
+    "description": "A file of a website preview at the signed address preview_token gave. Needs no sign-in: the signature is the\npermission.",
+    "operationId": "preview_file_api_community_preview__token___path__get",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Token"
+      }
+     },
+     {
+      "name": "path",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Path"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/people": {
+   "get": {
+    "summary": "People",
+    "description": "Everyone with an account: Grove role, host and webmaster, how many spaces, and when last active (Grove\nowners and managers).",
+    "operationId": "people_api_admin_people_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/people/{uid}/role": {
+   "put": {
+    "summary": "Set Role",
+    "description": "Makes someone a Grove owner, manager or member (Grove owners). The host is always an owner.",
+    "operationId": "set_role_api_admin_people__uid__role_put",
+    "parameters": [
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/backend__community__admin__RoleBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/people/{uid}/webmaster": {
+   "put": {
+    "summary": "Set Webmaster",
+    "description": "Webmasters change the Website folders and publish the Grove's website, as owners do.",
+    "operationId": "set_webmaster_api_admin_people__uid__webmaster_put",
+    "parameters": [
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Uid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WebmasterBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/settings": {
+   "get": {
+    "summary": "Settings",
+    "description": "The Grove-wide settings (Grove owners and managers).",
+    "operationId": "settings_api_admin_settings_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Save Settings",
+    "description": "Changes the settings sent; the others stay as they are.",
+    "operationId": "save_settings_api_admin_settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/spaces": {
+   "get": {
+    "summary": "Spaces",
+    "description": "Every space, whoever started it, and the room its files take.",
+    "operationId": "spaces_api_admin_spaces_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/activity": {
+   "get": {
+    "summary": "Activity",
+    "description": "Newest first. `person` matches what someone did and what was done to them; pass the\nreturned `next` as `before` for older rows.",
+    "operationId": "activity_api_admin_activity_get",
+    "parameters": [
+     {
+      "name": "before",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      }
+     },
+     {
+      "name": "space",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Space"
+      }
+     },
+     {
+      "name": "person",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Person"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/wishes": {
+   "get": {
+    "summary": "Wishes",
+    "description": "What people asked for with the wish lamp, newest first.",
+    "operationId": "wishes_api_admin_wishes_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/wishes": {
+   "post": {
+    "summary": "Make Wish",
+    "description": "Sends the host a wish: emailed when the Grove has an address for wishes and can send mail, otherwise kept\nfor the host.",
+    "operationId": "make_wish_api_wishes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Wish"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/imports": {
+   "get": {
+    "summary": "Imports",
+    "description": "The last 10 website imports and how they went (webmasters).",
+    "operationId": "imports_api_webmaster_imports_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Start Import",
+    "description": "Starts copying a public website into a space's Website folder (webmasters who are members of the space; one\nimport at a time).",
+    "operationId": "start_import_api_webmaster_imports_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImportBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/unpack": {
+   "post": {
+    "summary": "Unpack",
+    "description": "A .zip in Files, such as a site that isn't online yet, unpacked into Website/<its name>.\nUnpacking again adds new versions of whatever changed and deletes nothing, as importing does.",
+    "operationId": "unpack_api_webmaster_unpack_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UnpackBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/starter": {
+   "post": {
+    "summary": "Starter",
+    "description": "A one-page website for a Grove that has none yet, in Website/<the Grove's address>. When the\nspace already has one, says where it is (existed) and leaves it as it is.",
+    "operationId": "starter_api_webmaster_starter_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StarterBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/site": {
+   "get": {
+    "summary": "Site",
+    "description": "The published website, every space's sites, and, for owners and webmasters, the kept releases.",
+    "operationId": "site_api_webmaster_site_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/previews": {
+   "post": {
+    "summary": "Preview",
+    "description": "Anyone in the Grove may look at its websites before they're published.",
+    "operationId": "preview_api_webmaster_previews_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/backend__community__website__PreviewBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/files": {
+   "get": {
+    "summary": "Site Files",
+    "description": "Everything in a website's folder, for the site editor, with this webmaster's drafts.",
+    "operationId": "site_files_api_webmaster_files_get",
+    "parameters": [
+     {
+      "name": "space_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Space Id"
+      }
+     },
+     {
+      "name": "folder",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Folder"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/publish": {
+   "post": {
+    "summary": "Publish",
+    "description": "Publishes a site folder of a space as the Grove's website (webmasters who are members of the space).",
+    "operationId": "publish_api_webmaster_publish_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SiteBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/releases/{rid}/live": {
+   "post": {
+    "summary": "Put Back",
+    "description": "Makes a kept release the live website again (webmasters).",
+    "operationId": "put_back_api_webmaster_releases__rid__live_post",
+    "parameters": [
+     {
+      "name": "rid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Rid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/live": {
+   "delete": {
+    "summary": "Take Down",
+    "description": "Takes the published website down (webmasters).",
+    "operationId": "take_down_api_webmaster_live_delete",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/review": {
+   "get": {
+    "summary": "Review",
+    "description": "A website as its preview pane needs it: its pages, its notes, and a mark that changes with its files.",
+    "operationId": "review_api_webmaster_review_get",
+    "parameters": [
+     {
+      "name": "space_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Space Id"
+      }
+     },
+     {
+      "name": "folder",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Folder"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/notes": {
+   "post": {
+    "summary": "Add Note",
+    "description": "Leaves a note, or suggested wording, on a page of a space's website.",
+    "operationId": "add_note_api_webmaster_notes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NoteBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/notes/{nid}/replies": {
+   "post": {
+    "summary": "Reply",
+    "description": "Replies to a website note.",
+    "operationId": "reply_api_webmaster_notes__nid__replies_post",
+    "parameters": [
+     {
+      "name": "nid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Nid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReplyBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/webmaster/notes/{nid}": {
+   "put": {
+    "summary": "Set Status",
+    "description": "Marks a website note done, or open again: whoever left it, or the website's owners and webmasters.",
+    "operationId": "set_status_api_webmaster_notes__nid__put",
+    "parameters": [
+     {
+      "name": "nid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Nid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StatusBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Delete Note",
+    "description": "Deletes a website note: whoever left it, or the website's owners and webmasters.",
+    "operationId": "delete_note_api_webmaster_notes__nid__delete",
+    "parameters": [
+     {
+      "name": "nid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Nid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/people": {
+   "get": {
+    "summary": "People",
+    "description": "Everyone who shares a space with the person: who they can write to.",
+    "operationId": "people_api_messages_people_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/conversations": {
+   "get": {
+    "summary": "Conversations",
+    "description": "The person's conversations, most recent first.",
+    "operationId": "conversations_api_messages_conversations_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Start",
+    "description": "The conversation with this person: the one there is, or a new one.",
+    "operationId": "start_api_messages_conversations_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StartBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/conversations/{cid}": {
+   "get": {
+    "summary": "Read",
+    "description": "One conversation with its latest messages, and whether the person can still write in it.",
+    "operationId": "read_api_messages_conversations__cid__get",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/conversations/{cid}/read": {
+   "post": {
+    "summary": "Seen",
+    "description": "Marks a conversation read.",
+    "operationId": "seen_api_messages_conversations__cid__read_post",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/conversations/{cid}/messages": {
+   "post": {
+    "summary": "Send",
+    "description": "Sends a message (text, photos, files) to someone the person still shares a space with.",
+    "operationId": "send_api_messages_conversations__cid__messages_post",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Cid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MessageBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/messages/{mid}": {
+   "delete": {
+    "summary": "Unsend",
+    "description": "Takes back a message: its words, photos and files go for everyone; that something was said stays.",
+    "operationId": "unsend_api_messages_messages__mid__delete",
+    "parameters": [
+     {
+      "name": "mid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Mid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/photos": {
+   "post": {
+    "summary": "Upload Photo",
+    "description": "A photo for the next message, sent as the request body.",
+    "operationId": "upload_photo_api_messages_photos_post",
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/photos/{pid}": {
+   "get": {
+    "summary": "Photo",
+    "description": "A photo from Messages, for the people in its conversation, or its uploader before it is sent.",
+    "operationId": "photo_api_messages_photos__pid__get",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Pid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/uploads": {
+   "post": {
+    "summary": "Start File",
+    "description": "Starts uploading a file for Messages, up to the Messages size limit.",
+    "operationId": "start_file_api_messages_uploads_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FileStart"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/uploads/{fid}": {
+   "get": {
+    "summary": "File Status",
+    "description": "How much of a Messages upload has arrived.",
+    "operationId": "file_status_api_messages_uploads__fid__get",
+    "parameters": [
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "File Piece",
+    "description": "One piece of a Messages upload, at most 8 MB, at the given offset.",
+    "operationId": "file_piece_api_messages_uploads__fid__put",
+    "parameters": [
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/uploads/{fid}/finish": {
+   "post": {
+    "summary": "Finish File",
+    "description": "Completes a Messages upload once every byte has arrived.",
+    "operationId": "finish_file_api_messages_uploads__fid__finish_post",
+    "parameters": [
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/files/{fid}": {
+   "get": {
+    "summary": "Attachment",
+    "description": "A message's file, for the two people in its conversation (or its sender, before it's sent).\nIt always downloads: a page or a script in it never runs at the Grove's address.",
+    "operationId": "attachment_api_messages_files__fid__get",
+    "parameters": [
+     {
+      "name": "fid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Fid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/unread": {
+   "get": {
+    "summary": "Unread",
+    "description": "How many messages the person hasn't read.",
+    "operationId": "unread_api_messages_unread_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/messages/events": {
+   "get": {
+    "summary": "Events",
+    "description": "Tells this person's open pages when a conversation of theirs changes, and, as `website`\nevents, when one of the Grove's websites or its notes does: every signed-in page has this open.",
+    "operationId": "events_api_messages_events_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/mail/unread": {
+   "get": {
+    "summary": "Get Unread Count",
+    "description": "Returns the live UNSEEN count from the IMAP server.",
+    "operationId": "get_unread_count_api_mail_unread_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/mail/accounts": {
+   "get": {
+    "summary": "Get Accounts",
+    "description": "Returns list of {id, label} for each IMAP account that has a local INBOX.",
+    "operationId": "get_accounts_api_mail_accounts_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/mail/inbox": {
+   "get": {
+    "summary": "Get Inbox",
+    "description": "Return inbox messages via live IMAP if configured, else local Thunderbird mbox.",
+    "operationId": "get_inbox_api_mail_inbox_get",
+    "parameters": [
+     {
+      "name": "account",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Account"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 150,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/mail/message/{account}/{idx}": {
+   "get": {
+    "summary": "Get Message",
+    "description": "Fetch full message body by account and sequence number.",
+    "operationId": "get_message_api_mail_message__account___idx__get",
+    "parameters": [
+     {
+      "name": "account",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Account"
+      }
+     },
+     {
+      "name": "idx",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Idx"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/mail/send": {
+   "post": {
+    "summary": "Send Email",
+    "description": "Sends an email from the host's mailbox (host only).",
+    "operationId": "send_email_api_mail_send_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SendRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/mail/launch": {
+   "post": {
+    "summary": "Launch Thunderbird",
+    "description": "Launch Thunderbird in the specified view (mail, calendar, or compose).",
+    "operationId": "launch_thunderbird_api_mail_launch_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LaunchRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/irc/client-config": {
+   "get": {
+    "summary": "Get Client Config",
+    "description": "Return the personal IRC client connection config.",
+    "operationId": "get_client_config_api_irc_client_config_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   },
+   "post": {
+    "summary": "Save Client Config",
+    "description": "Save the personal IRC client connection config.",
+    "operationId": "save_client_config_api_irc_client_config_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Cfg"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "x-grove-served-only-with": "the host's tools on (GROVE_HOST_TOOLS not off); otherwise every route here answers 404"
+   }
+  },
+  "/api/brand": {
+   "get": {
+    "summary": "Brand",
+    "description": "The Grove's name, tagline, colours, links and picture addresses, for the sign-in and members' pages. Needs\nno sign-in.",
+    "operationId": "brand_api_brand_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/logo": {
+   "get": {
+    "summary": "Brand Logo",
+    "description": "The Grove's logo. Needs no sign-in.",
+    "operationId": "brand_logo_api_brand_logo_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/picture": {
+   "get": {
+    "summary": "Brand Picture",
+    "description": "The Grove's sign-in picture. Needs no sign-in.",
+    "operationId": "brand_picture_api_brand_picture_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/look": {
+   "get": {
+    "summary": "Look Settings",
+    "description": "The Grove's look as saved, with each setting described (Grove owners).",
+    "operationId": "look_settings_api_brand_look_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Save Look",
+    "description": "Saves the Grove's look (Grove owners).",
+    "operationId": "save_look_api_brand_look_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Look"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Reset Look",
+    "description": "Back to the host's settings. Pictures the owners uploaded go too.",
+    "operationId": "reset_look_api_brand_look_delete",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/look/preview": {
+   "post": {
+    "summary": "Preview",
+    "description": "The theme a changed look would give, without saving it (Grove owners).",
+    "operationId": "preview_api_brand_look_preview_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Look"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/look/{kind}": {
+   "put": {
+    "summary": "Upload Image",
+    "description": "Replaces the Grove's logo or sign-in picture (Grove owners); the request body is the image itself.",
+    "operationId": "upload_image_api_brand_look__kind__put",
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "logo",
+        "picture"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "summary": "Remove Image",
+    "description": "No logo, or no login picture, whatever the host's settings say.",
+    "operationId": "remove_image_api_brand_look__kind__delete",
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "logo",
+        "picture"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/look/{kind}/from-file": {
+   "post": {
+    "summary": "Image From File",
+    "description": "A picture from Files, such as the logo on the Grove's website.",
+    "operationId": "image_from_file_api_brand_look__kind__from_file_post",
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "logo",
+        "picture"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FromFile"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/brand/look/from-site": {
+   "post": {
+    "summary": "From Site",
+    "description": "What a website in Files looks like: suggestions to review, nothing saved.",
+    "operationId": "from_site_api_brand_look_from_site_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FromSite"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/source": {
+   "get": {
+    "summary": "Source Offer",
+    "description": "The source code of this Grove (AGPL-3.0 section 13), as a zip. Needs no sign-in.",
+    "operationId": "source_offer_api_source_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/health": {
+   "get": {
+    "summary": "Health",
+    "description": "Whether the Grove is up, with its name and version. Needs no sign-in.",
+    "operationId": "health_api_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Chat": {
+    "properties": {
+     "model": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Model"
+     },
+     "prompt": {
+      "type": "string",
+      "maxLength": 12000,
+      "minLength": 1,
+      "title": "Prompt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "model",
+     "prompt"
+    ],
+    "title": "Chat"
+   },
+   "Credentials": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "minLength": 3,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 12,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "Credentials"
+   },
+   "DomainBody": {
+    "properties": {
+     "domain": {
+      "type": "string",
+      "maxLength": 260,
+      "minLength": 1,
+      "title": "Domain"
+     },
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "title": "Email",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "domain"
+    ],
+    "title": "DomainBody"
+   },
+   "Entry": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "board",
+       "note",
+       "task",
+       "event",
+       "chat",
+       "list",
+       "item",
+       "comment"
+      ],
+      "title": "Kind"
+     },
+     "title": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Title",
+      "default": ""
+     },
+     "body": {
+      "type": "string",
+      "maxLength": 50000,
+      "title": "Body",
+      "default": ""
+     },
+     "visibility": {
+      "type": "string",
+      "enum": [
+       "shared",
+       "private"
+      ],
+      "title": "Visibility",
+      "default": "shared"
+     },
+     "parent_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent Id"
+     },
+     "done": {
+      "type": "boolean",
+      "title": "Done",
+      "default": false
+     },
+     "due": {
+      "type": "string",
+      "maxLength": 32,
+      "title": "Due",
+      "default": ""
+     },
+     "assigned_to": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assigned To"
+     },
+     "version": {
+      "type": "integer",
+      "minimum": 1.0,
+      "title": "Version",
+      "default": 1
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind"
+    ],
+    "title": "Entry"
+   },
+   "FileStart": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "size": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Size"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "size"
+    ],
+    "title": "FileStart"
+   },
+   "FolderBody": {
+    "properties": {
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "title": "Folder",
+      "default": ""
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "FolderBody"
+   },
+   "FromFile": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "file_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "File Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "file_id"
+    ],
+    "title": "FromFile"
+   },
+   "FromSite": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "minLength": 1,
+      "title": "Folder"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "folder"
+    ],
+    "title": "FromSite"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "ImportBody": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 3,
+      "title": "Url"
+     },
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url",
+     "space_id"
+    ],
+    "title": "ImportBody"
+   },
+   "JoinBody": {
+    "properties": {
+     "token": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Token"
+     }
+    },
+    "type": "object",
+    "required": [
+     "token"
+    ],
+    "title": "JoinBody"
+   },
+   "LaunchRequest": {
+    "properties": {
+     "view": {
+      "type": "string",
+      "enum": [
+       "mail",
+       "calendar",
+       "compose"
+      ],
+      "title": "View",
+      "default": "mail"
+     }
+    },
+    "type": "object",
+    "title": "LaunchRequest"
+   },
+   "Look": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Name",
+      "default": ""
+     },
+     "tagline": {
+      "type": "string",
+      "maxLength": 400,
+      "title": "Tagline",
+      "default": ""
+     },
+     "background": {
+      "type": "string",
+      "maxLength": 7,
+      "title": "Background",
+      "default": ""
+     },
+     "text": {
+      "type": "string",
+      "maxLength": 7,
+      "title": "Text",
+      "default": ""
+     },
+     "accent": {
+      "type": "string",
+      "maxLength": 7,
+      "title": "Accent",
+      "default": ""
+     },
+     "login_background": {
+      "type": "string",
+      "maxLength": 7,
+      "title": "Login Background",
+      "default": ""
+     },
+     "font_heading": {
+      "type": "string",
+      "enum": [
+       "clean",
+       "rounded",
+       "classic",
+       "bold"
+      ],
+      "title": "Font Heading",
+      "default": "clean"
+     },
+     "font_body": {
+      "type": "string",
+      "enum": [
+       "clean",
+       "rounded",
+       "classic"
+      ],
+      "title": "Font Body",
+      "default": "clean"
+     },
+     "corners": {
+      "type": "string",
+      "enum": [
+       "round",
+       "soft",
+       "square"
+      ],
+      "title": "Corners",
+      "default": "round"
+     },
+     "logo_shape": {
+      "type": "string",
+      "enum": [
+       "original",
+       "circle"
+      ],
+      "title": "Logo Shape",
+      "default": "original"
+     },
+     "site_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "title": "Site Url",
+      "default": ""
+     },
+     "site_label": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Site Label",
+      "default": ""
+     },
+     "shop_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "title": "Shop Url",
+      "default": ""
+     },
+     "shop_label": {
+      "type": "string",
+      "maxLength": 200,
+      "title": "Shop Label",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "title": "Look"
+   },
+   "MessageBody": {
+    "properties": {
+     "body": {
+      "type": "string",
+      "maxLength": 4000,
+      "title": "Body",
+      "default": ""
+     },
+     "photos": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Photos"
+     },
+     "files": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Files"
+     }
+    },
+    "type": "object",
+    "title": "MessageBody"
+   },
+   "MoveBody": {
+    "properties": {
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "title": "Folder",
+      "default": ""
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "MoveBody"
+   },
+   "NoteBody": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "minLength": 1,
+      "title": "Folder"
+     },
+     "page": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Page",
+      "default": "/"
+     },
+     "selector": {
+      "type": "string",
+      "maxLength": 2000,
+      "title": "Selector",
+      "default": ""
+     },
+     "quote": {
+      "type": "string",
+      "maxLength": 1000,
+      "title": "Quote",
+      "default": ""
+     },
+     "x": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "X"
+     },
+     "y": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Y"
+     },
+     "device": {
+      "type": "string",
+      "enum": [
+       "",
+       "phone",
+       "tablet",
+       "computer"
+      ],
+      "title": "Device",
+      "default": ""
+     },
+     "body": {
+      "type": "string",
+      "maxLength": 5000,
+      "title": "Body",
+      "default": ""
+     },
+     "suggestion": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 5000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Suggestion"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "folder"
+    ],
+    "title": "NoteBody"
+   },
+   "PasswordChange": {
+    "properties": {
+     "current": {
+      "type": "string",
+      "maxLength": 256,
+      "title": "Current"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 12,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "current",
+     "password"
+    ],
+    "title": "PasswordChange"
+   },
+   "PasswordReset": {
+    "properties": {
+     "token": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Token"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 12,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "token",
+     "password"
+    ],
+    "title": "PasswordReset"
+   },
+   "Project": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 4000,
+      "title": "Description",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "Project"
+   },
+   "ReplyBody": {
+    "properties": {
+     "body": {
+      "type": "string",
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Body"
+     }
+    },
+    "type": "object",
+    "required": [
+     "body"
+    ],
+    "title": "ReplyBody"
+   },
+   "SendRequest": {
+    "properties": {
+     "to": {
+      "type": "string",
+      "maxLength": 254,
+      "minLength": 3,
+      "title": "To"
+     },
+     "subject": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Subject",
+      "default": ""
+     },
+     "body": {
+      "type": "string",
+      "maxLength": 200000,
+      "title": "Body"
+     }
+    },
+    "type": "object",
+    "required": [
+     "to",
+     "body"
+    ],
+    "title": "SendRequest"
+   },
+   "SettingsBody": {
+    "properties": {
+     "space_creation": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "everyone",
+         "managers"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Space Creation"
+     },
+     "chat_privacy": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "private",
+         "open"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chat Privacy"
+     }
+    },
+    "type": "object",
+    "title": "SettingsBody"
+   },
+   "SetupBody": {
+    "properties": {
+     "kit": {
+      "type": "string",
+      "title": "Kit"
+     },
+     "client": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Client"
+     },
+     "opening_date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Opening Date"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kit",
+     "client"
+    ],
+    "title": "SetupBody"
+   },
+   "Signup": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "minLength": 3,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 256,
+      "minLength": 12,
+      "title": "Password"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "space": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Space",
+      "default": "My Grove"
+     },
+     "invite": {
+      "type": "string",
+      "maxLength": 128,
+      "title": "Invite",
+      "default": ""
+     },
+     "setup_code": {
+      "type": "string",
+      "maxLength": 128,
+      "title": "Setup Code",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password",
+     "name"
+    ],
+    "title": "Signup"
+   },
+   "SiteBody": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "minLength": 1,
+      "title": "Folder"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "folder"
+    ],
+    "title": "SiteBody"
+   },
+   "SpaceBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "SpaceBody"
+   },
+   "SpaceDetails": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "topic": {
+      "type": "string",
+      "maxLength": 300,
+      "title": "Topic",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "SpaceDetails"
+   },
+   "StartBody": {
+    "properties": {
+     "user_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "User Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "user_id"
+    ],
+    "title": "StartBody"
+   },
+   "StarterBody": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id"
+    ],
+    "title": "StarterBody"
+   },
+   "StatusBody": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "enum": [
+       "open",
+       "done"
+      ],
+      "title": "Status"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "StatusBody"
+   },
+   "TextBody": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "maxLength": 2097152,
+      "title": "Text"
+     },
+     "version": {
+      "type": "integer",
+      "minimum": 1.0,
+      "title": "Version"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text",
+     "version"
+    ],
+    "title": "TextBody"
+   },
+   "UnpackBody": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "file_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "File Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "file_id"
+    ],
+    "title": "UnpackBody"
+   },
+   "UploadBody": {
+    "properties": {
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "title": "Folder",
+      "default": ""
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "size": {
+      "type": "integer",
+      "minimum": 0.0,
+      "title": "Size"
+     },
+     "replaces": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 64
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Replaces"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "size"
+    ],
+    "title": "UploadBody"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   },
+   "WebmasterBody": {
+    "properties": {
+     "webmaster": {
+      "type": "boolean",
+      "title": "Webmaster"
+     }
+    },
+    "type": "object",
+    "required": [
+     "webmaster"
+    ],
+    "title": "WebmasterBody"
+   },
+   "Wish": {
+    "properties": {
+     "body": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Body"
+     },
+     "page": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[a-z-]*$",
+      "title": "Page",
+      "default": ""
+     },
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "title": "Space Id",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "body"
+    ],
+    "title": "Wish"
+   },
+   "backend__community__admin__RoleBody": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "enum": [
+       "owner",
+       "manager",
+       "member"
+      ],
+      "title": "Role"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role"
+    ],
+    "title": "RoleBody"
+   },
+   "backend__community__editor__PreviewBody": {
+    "properties": {
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "title": "Folder",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "title": "PreviewBody"
+   },
+   "backend__community__routes__RoleBody": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "enum": [
+       "owner",
+       "member"
+      ],
+      "title": "Role"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role"
+    ],
+    "title": "RoleBody"
+   },
+   "backend__community__website__PreviewBody": {
+    "properties": {
+     "space_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Space Id"
+     },
+     "folder": {
+      "type": "string",
+      "maxLength": 4200,
+      "minLength": 1,
+      "title": "Folder"
+     },
+     "bridge": {
+      "type": "boolean",
+      "title": "Bridge",
+      "default": false
+     },
+     "drafts": {
+      "type": "boolean",
+      "title": "Drafts",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "space_id",
+     "folder"
+    ],
+    "title": "PreviewBody"
+   }
+  }
+ }
+}

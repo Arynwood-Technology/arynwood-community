@@ -1,3 +1,5 @@
+"""Spaces: their members and roles, invitations and public links, and the items written in them (board posts,
+notes, tasks, events, chat, lists, list items and comments), with live change notices and export."""
 import json
 import os
 import time
@@ -49,11 +51,14 @@ class SpaceDetails(SpaceBody):
 
 @router.get('/spaces')
 def spaces(current=Depends(user)):
+    """The spaces the person belongs to, oldest first, each with its topic and their role."""
     with db() as c:
         return [dict(r) for r in c.execute(SPACE+' WHERE m.user_id=? ORDER BY s.created',(current['id'],))]
 
 @router.post('/spaces',status_code=201)
 def create_space(body:SpaceBody,current=Depends(user)):
+    """Starts a space, with its creator as owner. Members may start spaces unless the Grove's owners turned that
+    off."""
     sid=identifier()
     with db() as c:
         if not may_start_spaces(c,current['role']): raise HTTPException(403,'Only the Grove’s owners and managers can start spaces here.')
@@ -64,6 +69,7 @@ def create_space(body:SpaceBody,current=Depends(user)):
 
 @router.put('/spaces/{sid}')
 def update_space(sid:str,body:SpaceDetails,current=Depends(user)):
+    """Renames the space and sets its topic (space owners)."""
     with db() as c:
         membership(c,sid,current['id'],owner=True)
         before=dict(c.execute(SPACE+' WHERE s.id=? AND m.user_id=?',(sid,current['id'])).fetchone())
@@ -90,6 +96,7 @@ def delete_space(sid:str,current=Depends(user)):
 
 @router.get('/spaces/{sid}/members')
 def members(sid:str,current=Depends(user)):
+    """The space's members and their roles."""
     with db() as c:
         membership(c,sid,current['id'])
         return [dict(r) for r in c.execute('SELECT u.id,u.name,m.role FROM members m JOIN users u ON u.id=m.user_id WHERE m.space_id=? ORDER BY u.name',(sid,))]
@@ -99,6 +106,7 @@ class RoleBody(BaseModel):
 
 @router.put('/spaces/{sid}/members/{uid}')
 def set_role(sid:str,uid:str,body:RoleBody,current=Depends(user)):
+    """Makes a member an owner or a member of the space (space owners). A space keeps at least one owner."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         membership(c,sid,current['id'],owner=True)
@@ -113,6 +121,7 @@ def set_role(sid:str,uid:str,body:RoleBody,current=Depends(user)):
 
 @router.delete('/spaces/{sid}/members/{uid}')
 def remove_member(sid:str,uid:str,current=Depends(user)):
+    """Removes someone from the space (space owners), or lets a member leave it. The last owner can't leave."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         # Members may leave a space; only an owner may remove someone else.
@@ -130,6 +139,7 @@ def remove_member(sid:str,uid:str,current=Depends(user)):
 
 @router.post('/spaces/{sid}/invites')
 def invite(sid:str,current=Depends(user)):
+    """A one-use invitation to the space, valid for 7 days (space owners)."""
     token=identifier()+identifier()
     with db() as c:
         membership(c,sid,current['id'],owner=True)
@@ -147,6 +157,7 @@ def invite_url(token):
 # turned off by the owner at any time. It is kept readable so the owner can copy it again.
 @router.get('/spaces/{sid}/invite-link')
 def invite_link(sid:str,current=Depends(user)):
+    """The space's public invite link, if it has one (space owners)."""
     with db() as c:
         membership(c,sid,current['id'],owner=True)
         row=c.execute('SELECT token,created FROM invite_links WHERE space_id=?',(sid,)).fetchone()
@@ -165,6 +176,7 @@ def create_invite_link(sid:str,current=Depends(user)):
 
 @router.delete('/spaces/{sid}/invite-link')
 def delete_invite_link(sid:str,current=Depends(user)):
+    """Turns off the space's public invite link (space owners)."""
     with db() as c:
         membership(c,sid,current['id'],owner=True)
         if c.execute('DELETE FROM invite_links WHERE space_id=?',(sid,)).rowcount: record(c,'public_link_turned_off',actor=current['id'],space=sid)
@@ -175,6 +187,7 @@ class JoinBody(BaseModel):
 
 @router.post('/join')
 def join(body:JoinBody,current=Depends(user)):
+    """Joins the space an invitation or public link is for."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         sid,one_use,inviter=invitation(c,body.token)
@@ -226,6 +239,8 @@ def validate_entry(c,sid,body,uid):
 
 @router.get('/spaces/{sid}/entries')
 def entries(sid:str,kind:Kind|None=None,q:str='',current=Depends(user)):
+    """The space's items, newest first: shared ones and the person's own private ones, optionally of one kind or
+    matching a search."""
     if len(q)>200: raise HTTPException(422,'Search is too long.')
     with db() as c:
         membership(c,sid,current['id'])
@@ -239,6 +254,7 @@ def entries(sid:str,kind:Kind|None=None,q:str='',current=Depends(user)):
 
 @router.post('/spaces/{sid}/entries',status_code=201)
 def create_entry(sid:str,body:Entry,current=Depends(user)):
+    """Adds an item: a board post, note, task, event, chat message, list, list item or comment."""
     eid=identifier(); stamp=now()
     with db() as c:
         membership(c,sid,current['id'])
@@ -252,6 +268,8 @@ def create_entry(sid:str,body:Entry,current=Depends(user)):
 
 @router.put('/spaces/{sid}/entries/{eid}')
 def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
+    """Changes an item: its author or a space owner; tasks and list items are anyone's to edit. Sends the version
+    it read; a stale one gets 409."""
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         role=membership(c,sid,current['id'])
@@ -273,6 +291,7 @@ def update_entry(sid:str,eid:str,body:Entry,current=Depends(user)):
 
 @router.delete('/spaces/{sid}/entries/{eid}')
 def delete_entry(sid:str,eid:str,current=Depends(user)):
+    """Deletes an item: its author, a space owner, or whoever keeps the list it is on."""
     with db() as c:
         role=membership(c,sid,current['id'])
         entry=visible_entry(c,sid,eid,current['id'])
@@ -304,6 +323,7 @@ def session_in_space(token,sid,uid):
 
 @router.get('/spaces/{sid}/events')
 async def space_events(sid:str,request:Request,current=Depends(user)):
+    """Server-sent events: a notice whenever something in the space changes, for open pages to refetch."""
     token=digest(session_token(request))
     def allowed(): return session_in_space(token,sid,current['id'])
     if not await run_in_threadpool(allowed): raise HTTPException(404,'Space not found.')
@@ -314,6 +334,7 @@ async def space_events(sid:str,request:Request,current=Depends(user)):
 
 @router.get('/spaces/{sid}/export')
 def export_space(sid:str,current=Depends(user)):
+    """The space and every item the person can see, as a JSON download."""
     with db() as c:
         membership(c,sid,current['id'])
         space=dict(c.execute("SELECT s.*,COALESCE(t.topic,'') AS topic FROM spaces s LEFT JOIN space_topics t ON t.space_id=s.id WHERE s.id=?",(sid,)).fetchone())
@@ -324,6 +345,7 @@ def export_space(sid:str,current=Depends(user)):
 
 @router.get('/connections')
 def connections(current=Depends(administrator)):
+    """Whether the host's mailbox is configured for reading and sending, and the Grove's version (host only)."""
     return {'mail':bool(os.getenv('MAIL_IMAP_HOST') and os.getenv('MAIL_IMAP_USER') and os.getenv('MAIL_IMAP_PASS')),
             'smtp':bool((os.getenv('MAIL_SMTP_HOST') or os.getenv('MAIL_IMAP_HOST')) and (os.getenv('MAIL_SMTP_USER') or os.getenv('MAIL_IMAP_USER'))),
             'version':VERSION}
