@@ -10,6 +10,8 @@
 
 **User and operator manual:** [Using Grove, architecture and build diagrams](docs/MANUAL.md).
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15881/badge)](https://www.bestpractices.dev/projects/15881)
+
 ## Put a Grove on your server
 
 You need a VPS running Ubuntu 22.04+ or Debian 12+, and ideally a domain name. Point the domain's DNS record (an `A` record, e.g. `grove` → your server's IP address) at the server, then run:
