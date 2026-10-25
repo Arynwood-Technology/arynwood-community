@@ -4,6 +4,13 @@ Version: `0.7.3`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
 
+## Next version (unreleased)
+
+Changes for the host
+
+- **Release files are verified before installation changes the server.** When using `--from file.tar.gz`, put `file.tar.gz.sha256` beside it; the checksum file must name `file.tar.gz`. A missing or mismatched checksum stops installation before any server changes.
+- **Release downloads require HTTPS.** `GROVE_RELEASE_BASE` must start with `https://`; redirects from HTTPS to HTTP are refused.
+
 ## 0.7.3
 
 Fixes
