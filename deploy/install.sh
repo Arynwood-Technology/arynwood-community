@@ -47,6 +47,34 @@ ask()  {  # ask VAR "question" — reads from the terminal even when this script
 }
 env_value() { [[ -f $ENV_FILE ]] && sed -n "s/^$1=//p" "$ENV_FILE" | tail -n1 || true; }
 
+# BEGIN Grove TLS public-key policy
+# Inspect certificate public metadata only; never open or print privkey.pem.
+tls_certificate_key_is_strong() {
+  local certificate=$1 info algorithm bits curve
+  info=$(openssl x509 -in "$certificate" -noout -text 2>/dev/null) || return 1
+  algorithm=$(sed -n 's/^[[:space:]]*Public Key Algorithm: *//p' <<<"$info" | head -n1)
+  bits=$(sed -n 's/.*Public-Key: (\([0-9][0-9]*\) bit).*/\1/p' <<<"$info" | head -n1)
+  case $algorithm in
+    rsaEncryption) [[ $bits =~ ^[0-9]+$ ]] && (( bits >= 2048 )) ;;
+    id-ecPublicKey)
+      curve=$(sed -n 's/^[[:space:]]*ASN1 OID: *//p' <<<"$info" | head -n1)
+      [[ $bits =~ ^[0-9]+$ && $curve =~ ^(prime256v1|secp384r1|secp521r1)$ ]] && (( bits >= 256 ))
+      ;;
+    *) return 1 ;;
+  esac
+}
+tls_certificate_key_check() {
+  local certificate=$1 domain=$2 required=${3:-0}
+  if [[ ! -s $certificate ]]; then
+    [[ $required == 0 ]] && return 0
+  elif tls_certificate_key_is_strong "$certificate"; then
+    return 0
+  fi
+  echo "Refusing HTTPS for $domain: certificate public key must be RSA >=2048 bits or NIST ECDSA >=256 bits." >&2
+  return 1
+}
+# END Grove TLS public-key policy
+
 # --- Release delivery: the same lines are in deploy/install.sh, deploy/arynwood-grove and
 # deploy/upgrade-from-community.sh (tests/test_release_delivery.py keeps them identical).
 # A release is a tarball with a .sha256 file beside it, as scripts/package.sh writes them. Nothing is
@@ -338,9 +366,12 @@ if [[ $HTTPS == 1 ]]; then
     exit 1
   fi
   say "Getting a certificate from Let's Encrypt"
+  cert=/etc/letsencrypt/live/$DOMAIN/cert.pem
+  tls_certificate_key_check "$cert" "$DOMAIN" || die "The existing certificate must be replaced with a key meeting Grove's TLS policy."
   if [[ -n $EMAIL ]]; then account=(-m "$EMAIL"); else account=(--register-unsafely-without-email); fi
-  certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --redirect "${account[@]}" -q \
+  certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --redirect --key-type ecdsa --elliptic-curve secp256r1 "${account[@]}" -q \
     || die "Certbot could not get a certificate. Check DNS and ports 80/443, then run this installer again."
+  tls_certificate_key_check "$cert" "$DOMAIN" 1 || die "Certbot did not leave a certificate meeting Grove's TLS policy."
 fi
 
 link=$("${CLI[@]}" setup-link | head -n1)

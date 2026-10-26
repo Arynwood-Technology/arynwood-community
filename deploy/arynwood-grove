@@ -35,6 +35,33 @@ fi
 grove_paths "$NAME"
 
 env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n1; }
+# BEGIN Grove TLS public-key policy
+# Inspect certificate public metadata only; never open or print privkey.pem.
+tls_certificate_key_is_strong() {
+  local certificate=$1 info algorithm bits curve
+  info=$(openssl x509 -in "$certificate" -noout -text 2>/dev/null) || return 1
+  algorithm=$(sed -n 's/^[[:space:]]*Public Key Algorithm: *//p' <<<"$info" | head -n1)
+  bits=$(sed -n 's/.*Public-Key: (\([0-9][0-9]*\) bit).*/\1/p' <<<"$info" | head -n1)
+  case $algorithm in
+    rsaEncryption) [[ $bits =~ ^[0-9]+$ ]] && (( bits >= 2048 )) ;;
+    id-ecPublicKey)
+      curve=$(sed -n 's/^[[:space:]]*ASN1 OID: *//p' <<<"$info" | head -n1)
+      [[ $bits =~ ^[0-9]+$ && $curve =~ ^(prime256v1|secp384r1|secp521r1)$ ]] && (( bits >= 256 ))
+      ;;
+    *) return 1 ;;
+  esac
+}
+tls_certificate_key_check() {
+  local certificate=$1 domain=$2 required=${3:-0}
+  if [[ ! -s $certificate ]]; then
+    [[ $required == 0 ]] && return 0
+  elif tls_certificate_key_is_strong "$certificate"; then
+    return 0
+  fi
+  echo "Refusing HTTPS for $domain: certificate public key must be RSA >=2048 bits or NIST ECDSA >=256 bits." >&2
+  return 1
+}
+# END Grove TLS public-key policy
 need_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo $ME $*" >&2; exit 1; }; }
 need_grove() {
   [[ -f $ENV_FILE ]] && return 0
@@ -76,9 +103,25 @@ fetch_release() {  # fetch_release BASE FILE DIR: FILE and FILE.sha256 from BASE
 OFFSITE_ENV=/etc/arynwood-grove-offsite.env OFFSITE_STATE=/var/lib/arynwood-grove-offsite
 # restic with the repository, its password and any provider keys, read literally from the settings.
 offsite_restic() {
-  local vars=() line
+  local vars=() line repository
   while IFS= read -r line; do [[ $line =~ ^[A-Z][A-Z0-9_]*= ]] && vars+=("$line"); done <"$OFFSITE_ENV"
-  env "${vars[@]}" restic --cache-dir "$OFFSITE_STATE/cache" "$@"
+  repository=$(sed -n 's/^RESTIC_REPOSITORY=//p' "$OFFSITE_ENV" | tail -n1)
+  if [[ $repository == sftp:* ]]; then
+    [[ -n ${RESTIC_SFTP_COMMAND:-} ]] && {
+      echo "Custom SFTP commands are refused because they can bypass Grove's SSH key policy." >&2
+      return 1
+    }
+    for line in "${vars[@]}"; do
+      [[ $line == RESTIC_SFTP_COMMAND=* ]] && {
+        echo "Custom SFTP commands are refused because they can bypass Grove's SSH key policy." >&2
+        return 1
+      }
+    done
+    local ssh_args='-o RequiredRSASize=2048 -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256 -o PubkeyAcceptedAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256'
+    env "${vars[@]}" restic --cache-dir "$OFFSITE_STATE/cache" -o "sftp.args=$ssh_args" "$@"
+  else
+    env "${vars[@]}" restic --cache-dir "$OFFSITE_STATE/cache" "$@"
+  fi
 }
 # The repository without any password written into it.
 offsite_repo() { sed -n 's/^RESTIC_REPOSITORY=//p' "$OFFSITE_ENV" | tail -n1 | sed -E 's#//[^/@]*@#//…@#'; }
@@ -167,7 +210,7 @@ EMAIL_RE='^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$'
 # Grove runs without HTTPS), the new address in the settings, and a redirect from the old one.
 # Any failure before the switch puts the previous nginx site back.
 set_domain() {
-  local domain=$1 email=${2:-} url old scheme port probe answer
+  local domain=$1 email=${2:-} url old scheme port probe answer cert old_cert
   [[ ${#domain} -le 253 && $domain =~ $DOMAIN_RE ]] || { echo "\"$domain\" is not a web address like grove.example.com." >&2; return 1; }
   [[ -z $email || $email =~ $EMAIL_RE ]] || { echo "\"$email\" is not an email address." >&2; return 1; }
   url=$(env_value GROVE_PUBLIC_URL); old=${url#*://}; old=${old%%/*}; old=${old%%:*}
@@ -175,6 +218,8 @@ set_domain() {
   port=$(env_value GROVE_PORT); port=${port:-8018}
   [[ $domain != "$old" ]] || { echo "The Grove already uses $domain."; return 0; }
   [[ -f $SITE ]] || { echo "No nginx site at $SITE; this Grove was not set up by the installer." >&2; return 1; }
+  cert=/etc/letsencrypt/live/$domain/cert.pem
+  tls_certificate_key_check "$cert" "$domain" || return 1
   cp -p "$SITE" "$SITE.before-$domain"
   restore() { mv "$SITE.before-$domain" "$SITE"; nginx -t -q 2>/dev/null && systemctl reload nginx; }
   sed -e "s/@DOMAIN@/$domain/g" -e "s/@PORT@/$port/g" "$CURRENT/deploy/nginx-grove.conf" >"$SITE"
@@ -196,8 +241,9 @@ set_domain() {
   fi
   if [[ $scheme == https ]]; then
     local account=(--register-unsafely-without-email); [[ -n $email ]] && account=(-m "$email")
-    certbot --nginx -d "$domain" --non-interactive --agree-tos --redirect "${account[@]}" -q \
+    certbot --nginx -d "$domain" --non-interactive --agree-tos --redirect --key-type ecdsa --elliptic-curve secp256r1 "${account[@]}" -q \
       || { restore; echo "Let's Encrypt could not issue a certificate for $domain." >&2; return 1; }
+    tls_certificate_key_check "$cert" "$domain" 1 || { restore; return 1; }
   fi
   rm -f "$SITE.before-$domain"
   # People who saved the old address are sent to the new one.
@@ -205,10 +251,13 @@ set_domain() {
     {
       echo "# Earlier address of this Grove, forwarding to the current one."
       echo "server { listen 80; listen [::]:80; server_name $old; return 301 $scheme://$domain\$request_uri; }"
-      if [[ -f /etc/letsencrypt/live/$old/fullchain.pem ]]; then
+      old_cert=/etc/letsencrypt/live/$old/cert.pem
+      if [[ -f /etc/letsencrypt/live/$old/fullchain.pem ]] && tls_certificate_key_is_strong "$old_cert"; then
         echo "server { listen 443 ssl; listen [::]:443 ssl; server_name $old;"
         echo "  ssl_certificate /etc/letsencrypt/live/$old/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/$old/privkey.pem;"
         echo "  return 301 $scheme://$domain\$request_uri; }"
+      elif [[ -f /etc/letsencrypt/live/$old/fullchain.pem ]]; then
+        echo "Skipping the old HTTPS redirect for $old because its certificate key is below Grove's TLS minimum." >&2
       fi
     } >"$PREVIOUS_SITE"
     ln -sfn "$PREVIOUS_SITE" "/etc/nginx/sites-enabled/$SITE_NAME-previous"
@@ -481,7 +530,7 @@ Each copy holds the database, everyone's files, the settings and the nginx site.
         sftp://u123456@u123456.your-storagebox.de:23/grove     a Hetzner Storage Box
         sftp:backup@backup.example.com:/srv/grove              any SFTP server
         s3:https://s3.eu-central-1.amazonaws.com/bucket/grove  S3 (also B2's and R2's S3 address)
-      For SFTP, root must be able to log in with a key: create one with sudo ssh-keygen -t ed25519,
+      For SFTP, root must be able to log in with a 256-bit Ed25519 key: sudo ssh-keygen -t ed25519,
       add /root/.ssh/id_ed25519.pub to the backup server, and connect once with sudo sftp to accept
       its host key. For S3, first put AWS_ACCESS_KEY_ID= and AWS_SECRET_ACCESS_KEY= lines in
       /etc/arynwood-grove-offsite.env (mode 0600).
