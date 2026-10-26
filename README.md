@@ -139,7 +139,7 @@ previews. Details and private vulnerability reporting are in [SECURITY.md](SECUR
 
 ## Maintenance and license
 
-Lorelei Noble maintains the project, reviews changes and ships releases.
+Arynwood Technology maintains the project, reviews changes and ships releases.
 [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
 Code is licensed under [GNU AGPL-3.0](LICENSE). A running Grove offers its source
