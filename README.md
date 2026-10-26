@@ -1,5 +1,7 @@
 # Arynwood Grove
 
+<p align="center"><img src="frontend/public/arynwood-tree.png" width="128" height="128" alt="The Arynwood tree" /></p>
+
 **The Grove, your community – your choices.** Shared calendars, conversations,
 files, tasks and websites for a group of people, on a server you control.
 Members join through a browser; they do not need the desktop app.
