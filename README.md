@@ -1,195 +1,149 @@
 # Arynwood Grove
 
+<p align="center"><img src="frontend/public/arynwood-tree.png" width="128" height="128" alt="The Arynwood tree" /></p>
+
+**The Grove, your community – your choices.** Shared calendars, conversations,
+files, tasks and websites for a group of people, on a server you control.
+Members join through a browser; they do not need the desktop app.
+
+[Website](https://arynwood.com/community/) · [Downloads](https://github.com/Arynwood-Technology/arynwood-community/releases/latest) · [Manual](docs/MANUAL.md) · [Arynwood's Grove](https://community.arynwood.com/)
+
 [![CI](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml/badge.svg)](https://github.com/Arynwood-Technology/arynwood-community/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/Arynwood-Technology/arynwood-community)](https://github.com/Arynwood-Technology/arynwood-community/releases)
+[![Latest release](https://img.shields.io/github/v/release/Arynwood-Technology/arynwood-community)](https://github.com/Arynwood-Technology/arynwood-community/releases/latest)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Arynwood-Technology/arynwood-community/badge)](https://scorecard.dev/viewer/?uri=github.com/Arynwood-Technology/arynwood-community)
-
-**The Grove, your community – your choices.** Private community software for the people in your life: shared calendars, plans, boards, chat, household tasks, lists and notes, on a server you control. Version 0.7.3. Formerly Arynwood Community; a Community 0.3 install upgrades in place.
-
-**Website:** [arynwood.com/community](https://arynwood.com/community/) · **Join Arynwood's Grove:** [community.arynwood.com](https://community.arynwood.com/) · **Hosting and setup:** [Arynwood setup services](https://arynwood.com/#services)
-
-**User and operator manual:** [Using Grove, architecture and build diagrams](docs/MANUAL.md).
-
-**API reference:** [every HTTP route and WebSocket, and who may call it](docs/API.md), generated from the Grove itself.
-
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15881/badge)](https://www.bestpractices.dev/projects/15881)
+
+## Current standing
+
+**Grove 0.7.4 is published.** It strengthens release delivery: installation checks
+an archive against its correctly named checksum before changing the server,
+downloads require HTTPS, and redirects to plain HTTP are refused.
+[Release notes](docs/PRERELEASE.md) · [0.7.4 downloads](https://github.com/Arynwood-Technology/arynwood-community/releases/tag/v0.7.4).
+
+The published packages carry GitHub build-provenance attestations. Backend tests,
+frontend tests, lint, build and installer checks run before packaging. CodeQL and
+OpenSSF Scorecard provide additional checks; the best-practices badge remains in
+progress. A passing workflow or a badge is evidence of specific checks, not a
+promise that software has no vulnerabilities.
+
+Grove is open source under the AGPL-3.0 and is still developing. It was formerly
+Arynwood Community; Community 0.3 installations can upgrade in place. It runs
+independently of [Arynwood MCP](https://github.com/Arynwood-Technology/ArynwoodMCP),
+which can also show your Grove inside its Community page.
+
+## A place for the group
+
+| Area | What members can do |
+|---|---|
+| Calendar and plans | See the month and day planner, assign tasks, keep lists and track upcoming work |
+| Conversations | Share updates and boards, reply, and send private messages with photos and files |
+| Files | Upload in resumable pieces, organize folders, edit text, keep versions and use the trash |
+| Websites | Preview the group's site; appointed webmasters edit, publish and restore earlier versions |
+| People and identity | Invite members, manage spaces and choose the Grove's branding |
+| Workspace setup | Stage a film-festival or client-project workspace with guides, folders and CSV trackers |
+
+Spaces determine who shares the work. Owners manage their spaces; Grove owners
+and managers have administration tools. Host mail and IRC connections have their
+own access restrictions. Public chat is available when the operator configures
+an IRC room. [Member and operator manual](docs/MANUAL.md).
 
 ## Put a Grove on your server
 
-You need a VPS running Ubuntu 22.04+ or Debian 12+, and ideally a domain name. Point the domain's DNS record (an `A` record, e.g. `grove` → your server's IP address) at the server, then run:
+Use Ubuntu 22.04+ or Debian 12+ and a domain pointed at the server. The installer
+sets up an unprivileged service, nginx, HTTPS, daily backups and the management
+command. Read [deployment and requirements](deploy/README.md) before running it.
 
 ```bash
 curl -fsSL https://github.com/Arynwood-Technology/arynwood-community/releases/latest/download/install.sh \
   | sudo bash -s -- --domain grove.example.com --email you@example.com
 ```
 
-About two minutes later it prints a link. Open it and choose **Create your Grove** to make your host account; the link carries a one-time setup code, so nobody else can claim your Grove first. (The same page offers **Join a Grove**, for someone who was sent an invitation link to another Grove.)
-
-### Make it your own domain
-
-No domain yet? Install with `--no-domain`: the Grove starts on a temporary address based on the server's IP. When you have a domain, the host opens **People & identity → Your Grove's address**, types the domain, and the Grove shows the exact DNS record to add (type `A`, the name, and this server's IP). Once the record is in place, **Use** the domain: the server checks that it reaches itself, gets the HTTPS certificate, moves the Grove there, and forwards the old address to the new one. Everyone signs in again at the new address. From a terminal, `sudo arynwood-grove set-domain grove.example.com` does the same.
-
-The installer sets up the service (as its own unprivileged user), nginx, a Let's Encrypt certificate, daily backups and the `arynwood-grove` command:
+The installer prints a setup link. Open it and create the host account; its setup
+code prevents someone else claiming the new Grove first. Then create a space and
+choose **Invite members**. Private invitations admit one person and expire after
+seven days. Public invitations can be replaced or disabled by the space's owners.
 
 ```bash
-sudo arynwood-grove status         # running? version, address, last backup, certificate
-sudo arynwood-grove update         # newest release; keeps every account, space and setting
-sudo arynwood-grove rollback       # back to the previous release
-sudo arynwood-grove recovery-code person@example.com   # someone forgot their password
-sudo arynwood-grove offsite setup sftp://…   # encrypted nightly copies off the server
-sudo arynwood-grove create friends --domain friends.example.com --email you@example.com   # another Grove on this server
+sudo arynwood-grove status
+sudo arynwood-grove update
+sudo arynwood-grove rollback
 sudo arynwood-grove help
 ```
 
-Details, manual installation and troubleshooting: [deploy/README.md](deploy/README.md).
+The management command also supports several Groves on one server, password
+recovery and encrypted off-server backups. If you install without a domain, the
+host can add one later from **People & identity → Your Grove's address**.
+[Operations guide](deploy/README.md).
 
-## Invite your people
+## Verify release files
 
-Sign in, pick a space and choose **Invite members**:
-
-- **Invitation link:** admits one person and expires after seven days. Send it privately.
-- **Public invite link:** anyone who has it can join the space. Post it where your friends will see it, make a new one if it spreads too far, and turn it off when you are done. One address can open only a few accounts through it in 15 minutes.
-
-Each person makes their own account on your Grove, from any computer or phone. Everyone in a space sees changes within about a second, without reloading.
-
-## What a Grove has
-
-- **Calendar:** each space opens on the month, with the chosen day's hours beside it and its lists and tasks close by.
-- **Overview:** upcoming events, open tasks and recent posts.
-- **Board, Tasks, Lists, Notes:** shared content with replies, assignments, due dates, private notes and search.
-- **Updates:** each space's log of news, which a Grove can rename (`GROVE_LOG_NAME`); RogueFest calls it the Event journal.
-- **Public chat:** when the Grove names an IRC room (`GROVE_CHAT_CHANNEL`), every member can join it from the Grove with a nickname of their own. Conversation goes here; Updates is for news.
-- **Spaces and people:** the first account is the host. Anyone can start more spaces. A space's owners rename it and give it a topic, invite and remove people, make other members owners, and can delete it for everyone; a space always keeps at least one owner. Members can leave.
-- **Live updates:** a change by anyone reaches every open page in that space at once.
-- **Messages:** private conversations with anyone you share a space with, with photos (shrunk, and stripped of location and camera details) and files up to 50 MB. Owners and managers can't read them.
-- **Files:** folders in every space, uploads of up to 2 GB that resume after a dropped connection, earlier versions and a 30-day trash. Text files open in an editor with highlighting, and HTML pages preview as you type.
-- **Website:** each Grove can show a static website at its own address, with the members' page at `/community`. Owners, and the webmasters they choose, bring a site in by its address, as a .zip or as a one-page starter; edit it in Files; preview the whole site; and publish it, put an earlier version back or take it down. Everyone in the Grove can preview it.
-- **Grove admin:** the host is always an owner, and owners make people owners, managers or members. Admin shows everyone in the Grove, every space, disk use, the activity log, and the wishes people make with the lamp in the corner.
-- **Your group's look:** owners choose it in **Look & feel**: name, tagline, website and shop links; background, text and accent colours, light or dark, with readable contrast worked out for them; the login page's colour and picture; heading and body type; corners; and the logo. **Start from your website** suggests all of it from the Grove's website. The host's settings (see Configuration) are the starting point.
-- **Workspace setup:** space owners stage a film festival or a client project: department checklists, operating notes, documents, asset folders and trackers, which are CSV files for any spreadsheet program. See the [producer workspace guide](docs/PRODUCER-WORKSPACE.md).
-- **Host connections (host only):** Mail over IMAP/SMTP, and a full IRC client in Public chat (any server; irc.arynwood.com and `#general` by default).
-
-## Upgrading from Arynwood Community 0.3
-
-A Community 0.3 server upgrades in place: same folder, `.env`, database, systemd service and nginx site. Members stay signed in and existing invitation links keep working. With the release's `.tar.gz` and its `.sha256` file in the same folder (the script checks one against the other first), as the account that owns the install:
+Keep each `.tar.gz` beside its matching `.tar.gz.sha256` file. The installer and
+updater verify them before installation changes the server. For a manual check:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.3.tar.gz
+sha256sum -c arynwood-grove-0.7.4.tar.gz.sha256
+gh attestation verify arynwood-grove-0.7.4.tar.gz \
+  -R Arynwood-Technology/arynwood-community \
+  --source-ref refs/tags/v0.7.4 --deny-self-hosted-runners
 ```
 
-The first run backs up, stages the new release and tests it against a copy of your data without touching the running service. The second switches over, with a few seconds of downtime, and prints the command to go back. The script is in `deploy/`. A server upgraded this way takes later releases the same way: run both commands again with the new release file.
+The checksum checks the downloaded bytes; the attestation ties the archive to the
+repository's tagged build. Grove does not claim an owner-key signature for this release.
 
-## Run it on your own computer
+### Upgrade from Community 0.3
 
-For trying it out, or for a household on one machine. Requires Linux or macOS, Python 3.10+, Node.js 20.19+ or 22.12+, and npm.
+Download the versioned archive and its checksum into the same folder. As the
+account that owns the installation, run the upgrade script from `deploy/`:
 
 ```bash
-./setup.sh                 # creates .venv, installs dependencies, builds the page, creates .env
-./desktop/install.sh       # optional: adds Arynwood Grove to the app menu and desktop (Linux)
-./start.sh                 # then open http://127.0.0.1:8018/community
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.4.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.4.tar.gz
 ```
 
-For frontend development, keep the backend running and run `npm --prefix frontend run dev`, then open http://127.0.0.1:5174.
+Preparation backs up and tests a staged release against a copy of your data.
+The second command switches the service and prints the rollback command. Existing
+accounts, spaces, settings and invitation links are retained. Follow the
+[upgrade guide](deploy/README.md) for your installation.
 
-## Configuration
+## Try it locally or develop
 
-Settings live in `.env` (on a server installed with `install.sh`: `/etc/arynwood-grove/grove.env`). Community 0.3 names (`COMMUNITY_*`) are still read.
+Requires Python 3.10+, Node.js 20.19+ or 22.12+, and npm on Linux or macOS.
 
-| Setting | Purpose |
-|---|---|
-| `GROVE_PUBLIC_URL` | The address members open, e.g. `https://grove.example.com`. Invite links use it; it is trusted as page origin and host name; cookies are `Secure` over HTTPS. |
-| `GROVE_BIND`, `GROVE_PORT` | Listen address. Defaults to `127.0.0.1:8018`. |
-| `GROVE_BRAND_NAME`, `GROVE_BRAND_TAGLINE` | Optional identity. A name enables the branded welcome page. All `GROVE_BRAND_*` settings are the Grove's starting look: its owners can change every part of it in **Look & feel**, and go back to these settings. |
-| `GROVE_BRAND_SURFACE` | Optional dark base, `#rrggbb` with relative luminance at most 0.1. Enables a full theme; invalid or absent values keep today’s palette and accent validation. |
-| `GROVE_BRAND_TEXT` | Optional light text, `#rrggbb` with relative luminance at least 0.5. Defaults to Grove’s light text; adjusted for readable contrast when a surface is set. |
-| `GROVE_BRAND_ACCENT` | `#rrggbb`. With a surface, derives button and link variants by stepping HSL lightness to reach 4.5:1; borders reach 3:1. Without a surface, keeps the existing contrast check and teal fallback. |
-| `GROVE_BRAND_SITE_URL`, `GROVE_BRAND_SITE_LABEL` | Website link and label (default: Website). HTTPS; HTTP allowed only on localhost or loopback. |
-| `GROVE_BRAND_SHOP_URL`, `GROVE_BRAND_SHOP_LABEL` | Shop link and label (default: Shop), with the same URL rules. |
-| `GROVE_BRAND_LOGO` | File inside the data directory: PNG, JPEG or WebP, at most 512 KB. Invalid files are ignored; branded Groves never show the Arynwood tree. |
-| `GROVE_HOST_TOOLS` | `off` hides Mail and the host's IRC client, which use the host’s own accounts, on a Grove run for someone else. Default `on`. |
-| `GROVE_CHAT_CHANNEL` | Opens Public chat to every member, in this IRC room, e.g. `#RogueFest`. Unset: Public chat is only the host's IRC client. |
-| `GROVE_CHAT_NICK` | Each member's first nickname in Public chat; every `#` becomes a random digit. Default `Guest###`. Members can change theirs. |
-| `GROVE_CHAT_SERVER` | Public chat's IRC server, `host` or `host:port`. Default `irc.arynwood.com:6697` (TLS). Every member connects from the Grove's server address, so the IRC server must allow that many connections from it. |
-| `GROVE_CHAT_KEY` | The room's key, only when the IRC network's admin locked the room with one of their own. Unset: the Grove makes its own key and keeps the room private unless an owner opens it in Grove admin. |
-| `GROVE_LOG_NAME` | What each space's log of news is called. Default `Updates`; for example `Event journal` or `Log book`. |
-| `GROVE_WISH_EMAIL` | Where wishes from the lamp are emailed, using the `MAIL_SMTP_*` settings. Without it, wishes are kept for owners and managers in Grove admin. |
-| `GROVE_SPACE_STORAGE_MB`, `GROVE_FILE_MAX_MB` | Room for each space’s files (default 10240) and the largest single file (default 2048). Uploads also stop while the disk has under 2 GB free. |
-| `GROVE_DATA_DIR` | Where the database and files live. Defaults to `data/`. |
-| `GROVE_SETUP_CODE` | Set by the installer: required to create the host account. |
-| `GROVE_ORIGIN`, `GROVE_HOSTS` | Extra page origins and host names to accept, comma-separated. |
-| `MAIL_IMAP_*`, `MAIL_SMTP_*`, `MAIL_FROM` | The host's mailbox for Mail. |
-| `SOCKS5_PROXY` | Optional SOCKS5 proxy for IRC. |
-
-Keep the service on `127.0.0.1` behind an HTTPS reverse proxy. Do not expose it over plain HTTP.
-
-For example, RogueFest’s navy, paper and pink palette:
-
-```dotenv
-GROVE_BRAND_SURFACE="#091C32"
-GROVE_BRAND_TEXT="#F4EEE8"
-GROVE_BRAND_ACCENT="#E2326F"
+```bash
+./setup.sh
+./start.sh
 ```
 
-Full themes preserve hue and saturation, stepping lightness by 0.1% in either direction until the rounded colour passes. Button labels use white or the base surface, whichever contrasts better. Links pass on all three surfaces; muted text passes on the raised surface. `GET /api/brand` returns the derived CSS variables in `theme`; without a valid surface it returns an empty theme, preserving the original appearance.
-
-In **Look & feel**, owners may also choose a light background: the same rules then give dark text, and a background in the mid-tones, where neither light nor dark text reads well, moves to the nearest one that works. What owners save is kept in the database (`grove_settings`), and uploaded logos and login pictures in the data directory's `brand/` folder; both are in backups.
-
-## Your data
-
-- Accounts, spaces and everything in them: `grove.sqlite3` in the data folder (`community.sqlite3` on an upgraded 0.3 install), readable by the service only. Servers keep 14 daily copies in `backups/`, and `arynwood-grove offsite` copies everything, files included, off the server each night (see deploy/README.md). Export a space as JSON from People & identity.
-- In the browser: IRC settings and your last-selected space.
-
-## Checks
+Open http://127.0.0.1:8018/community. For frontend development, keep the backend
+running and use `npm --prefix frontend run dev` at http://127.0.0.1:5174.
 
 ```bash
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m unittest discover -s tests
-npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
-scripts/package.sh         # builds release/arynwood-grove-<version>.tar.gz
-.venv/bin/python scripts/gen_api_reference.py   # after changing a route: rewrites docs/api/
+npm --prefix frontend run lint
+npm --prefix frontend test
+npm --prefix frontend run build
+scripts/package.sh
 ```
 
-Tests use mocked mail and IRC services; they never contact live accounts.
+[API reference](docs/API.md) · [Architecture and manual](docs/MANUAL.md) · [Workspace guide](docs/PRODUCER-WORKSPACE.md).
 
-## Security
+## Data and security
 
-Found a security problem? Please report it privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
+The operator controls the server, database, uploaded files and backups. Keep the
+service on loopback behind HTTPS and arrange off-server backups. Members' private
+messages are restricted by application permissions; server ownership remains a
+trust boundary. Mail and IRC contact their configured providers when used.
 
-- Passwords: PBKDF2-SHA256 (600,000 rounds). Sessions: HTTP-only, SameSite=Strict cookies, stored hashed.
-- Sign-in, sign-up, password changes and public-link sign-ups are rate-limited. The host account needs the installer's setup code.
-- Every state-changing request needs a custom header and an allowed `Origin`; WebSocket handshakes check the origin too.
-- A strict Content Security Policy, with no third-party scripts, styles or fonts. Change notices carry no content: pages re-read through the normal permission checks.
-- On a server, the service runs as its own user with a read-only program folder; only the data folder is writable.
-- Mail and the host's IRC client are for the host only. **On a public server the host reaches them from the public address**, so use a strong, unique host password.
-- Members' Public chat connects only to the Grove's configured IRC server and room. The browser chooses nothing but a nickname, no IRC password is sent, and each member may hold two connections at once.
+Sessions use HTTP-only, SameSite cookies; requests and WebSockets check origins;
+account operations are rate-limited. Sandbox policies restrict file and website
+previews. Details and private vulnerability reporting are in [SECURITY.md](SECURITY.md).
 
-## FAQ
+## Maintenance and license
 
-**Where are my community's messages and plans stored?** On the server that runs your Grove, in one database file there. Members' browsers read and write it through that server; nothing is copied to Arynwood or anywhere else, and community.arynwood.com is a separate Grove with its own accounts.
+Arynwood Technology maintains the project, reviews changes and ships releases.
+[How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
-**Do my friends need to install anything?** No. They open your invite link in a browser on any computer or phone and create an account on your Grove.
-
-**What does it cost to run?** The software is free (AGPL-3.0). The service itself uses about 60 MB of memory when idle, so a small VPS plan is enough for a household or a circle of friends; you pay your domain and server providers directly.
-
-## License and branding
-
-Code: GNU AGPL-3.0 (see `LICENSE`). A running server offers its source at `/api/source`. The members' page includes styling adapted from Arynwood MCP, contributed under the same licence.
-
-The Arynwood tree logo (`frontend/public/arynwood-tree.png`, `icon.png`, `favicon-32.png`, `favicon.svg`, `desktop/arynwood-community.png`) is artwork by Lorelei Noble (Arynwood Technology). All rights reserved. It is not covered by any licence that applies to the code.
-
-## How this is built
-
-I decide the scope and architecture, review changes, run the checks and ship releases.
-Claude Code and Codex work with me as pair programmers; some assisted commits carry
-co-author trailers, and others do not. Every push to `main` and every pull request runs the
-backend tests, the frontend lint, tests and build, and an installer check; each release tag runs
-the same checks again before it packages and publishes. [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
-
-## History
-
-Grove started as Arynwood Community. This repository's first commit, `8aa6fbd` on 2026-09-23,
-is "Initial Arynwood Community release" (Community 0.3). Grove 0.4.0 renamed it and added the
-one-command server install; v0.4.0 was tagged on 2026-10-08. The latest release is v0.7.3
-(2026-10-23). Each version is described in the [release notes](docs/PRERELEASE.md).
-Community began as a companion to Arynwood MCP, which shows a Grove on its Community page.
+Code is licensed under [GNU AGPL-3.0](LICENSE). A running Grove offers its source
+at `/api/source`. The Arynwood tree logo and branded icons are separate artwork,
+all rights reserved. The code license does not grant rights to that branding.
