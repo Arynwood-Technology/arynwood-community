@@ -22,9 +22,10 @@ downloads require HTTPS, and redirects to plain HTTP are refused.
 
 The published packages carry GitHub build-provenance attestations. Backend tests,
 frontend tests, lint, build and installer checks run before packaging. CodeQL and
-OpenSSF Scorecard provide additional checks; the best-practices badge remains in
-progress. A passing workflow or a badge is evidence of specific checks, not a
-promise that software has no vulnerabilities.
+OpenSSF Scorecard provide additional checks. Grove has earned the OpenSSF Best
+Practices Passing badge through its public project self-assessment. The badge
+reports evidence against published criteria, not a promise that software has no
+vulnerabilities.
 
 Grove is open source under the AGPL-3.0 and is still developing. It was formerly
 Arynwood Community; Community 0.3 installations can upgrade in place. It runs
