@@ -9,8 +9,7 @@ node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(
   || { echo "Node.js 20.19+ or 22.12+ is required (found $(node --version))." >&2; exit 1; }
 
 python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip >/dev/null
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install --require-hashes -r requirements.lock
 npm --prefix frontend ci
 npm --prefix frontend run build
 

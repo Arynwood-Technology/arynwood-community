@@ -217,7 +217,7 @@ say "Preparing release $release"
 staging="$target.new"
 rm -rf "$staging"; mv "$work/src" "$staging"
 python3 -m venv "$staging/.venv"
-"$staging/.venv/bin/pip" install -q --disable-pip-version-check -r "$staging/requirements.txt" \
+"$staging/.venv/bin/pip" install --require-hashes -q --disable-pip-version-check -r "$staging/requirements.lock" \
   || die "Could not install the Python packages release $release needs. Nothing was changed."
 "$staging/.venv/bin/python" -m compileall -q "$staging/backend" "$staging/deploy" >/dev/null \
   || die "Release $release is damaged: its code does not compile. Nothing was changed."

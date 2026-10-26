@@ -175,7 +175,7 @@ A server upgraded this way doesn't have the `arynwood-grove` command. It takes l
 
 ## By hand
 
-The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`), so the server doesn't need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
+The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment installed from the hash-locked `requirements.lock`. The release already contains the built members' page (`frontend/dist`), so the server doesn't need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
 
 ## Things to know
 

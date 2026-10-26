@@ -19,7 +19,7 @@ name=arynwood-grove-$version
 stage=$(mktemp -d); trap 'rm -rf "$stage"' EXIT
 mkdir "$stage/$name"
 # Tracked files only (no .env, data, wallets or node_modules), plus the built page.
-git ls-files -z -- backend deploy docs frontend tests scripts LICENSE README.md requirements.txt requirements-dev.txt .env.example setup.sh start.sh \
+git ls-files -z -- backend deploy docs frontend tests scripts LICENSE README.md requirements.txt requirements-dev.txt requirements.lock requirements-dev.lock .env.example setup.sh start.sh \
   | tar --null -T - -cf - | tar -xf - -C "$stage/$name"
 cp -r frontend/dist "$stage/$name/frontend/dist"
 echo "$version" >"$stage/$name/VERSION"

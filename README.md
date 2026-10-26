@@ -119,7 +119,7 @@ Open http://127.0.0.1:8018/community. For frontend development, keep the backend
 running and use `npm --prefix frontend run dev` at http://127.0.0.1:5174.
 
 ```bash
-.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pip install --require-hashes -r requirements-dev.lock
 .venv/bin/python -m unittest discover -s tests
 npm --prefix frontend run lint
 npm --prefix frontend test
