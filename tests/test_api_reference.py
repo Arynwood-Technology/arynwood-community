@@ -46,7 +46,7 @@ class ApiReferenceTests(unittest.TestCase):
         import fastapi
         pinned = re.search(r'^fastapi==([\d.]+)', (ROOT / 'requirements.txt').read_text(), re.M).group(1)
         self.assertEqual(fastapi.__version__, pinned, 'the OpenAPI document depends on the FastAPI version: '
-                         'pip install -r requirements.txt')
+                         'pip install --require-hashes -r requirements-dev.lock')
         with tempfile.TemporaryDirectory() as data:
             out = subprocess.run([sys.executable, 'scripts/gen_api_reference.py', '--check'], cwd=ROOT, env=child_env(data),
                                  capture_output=True, text=True, timeout=300)

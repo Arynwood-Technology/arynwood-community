@@ -36,7 +36,7 @@ What it sets up:
 | `/etc/arynwood-grove/grove.env` | Settings (address, port, setup code, optional mailbox). Readable by root and the service. |
 | `arynwood-grove.service`, `arynwood-grove-backup.timer` | The service, hardened with `ProtectSystem=strict`, and the daily backup. |
 | `arynwood-grove-offsite.timer` | Nightly off-server copies of every Grove, once you set them up (see Off-server copies). |
-| `/etc/nginx/sites-available/arynwood-grove` | The site, with HTTPS added by Certbot. |
+| `/etc/nginx/sites-available/arynwood-grove` | The site, with HTTPS added by Certbot. Grove requests ECDSA P-256 for new certificates and checks the certificate's public key before and after issuance. |
 | `/usr/local/bin/arynwood-grove` | The management command (below). |
 | `arynwood-grove-domain.path`, `.service` | When the host asks for a new address in Settings, the service writes `requests/domain.json`; this root helper re-checks the name, publishes it with nginx and Certbot, and writes back the result. The service itself never runs anything as root. |
 
@@ -76,6 +76,8 @@ sudo arynwood-grove set-domain grove.example.com --email you@example.com   # mov
 
 **Moving to another domain** (`set-domain`, or the host's Settings page) checks that `http://<domain>` reaches this server, gets a certificate, saves the new address, restarts the service, and keeps the old address as a redirect. If the check or the certificate fails, nothing changes.
 
+**TLS key policy:** Grove-managed certificates use ECDSA P-256 for new issuance. Before a managed certificate is used, Grove checks its public certificate metadata and accepts RSA keys of at least 2048 bits or NIST ECDSA curves P-256, P-384, and P-521. It refuses weaker keys and unrecognized key types. To replace an existing weak certificate, run `sudo certbot renew --cert-name <domain> --key-type ecdsa --elliptic-curve secp256r1 --force-renewal`, then rerun the Grove installer or address change. The check reads `cert.pem` only; it does not read the private `privkey.pem`.
+
 An update that fails to start is undone automatically: the previous release keeps running and the command says so. Open pages reconnect by themselves after an update.
 
 **Password recovery is host-only.** There is no reset email. When someone forgets their password, run `recovery-code` with their email and give them the code privately; they enter it under "Forgot password?".
@@ -106,8 +108,8 @@ The repository can be anything restic accepts:
 | Any SFTP server | `sftp:backup@backup.example.com:/srv/grove` |
 | S3, or B2 and R2 through their S3 addresses | `s3:https://s3.eu-central-1.amazonaws.com/bucket/grove` |
 
-- **SFTP:** root must be able to log in with a key.
-  1. Create one with `sudo ssh-keygen -t ed25519`.
+- **SFTP:** root must be able to log in with a key. The recommended Ed25519 key is 256 bits; Grove's Restic/OpenSSH connection requires RSA keys to be at least 2048 bits and permits only Ed25519, NIST ECDSA P-256+, and RSA-SHA2 algorithms for host and user keys. Custom SFTP commands are refused because they could bypass this policy.
+  1. Create the recommended key with `sudo ssh-keygen -t ed25519`.
   2. Add `/root/.ssh/id_ed25519.pub` to the backup server.
   3. Connect once with `sudo sftp …` to accept the server's host key.
 - **S3:** put `AWS_ACCESS_KEY_ID=` and `AWS_SECRET_ACCESS_KEY=` lines in `/etc/arynwood-grove-offsite.env` (root only, mode 0600) before running setup.
@@ -175,7 +177,7 @@ A server upgraded this way doesn't have the `arynwood-grove` command. It takes l
 
 ## By hand
 
-The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment (`pip install -r requirements.txt`). The release already contains the built members' page (`frontend/dist`), so the server doesn't need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
+The service is a FastAPI app: `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8018 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1`, run from a release folder with a Python 3.10+ environment installed from the hash-locked `requirements.lock`. The release already contains the built members' page (`frontend/dist`), so the server doesn't need Node.js. Use the files here as templates: `arynwood-grove.service`, `nginx-grove.conf` (replace `@DOMAIN@` and `@PORT@`), and the backup timer. Set `GROVE_PUBLIC_URL` and `GROVE_DATA_DIR`.
 
 ## Things to know
 

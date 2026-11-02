@@ -92,7 +92,7 @@ cp -p "$DIR/.env" "$NEXT/.env"
 [[ -d $DIR/nkn ]] && mkdir -p "$NEXT/nkn"
 # The environment is copied, not rebuilt: it ends up at the same path once the folders swap.
 cp -a "$DIR/.venv" "$NEXT/.venv"
-"$NEXT/.venv/bin/python" -m pip install -q --disable-pip-version-check -r "$NEXT/requirements.txt"
+"$NEXT/.venv/bin/python" -m pip install --require-hashes -q --disable-pip-version-check -r "$NEXT/requirements.lock"
 
 say "Testing the new release against a copy of the data"
 trial=$(mktemp -d); trap 'rm -rf "$trial"' EXIT

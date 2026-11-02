@@ -31,14 +31,23 @@ Contributions are accepted under the project's licence, the GNU AGPL-3.0 (see `L
 - **No weaker protections.** Keep the Content Security Policy, cookie flags, origin checks and rate
   limits at least as strict as they are. Load nothing from other sites: no CDN scripts, styles or
   fonts.
-- **Pinned dependencies.** `requirements.txt` pins exact versions; `frontend/package-lock.json` is
-  committed. Add a dependency only when it is needed, and say why in the pull request.
+- **Pinned dependencies.** `requirements.txt` and `requirements-dev.txt` declare exact versions;
+  `requirements.lock` and `requirements-dev.lock` pin every distribution by hash. The frontend
+  `package-lock.json` is committed. Add a dependency only when it is needed, regenerate the locks,
+  and say why in the pull request.
+
+  To regenerate the locks after changing an input file, use pip-tools 7.6.2:
+
+  ```bash
+  pip-compile --generate-hashes --output-file=requirements.lock requirements.txt
+  pip-compile --generate-hashes --output-file=requirements-dev.lock requirements-dev.txt
+  ```
 
 ## Running the checks
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pip install --require-hashes -r requirements-dev.lock
 .venv/bin/python -m unittest discover -s tests
 npm --prefix frontend ci
 npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
@@ -48,7 +57,7 @@ Dependency audits, which should report nothing:
 
 ```bash
 npm --prefix frontend audit
-pip-audit -r requirements.txt -r requirements-dev.txt   # pip install pip-audit, in any venv
+pip-audit -r requirements-dev.lock   # pip install pip-audit, in any venv
 ```
 
 Every push to `main` and every pull request runs the tests, lint, build and installer check
