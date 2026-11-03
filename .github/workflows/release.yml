@@ -42,13 +42,32 @@ jobs:
       # Free provenance in place of a signing key: anyone can check that a file was built here
       # from the tag with `gh attestation verify <file> -R Arynwood-Technology/arynwood-community`.
       - name: Attest build provenance
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             release/install.sh
             release/arynwood-grove*.tar.gz
+      # The same attestation as a file on the release, so a download can be checked against the release
+      # itself: `gh attestation verify <file> --bundle <this file>`. One line: a Sigstore bundle holding a
+      # signed SLSA provenance statement. The `.intoto.jsonl` ending is the convention that tools (OpenSSF
+      # Scorecard among them) look for. Every published file is checked against it first.
+      - name: Provenance file
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          BUNDLE: '${{ steps.attest.outputs.bundle-path }}'
+        run: |
+          set -euo pipefail
+          provenance="release/arynwood-grove-${GITHUB_REF_NAME#v}_provenance.intoto.jsonl"
+          cp "$BUNDLE" "$provenance"
+          test "$(wc -l < "$provenance")" -eq 1
+          for f in release/install.sh release/arynwood-grove*.tar.gz; do
+            gh attestation verify "$f" --bundle "$provenance" --repo "$GITHUB_REPOSITORY" \
+              --source-ref "$GITHUB_REF" --deny-self-hosted-runners
+          done
       - name: Publish
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release create "$GITHUB_REF_NAME" --title "Arynwood Grove ${GITHUB_REF_NAME#v}" --notes-file docs/PRERELEASE.md \
-            release/install.sh release/arynwood-grove*.tar.gz release/arynwood-grove*.tar.gz.sha256
+            release/install.sh release/arynwood-grove*.tar.gz release/arynwood-grove*.tar.gz.sha256 \
+            release/arynwood-grove-*_provenance.intoto.jsonl
