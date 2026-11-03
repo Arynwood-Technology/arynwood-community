@@ -15,10 +15,10 @@ Members join through a browser; they do not need the desktop app.
 
 ## Current standing
 
-**Grove 0.7.4 is published.** It strengthens release delivery: installation checks
-an archive against its correctly named checksum before changing the server,
-downloads require HTTPS, and redirects to plain HTTP are refused.
-[Release notes](docs/PRERELEASE.md) · [0.7.4 downloads](https://github.com/Arynwood-Technology/arynwood-community/releases/tag/v0.7.4).
+**Grove 0.7.5 is published.** It sets minimum key strengths for HTTPS certificates
+and SFTP backups, installs Python packages from a hash-locked list, and carries its
+build attestation as a release file.
+[Release notes](docs/PRERELEASE.md) · [0.7.5 downloads](https://github.com/Arynwood-Technology/arynwood-community/releases/tag/v0.7.5).
 
 The published packages carry GitHub build-provenance attestations. Backend tests,
 frontend tests, lint, build and installer checks run before packaging. CodeQL and
@@ -82,14 +82,17 @@ Keep each `.tar.gz` beside its matching `.tar.gz.sha256` file. The installer and
 updater verify them before installation changes the server. For a manual check:
 
 ```bash
-sha256sum -c arynwood-grove-0.7.4.tar.gz.sha256
-gh attestation verify arynwood-grove-0.7.4.tar.gz \
+sha256sum -c arynwood-grove-0.7.5.tar.gz.sha256
+gh attestation verify arynwood-grove-0.7.5.tar.gz \
   -R Arynwood-Technology/arynwood-community \
-  --source-ref refs/tags/v0.7.4 --deny-self-hosted-runners
+  --source-ref refs/tags/v0.7.5 --deny-self-hosted-runners
 ```
 
 The checksum checks the downloaded bytes; the attestation ties the archive to the
-repository's tagged build. Grove does not claim an owner-key signature for this release.
+repository's tagged build. With `arynwood-grove-0.7.5_provenance.intoto.jsonl` from
+the same release beside it, add `--bundle arynwood-grove-0.7.5_provenance.intoto.jsonl`
+to check against the release's own copy of the attestation. Grove does not claim an
+owner-key signature for this release.
 
 ### Upgrade from Community 0.3
 
@@ -97,8 +100,8 @@ Download the versioned archive and its checksum into the same folder. As the
 account that owns the installation, run the upgrade script from `deploy/`:
 
 ```bash
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.4.tar.gz --prepare-only
-bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.4.tar.gz
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.5.tar.gz --prepare-only
+bash upgrade-from-community.sh --dir ~/arynwood-community --from arynwood-grove-0.7.5.tar.gz
 ```
 
 Preparation backs up and tests a staged release against a copy of your data.
