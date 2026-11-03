@@ -1,8 +1,21 @@
 # Arynwood Grove release notes
 
-Version: `0.7.4`
+Version: `0.7.5`
 
 Arynwood Community is now **Arynwood Grove**: "The Grove, your community – your choices." A Community 0.3 install upgrades in place.
+
+## 0.7.5
+
+Changes for the host
+
+- **Minimum key strengths for HTTPS and backups.** New certificates are requested as ECDSA P-256. When the installer sets up HTTPS, or the Grove's address changes, it checks the certificate's public key: RSA must be at least 2048 bits, ECDSA must use P-256, P-384 or P-521, and any other key type is refused. An update leaves the existing certificate as it is. To replace a refused certificate: `sudo certbot renew --cert-name <domain> --key-type ecdsa --elliptic-curve secp256r1 --force-renewal`. Off-site backups over SFTP require RSA keys of at least 2048 bits, accept only Ed25519, NIST ECDSA and RSA-SHA2 keys, and refuse a custom SFTP command.
+- **Python packages come from a hash-locked list.** Installs and updates use `requirements.lock` with `pip --require-hashes`, so a server gets exactly the versions that were tested.
+- **The build attestation is a release file.** Each release carries `arynwood-grove-<version>_provenance.intoto.jsonl`. With it beside a download, add `--bundle arynwood-grove-0.7.5_provenance.intoto.jsonl` to `gh attestation verify` to check the download against the release's own copy.
+
+Updates
+
+- **FastAPI 0.162.0, Starlette 1.10.0 and python-socks 3.2.0.** pip-audit found no known vulnerabilities in either lock file when they were updated.
+- **The members' page is built with Vite 8, TypeScript 6 and ESLint 10**, with React 19.3.1.
 
 ## 0.7.4
 
