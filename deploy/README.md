@@ -60,7 +60,7 @@ sudo bash install.sh --domain grove.example.com --email you@example.com
 
 A tarball is checked the same way: `gh attestation verify arynwood-grove-<version>.tar.gz -R Arynwood-Technology/arynwood-community`.
 
-Releases after 0.7.4 also carry the attestation as a file, `arynwood-grove-<version>_provenance.intoto.jsonl`. With it
+From 0.7.5 on, releases also carry the attestation as a file, `arynwood-grove-<version>_provenance.intoto.jsonl`. With it
 beside the download, add `--bundle arynwood-grove-<version>_provenance.intoto.jsonl` to either command to check against
 the release's own copy instead of fetching it from GitHub.
 
