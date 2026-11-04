@@ -27,7 +27,7 @@ Practices Passing badge through its public project self-assessment. The badge
 reports evidence against published criteria, not a promise that software has no
 vulnerabilities.
 
-Grove is open source under the AGPL-3.0 and is still developing. It was formerly
+Grove is open source under the AGPL-3.0-only and is still developing. It was formerly
 Arynwood Community; Community 0.3 installations can upgrade in place. It runs
 independently of [Arynwood MCP](https://github.com/Arynwood-Technology/ArynwoodMCP),
 which can also show your Grove inside its Community page.
@@ -148,6 +148,6 @@ previews. Details and private vulnerability reporting are in [SECURITY.md](SECUR
 Arynwood Technology maintains the project, reviews changes and ships releases.
 [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
-Code is licensed under [GNU AGPL-3.0](LICENSE). A running Grove offers its source
+Code is licensed under [GNU AGPL-3.0-only](LICENSE). A running Grove offers its source
 at `/api/source`. The Arynwood tree logo and branded icons are separate artwork,
 all rights reserved. The code license does not grant rights to that branding.

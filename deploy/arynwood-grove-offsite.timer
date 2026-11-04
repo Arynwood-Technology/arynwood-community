@@ -1,5 +1,6 @@
 [Unit]
 Description=Nightly off-server copy of every Arynwood Grove
+Documentation=https://github.com/Arynwood-Technology/arynwood-community/blob/main/deploy/README.md
 
 [Timer]
 OnCalendar=*-*-* 03:30

@@ -1,5 +1,6 @@
 [Unit]
 Description=Daily Arynwood Grove database backup
+Documentation=https://github.com/Arynwood-Technology/arynwood-community/blob/main/deploy/README.md
 
 [Timer]
 OnCalendar=daily
