@@ -4,6 +4,7 @@
   "version": "0.7.5",
   "description": "Private, invite-only community spaces: shared calendars, plans, boards, discussion, tasks, lists, notes and files, on a server you control.",
   "license": "AGPL-3.0-only",
+  "author": "Arynwood LLC",
   "homepage": "https://arynwood.com/community/",
   "repository": {
     "type": "git",

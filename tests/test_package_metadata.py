@@ -17,6 +17,8 @@ class PackageMetadataTests(unittest.TestCase):
         self.assertEqual(package['homepage'], 'https://arynwood.com/community/')
         self.assertIn('Arynwood-Technology/arynwood-community', package['repository']['url'])
         self.assertTrue(package['description'])
+        self.assertEqual(package['author'], 'Arynwood LLC')
+        self.assertIn('Copyright © 2026 Arynwood LLC.', (ROOT / 'README.md').read_text())
 
     def test_every_unit_links_its_documentation(self):
         units = sorted(p for pattern in ('*.service', '*.timer', '*.path') for p in (ROOT / 'deploy').glob(pattern))
