@@ -18,7 +18,7 @@ what happened instead.
 2. Fork the repository, make your change on a branch, and open a pull request against `main`.
 3. Each pull request is reviewed before it is merged. The checks below must pass.
 
-Contributions are accepted under the project's licence, the GNU AGPL-3.0 (see `LICENSE`).
+Contributions are accepted under the project's licence, the GNU AGPL-3.0-only (see `LICENSE`).
 
 ## What a change needs
 

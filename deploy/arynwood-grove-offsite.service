@@ -1,5 +1,6 @@
 [Unit]
 Description=Copy every Arynwood Grove off this server
+Documentation=https://github.com/Arynwood-Technology/arynwood-community/blob/main/deploy/README.md
 Wants=network-online.target
 After=network-online.target
 

@@ -557,7 +557,7 @@ a full recovery. Keep the off-server copies' password safe, off the server.
 | Public chat's room still shows in the IRC network's list | No member in the room has been a channel operator since it was made private. An operator, or the network's ChanServ, can give one ops. |
 | No notifications | Turn them on in People & identity, and allow notifications for the Grove in the browser's site settings. The Grove must be open in a tab. |
 
-Code is AGPL-3.0; the running service offers its source at `/api/source`.
+Code is AGPL-3.0-only; the running service offers its source at `/api/source`.
 Arynwood's tree artwork has separate rights (see the README). A Grove's own
 branding should not imply that its data or accounts belong to a shared
 Arynwood-wide service.

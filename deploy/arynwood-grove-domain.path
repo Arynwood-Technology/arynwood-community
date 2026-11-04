@@ -1,5 +1,6 @@
 [Unit]
 Description=Watch for the host asking to move the Grove to a new address
+Documentation=https://github.com/Arynwood-Technology/arynwood-community/blob/main/deploy/README.md
 
 [Path]
 # The Grove service writes this file (Settings → Your Grove's address).
