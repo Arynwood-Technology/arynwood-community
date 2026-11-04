@@ -148,6 +148,7 @@ previews. Details and private vulnerability reporting are in [SECURITY.md](SECUR
 Arynwood Technology maintains the project, reviews changes and ships releases.
 [How we build](https://github.com/Arynwood-Technology/.github/blob/main/HOW-WE-BUILD.md).
 
-Code is licensed under [GNU AGPL-3.0-only](LICENSE). A running Grove offers its source
-at `/api/source`. The Arynwood tree logo and branded icons are separate artwork,
-all rights reserved. The code license does not grant rights to that branding.
+Copyright © 2026 Arynwood LLC. Code is licensed under [GNU AGPL-3.0-only](LICENSE). A
+running Grove offers its source at `/api/source`. The Arynwood tree logo and branded icons
+are separate artwork, all rights reserved. The code license does not grant rights to that
+branding.
